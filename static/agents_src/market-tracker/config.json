@@ -1,0 +1,44 @@
+{
+  "run_interval_seconds": 60,
+
+  "regime_thresholds": {
+    "risk_on": 0.35,
+    "risk_off": -0.35
+  },
+
+  "weights": {
+    "risk": 1.5,
+    "volatility": 1.0,
+    "liquidity": 1.2,
+    "correlation": 1.0,
+    "psychology": 0.8
+  },
+
+  "smoothing": {
+    "enabled": true,
+    "alpha": 0.3
+  },
+
+  "modules": {
+    "risk": {
+      "positive_threshold": 0.3,
+      "negative_threshold": -0.3
+    },
+    "volatility": {
+      "positive_threshold": 0.2,
+      "negative_threshold": -0.2
+    },
+    "liquidity": {
+      "positive_threshold": 0.25,
+      "negative_threshold": -0.25
+    },
+    "correlation": {
+      "positive_threshold": 0.4,
+      "negative_threshold": 0.2
+    },
+    "psychology": {
+      "positive_threshold": 0.25,
+      "negative_threshold": -0.25
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "type": "object",
+  "properties": {
+    "storage": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string",
+          "enum": ["json", "sqlite"]
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": ["backend"]
+    },
+
+    "services": {
+      "type": "object",
+      "properties": {
+        "cleanup": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "prune_done_tasks_after_days": { "type": "integer" },
+            "prune_empty_notes": { "type": "boolean" },
+            "prune_archived_milestones": { "type": "boolean" }
+          }
+        },
+
+        "reminders": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "lookahead_minutes": { "type": "integer" },
+            "remind_done_tasks": { "type": "boolean" },
+            "dedupe_key_field": { "type": "string" },
+            "min_repeat_minutes": { "type": "integer" }
+          }
+        },
+
+        "summaries": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "store_as_note": { "type": "boolean" },
+            "note_title_prefix": { "type": "string" },
+            "max_recent_notes": { "type": "integer" }
+          }
+        }
+      }
+    }
+  }
+}

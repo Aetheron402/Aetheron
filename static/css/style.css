@@ -1,0 +1,19 @@
+@keyframes loading {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+.animate-loading {
+  animation: loading 3s infinite;
+}
+
+.roadmap-done span {
+  background-image: linear-gradient(#22d3ee 2px, transparent 0);
+  background-repeat: repeat-x;
+  background-size: 100% 0.9em;
+  background-position: 0 0.60em;
+}
+
+ul li.roadmap-done {
+  padding-left: 0.25rem;
+}

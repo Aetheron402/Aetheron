@@ -1,0 +1,570 @@
+{% extends "base.html" %}
+
+{% block title %}Prebuilt Agent Store — Aetheron{% endblock %}
+
+{% block body_class %}page-agents{% endblock %}
+
+{% block content %}
+
+<div class="page-fade">
+
+<div class="max-w-4xl mx-auto px-6 mt-6">
+
+  <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">
+    / AETHERON / AGENTS
+  </p>
+
+  <a href="/shop"
+     class="inline-flex items-center text-cyan-300 hover:text-cyan-200 text-sm mb-6 transition">
+    ← Back to Shop
+  </a>
+
+</div>
+
+<section class="text-center max-w-3xl mx-auto mt-4">
+  <h2 class="text-4xl font-semibold text-cyan-300 mb-4">Prebuilt Agent Store (Template)</h2>
+  <p class="text-gray-400">
+    Download automation agent templates. Spanning trading bots, Discord/Telegram assistants, whale trackers, liquidity monitors, snipers, analysis engines, and other on-chain tools. Each template provides a robust, customizable framework that’s easy to adapt, extend, and integrate into real workflow environments.
+  </p>
+</section>
+
+<main class="max-w-6xl mx-auto px-6 mt-16 space-y-24">
+
+  <!-- Trading & Execution -->
+  <section class="border-t border-cyan-400/10 pt-12">
+    <h3 class="text-2xl font-semibold text-cyan-300 mb-2">
+      Trading & Execution
+    </h3>
+    <p class="text-gray-400 text-sm mb-8">
+      High-speed agents designed for sniping, launches, and active trade execution.
+    </p>
+
+    <div id="folder-trading"
+         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+
+      <!-- Solana Trading Assistant -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Solana Trading Assistant
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Analyze tokens, detect trends, and make on-chain insights actionable. Provides quick summaries to guide fast decision-making.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+           <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="solana-trading-assistant"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+      <!-- Pump.fun Launch Assistant -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Pump.fun Launch Assistant
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Track new launches, liquidity events, and early-signal opportunities with automated intelligence.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="pumpfun-launcher"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+      <!-- Sniper Trade Agent -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Sniper Trade Agent
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Real-time memecoin sniper bot with safety rules, blacklist protection and adjustable auto-buy triggers.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="solana-sniper"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- Market Intelligence -->
+  <section class="border-t border-cyan-400/10 pt-12">
+    <h3 class="text-2xl font-semibold text-cyan-300 mb-2">
+      Market Intelligence
+    </h3>
+    <p class="text-gray-400 text-sm mb-8">
+      Monitoring, analytics, and signal-extraction agents for informed decisions.
+    </p>
+
+    <div id="folder-intelligence"
+           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+
+        <!-- Alpha Scanner Agent -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Alpha Scanner Agent
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Agent template that scans social, on-chain, and market signals
+              to detect emerging narratives, cross-signal confirmation, and ranked alpha
+              opportunities before they become consensus.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="alpha-scanner"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <!-- Prediction Market Agent -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Prediction Market Agent
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Analyzes prediction markets, implied probabilities, sentiment, and mispricing across events and outcomes.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="prediction-market"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+    
+        <!-- Market Tracker Agent -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Market Tracker Agent
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Tracks market regimes using risk, volatility, liquidity, correlation, and psychology signals to help interpret overall market conditions before taking action.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="market-tracker"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <!-- Wallet Watcher Bot -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Wallet Watcher Bot
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Monitor any wallet in real-time. Transfers, NFT actions, swap/liquidity signals with alerting. With optional filters for what you want to follow.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="wallet-watcher"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+      
+    </div>
+  </section>
+
+  <!-- Community & Operations -->
+  <section class="border-t border-cyan-400/10 pt-12">
+    <h3 class="text-2xl font-semibold text-cyan-300 mb-2">
+      Community & Operations
+    </h3>
+    <p class="text-gray-400 text-sm mb-8">
+      Automation agents for Discord, moderation, and operational workflows.
+    </p>
+
+    <div id="folder-ops"
+         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+
+      <!-- Discord Support Agent -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Discord Support Agent
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Automated AI Discord assistant. Responses, moderation, commands, and intelligent support features.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="discord-helper"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+      <!-- Project Planner Agent -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Project Planner Agent
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Modular project coordination framework for managing tasks, notes, milestones, reminders, cleanup automation, and structured summaries in a configurable workflow system.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="project-planner"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<div id="payment-modal" class="modal-bg" style="display:none;">
+  <div class="modal text-center p-6 w-[360px]">
+
+    <h3 class="text-cyan-300 text-2xl font-semibold mb-3">Choose Payment Method</h3>
+
+    <p class="text-gray-400 text-sm mb-6">
+      Select how you would like to pay for this agent.
+    </p>
+
+    <div class="flex flex-col gap-4 items-start mx-auto w-56 ml-1 text-gray-200">
+      <label class="flex items-center gap-3 cursor-pointer hover:text-cyan-200 transition">
+        <input type="radio" name="payment_method" value="USDC" checked class="scale-110">
+        <span class="text-sm">USDC</span>
+      </label>
+
+      <label class="flex items-center gap-3 cursor-pointer hover:text-cyan-200 transition">
+        <input type="radio" name="payment_method" value="AETH" class="scale-110">
+        <span class="text-sm">AETH</span>
+      </label>
+    </div>
+
+    <div id="agent-pay-info"
+         class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden text-left">
+
+      <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
+      <div class="text-cyan-300 font-mono text-sm break-all">
+        {{ payment_wallet }}
+      </div>
+
+      <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+      <div id="agent-pay-amount"
+           class="text-gray-200 text-sm font-semibold">
+        —
+      </div>
+
+      <div id="agent-aeth-note"
+           class="text-xs text-gray-400 mt-2 hidden">
+        AETH amount is calculated automatically.
+      </div>
+    </div>
+
+    <div class="flex justify-center gap-12 mt-8">
+
+      <button id="confirm-payment-btn"
+              class="btn px-8 py-2 text-sm rounded-md">
+        Confirm Purchase
+      </button>
+
+      <button onclick="closePaymentModal()"
+              class="text-gray-400 hover:text-gray-200 text-sm transition">
+        Cancel
+      </button>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+window.SOLANA_NETWORK = "{{ SOLANA_RPC }}";
+</script>
+
+<script>
+let selectedAgent = null;
+let selectedPrice = null;
+</script>
+
+<script>
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+</script>
+
+<script>
+function shorten(addr) {
+  return "🔗 " + addr.slice(0, 4) + "..." + addr.slice(-4);
+}
+</script>
+
+<script>
+function getAgentPayMethod(groupName) {
+  const selected = document.querySelector(`input[name="${groupName}"]:checked`);
+  return selected ? selected.value : "USDC";
+}
+
+document.querySelectorAll(".buy-agent-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    if (!window.currentWallet) {
+      alert("Connect your wallet first.");
+      return;
+    }
+
+    if (isMobileDevice()) {
+      alert(
+        "Agent downloads are only available on desktop.\n\n" +
+        "These templates include multiple files and folders " +
+        "and are intended to be used on a computer."
+      );
+      return;
+    }
+
+    selectedAgent = btn.dataset.id;
+    selectedPrice = parseFloat(btn.dataset.price || "4.99");
+
+    openPaymentModal(selectedAgent, selectedPrice);
+  });
+});
+</script>
+
+<script>   
+function openPaymentModal(agentId, price) {
+  selectedAgent = agentId;
+  selectedPrice = price;
+  document.getElementById("payment-modal").style.display = "flex";
+  setTimeout(updateAgentPayAmount, 0);
+}
+
+function closePaymentModal() {
+  document.getElementById("payment-modal").style.display = "none";
+}
+</script>
+
+<script>
+function showLoading() {
+  document.getElementById("loading").classList.remove("hidden");
+}
+
+function hideLoading() {
+  document.getElementById("loading").classList.add("hidden");
+}
+</script>
+
+<script>
+document.getElementById("confirm-payment-btn")
+  .addEventListener("click", async () => {
+
+    closePaymentModal();
+    await downloadAgent(selectedAgent);
+  });
+</script>
+
+<script>
+async function updateAgentPayAmount() {
+  const method =
+    document.querySelector("input[name='payment_method']:checked")?.value || "USDC";
+
+  const box = document.getElementById("agent-pay-info");
+  const amount = document.getElementById("agent-pay-amount");
+  const note = document.getElementById("agent-aeth-note");
+
+  box.classList.remove("hidden");
+
+  if (method === "USDC") {
+    note.classList.add("hidden");
+    amount.textContent = "4.99 USDC";
+    return;
+  }
+
+  note.classList.remove("hidden");
+  amount.textContent = "Fetching AETH amount…";
+
+  try {
+    const res = await fetch("/api/price/aeth?usdc_price=4.99");
+    const data = await res.json();
+    amount.textContent = `${data.required_aeth} AETH`;
+  } catch {
+    amount.textContent = "Failed to fetch AETH amount";
+  }
+}
+</script>
+
+<script>
+document.querySelectorAll("input[name='payment_method']")
+  .forEach(r => r.addEventListener("change", updateAgentPayAmount));
+</script>
+
+<script>
+async function downloadAgent(agentId) {
+  if (!window.currentWallet) {
+    alert("Connect wallet first.");
+    return;
+  }
+
+  const method =
+    document.querySelector('input[name="payment_method"]:checked')?.value || "USDC";
+
+  showLoading();
+
+  try {
+    let res = await fetch(`/api/download_agent/${agentId}`, {
+      headers: {
+        "X-USER-WALLET": window.currentWallet,
+        "X-PAYMENT-METHOD": method
+      }
+    });
+
+    if (res.status === 402) {
+      alert(
+        "Payment required.\n\n" +
+        "Send the shown amount to the provided wallet,\n" +
+        "then paste the transaction signature."
+      );
+
+      const sig = prompt("Paste your Solana transaction signature:");
+      if (!sig) return;
+
+      res = await fetch(`/api/download_agent/${agentId}`, {
+        headers: {
+          "X-USER-WALLET": window.currentWallet,
+          "X-PAYMENT-METHOD": method,
+          "X-TX-SIG": sig
+        }
+      });
+    }
+
+    if (res.status === 409) {
+      alert("This transaction was already used.");
+      return;
+    }
+
+    if (!res.ok) {
+      const msg = await res.text();
+      alert(msg || "Download failed.");
+      return;
+    }
+
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${agentId}.zip`;
+    a.click();
+
+  } catch (e) {
+    console.error(e);
+    alert("Unexpected error.");
+  } finally {
+    hideLoading();
+  }
+}
+</script>
+
+<div id="loading" class="fixed inset-0 bg-black/70 hidden z-[9999] flex items-center justify-center">
+  <div class="text-center">
+    <div class="animate-spin h-10 w-10 border-4 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+    <p class="text-cyan-300 text-lg font-semibold">Processing payment…</p>
+    <p class="text-cyan-600 text-sm">Please wait.</p>
+  </div>
+</div>
+  
+{% endblock %}

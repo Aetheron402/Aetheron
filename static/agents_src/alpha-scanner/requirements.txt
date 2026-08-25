@@ -1,0 +1,17 @@
+# Core runtime
+python-dateutil>=2.8.2
+
+# Configuration & validation (optional but expected)
+pydantic>=2.5.0
+
+# Logging & observability
+structlog>=23.1.0
+
+# Utilities
+typing-extensions>=4.8.0
+
+# Dev / debugging (optional)
+rich>=13.6.0
+
+# Testing (optional, but expected for extensions)
+pytest>=7.4.0

@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Aetheron SDK – Aetheron{% endblock %}
+
+{% block body_class %}page-sdk{% endblock %}
+
+{% block content %}
+
+<div class="page-fade">
+
+<section class="max-w-4xl mx-auto">
+
+  <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">
+    / Aetheron / SDK
+  </p>
+
+  <a href="/shop"
+     class="inline-flex items-center text-cyan-300 hover:text-cyan-200 text-sm mb-6 transition">
+    ← Back to Shop
+  </a>
+
+  <h1 class="text-4xl font-bold text-cyan-400 mb-4">
+    Aetheron SDK
+  </h1>
+
+  <p class="text-gray-300 mb-8">
+    The Aetheron SDK is a browser-first integration layer that allows developers
+    to access paid AI components using explicit, non-custodial on-chain payments.
+    It is built around the X402 payment model and designed for clarity, safety,
+    and composability.
+  </p>
+  
+  <section class="mb-14">
+
+    <h2 class="text-2xl font-bold text-cyan-400 mb-4">
+      SDK walkthrough
+    </h2>
+
+    <p class="text-gray-400 mb-6">
+      This walkthrough covers the SDK structure, core concepts, and how it is intended to be used
+      inside browser-based applications.
+    </p>
+
+    <div class="relative w-full aspect-video rounded-xl
+                border border-cyan-400/30
+                bg-gray-900
+                overflow-hidden
+                shadow-[0_0_40px_rgba(34,211,238,0.25)]">
+
+      <div class="absolute inset-0 rounded-xl
+                  pointer-events-none
+                  shadow-[0_0_80px_rgba(34,211,238,0.35)]">
+      </div>
+
+      <iframe
+        class="absolute inset-0 w-full h-full rounded-xl"
+        src="https://www.youtube.com/embed/jPJ6NEWIiJU"
+        title="Aetheron SDK – Installation & X402 Wallet Flow"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+
+    </div>
+
+  </section>
+
+  <div class="space-y-8 text-gray-300">
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        What the SDK does
+      </h2>
+
+      <p>
+        The SDK provides a simple client for calling Aetheron AI components such as
+        prompt optimization, code explanation, contract intelligence, and agent downloads.
+        All paid calls follow a transparent request → payment → retry flow.
+      </p>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        Who this SDK is for
+      </h2>
+
+      <ul class="list-disc ml-6 space-y-1">
+        <li>Frontend developers integrating paid AI features</li>
+        <li>Teams building Solana-native apps with explicit payments</li>
+        <li>Projects that want transparent, user-controlled billing</li>
+      </ul>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        Where it runs
+      </h2>
+
+      <p>
+        The SDK is intended to be used inside browser-based applications with a connected
+        Solana wallet (Phantom, Backpack, Solflare, or wallet-adapter setups).
+      </p>
+
+      <p class="mt-2 text-gray-400 text-sm">
+        Node.js is used only for bundling and development. Execution happens in the browser.
+      </p>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        How payments work (X402 flow)
+      </h2>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>A component request is made</li>
+        <li>The backend responds with HTTP 402 (Payment Required)</li>
+        <li>The user sends USDC or AETH on-chain</li>
+        <li>The request is retried with a transaction signature</li>
+        <li>The backend verifies payment and returns the result</li>
+      </ol>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        Handling payment-required responses
+      </h2>
+
+      <p class="mb-3">
+        The SDK exposes helpers to detect and handle payment-required errors
+        without hiding or automating the payment process.
+      </p>
+
+      <pre class="text-sm bg-black/40 rounded-lg p-4 overflow-x-auto">
+try {
+  await sdk.promptOptimizer(payload);
+} catch (e) {
+  if (sdk.isPaymentRequired(e)) {
+    const info = sdk.getPaymentInfo(e);
+    // show payment instructions
+    // retry after payment
+  }
+}
+      </pre>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        Design principles
+      </h2>
+
+      <ul class="list-disc ml-6 space-y-1">
+        <li>No custody</li>
+        <li>No background balances</li>
+        <li>No transaction signing inside the SDK</li>
+        <li>Explicit, user-controlled payments</li>
+      </ul>
+
+      <p class="mt-3 text-gray-400 text-sm">
+        The wallet always remains fully in the user’s control.
+      </p>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        What the SDK does not do
+      </h2>
+
+      <ul class="list-disc ml-6 space-y-1">
+        <li>Does not sign transactions</li>
+        <li>Does not hold balances</li>
+        <li>Does not abstract payments</li>
+        <li>Does not custody funds or keys</li>
+      </ul>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
+        Developer resources
+      </h2>
+
+      <ul class="space-y-2">
+        <li>
+          <a href="https://github.com/Aetheron402/aetheron-sdk"
+             target="_blank"
+             class="text-cyan-400 hover:text-cyan-300 transition">
+            → Aetheron SDK on GitHub
+          </a>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <p class="text-center mt-12">
+    <a href="#" class="text-cyan-400 hover:text-cyan-300 text-sm">↑ Back to top</a>
+  </p>
+
+</section>
+
+</div>
+
+{% endblock %}

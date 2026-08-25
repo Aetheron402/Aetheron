@@ -1,0 +1,1164 @@
+
+{% extends "base.html" %}
+
+{% block title %}Aetheron Components{% endblock %}
+
+{% block body_class %}page-shop{% endblock %}
+
+{% block content %}
+
+<div class="page-fade">
+
+    <section class="max-w-5xl mx-auto mt-10 text-center">
+      <h2 class="text-3xl font-semibold mb-3 text-cyan-300">Browse Components</h2>
+      <p class="text-gray-400 mb-6">Premium AI & automation modules powered by the X402 protocol.</p>
+      <div class="max-w-xl mx-auto mb-6">
+        <input id="search" placeholder="Search components..." class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-4 py-3 outline-none"/>
+      </div>
+      <div class="filter-bar mb-8">
+        <button class="filter-chip active" data-filter-btn data-category="All">all</button>
+        <button class="filter-chip" data-filter-btn data-category="AI Tools">ai tools</button>
+        <button class="filter-chip" data-filter-btn data-category="Data & Vision">data & vision</button>
+        <button class="filter-chip" data-filter-btn data-category="Development">development</button>
+      </div>
+    </section>
+
+    <main id="components-grid" class="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-6">
+      {% for c in components %}
+      <div
+        class="card p-6 flex flex-col justify-between w-full h-full min-h-[280px] transform
+               {% if c.slug == 'prebuilt-agent-store' %} prebuilt-hover {% endif %}"
+        data-name="{{ c.name | lower }}"
+        data-category="{% if c.slug in ['prompt-optimizer','prompt-tester','contract-intel','risk-engine'] %}AI Tools{% elif c.slug == 'code-explainer' %}Development{% else %}AI Tools{% endif %}"
+      >
+        <div>
+          <div class="mb-2"><span class="pill">{{ c.type }}</span></div>
+          <h2 class="text-xl font-semibold text-cyan-400">{{ c.name }}</h2>
+          <p class="text-gray-400 text-sm mt-2">{{ c.description }}</p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+
+          <span class="text-cyan-300 font-semibold">{{ c.price }}</span>
+
+          {% if c.slug == "prompt-optimizer" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-bg').style.display='flex';
+              setTimeout(updatePromptPayAmount, 0);
+            ">
+              Use
+            </button>
+
+          {% elif c.slug == "code-explainer" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-code-bg').style.display='flex';
+              setTimeout(updateCodePayAmount, 0);
+            ">
+              Use
+            </button>
+
+          {% elif c.slug == "prompt-tester" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-tester-bg').style.display='flex';
+              setTimeout(updateTesterPayAmount, 0);
+            ">
+              Use
+            </button>
+
+          {% elif c.slug == "contract-intel" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-contract-bg').style.display='flex';
+              setTimeout(updateContractPayAmount, 0);
+            ">
+              Analyze
+            </button>
+
+          {% elif c.slug == "risk-engine" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-risk-bg').style.display='flex';
+              setTimeout(updateRiskPayAmount, 0);
+            ">
+              Simulate
+            </button>
+
+          {% elif c.slug == "agents" %}
+            <a class="btn" href="/agents">Open Store</a>
+
+          {% elif c.coming_soon %}
+            <button class="btn bg-gray-700 text-gray-400 cursor-not-allowed">Coming Soon</button>
+
+          {% else %}
+            <a class="btn" href="/buy/{{ c.id }}">Buy</a>
+          {% endif %}
+        </div>
+        </div>
+        {% endfor %}
+        </main>
+
+    <section id="my-assets-section" class="max-w-5xl mx-auto mt-20 hidden">
+      <h2 class="text-2xl font-semibold text-cyan-300 mb-4 text-center">My Recent Assets</h2>
+      <div id="my-assets-list" class="bg-gray-900/40 border border-cyan-400/20 rounded-xl p-6 text-gray-300">
+        <p class="text-gray-500 text-center">Connect your wallet to view your assets.</p>
+      </div>
+    </section>
+
+    <section class="max-w-5xl mx-auto mt-28 mb-24 text-center relative z-10">
+      <h2 class="text-3xl font-semibold mb-4 text-cyan-300">The Aetheron Roadmap</h2>
+      <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
+        Aetheron evolves from a component marketplace into a decentralized AI ecosystem. 
+        Introducing new tools, SDKs, and verified on-chain intelligence through 2026.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-left text-gray-300">
+        <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
+          <h3 class="text-cyan-300 font-semibold mb-2">Q4 2025</h3>
+          <p class="text-sm">Launch <em>Contract Intelligence Analyzer</em> and <em>Prebuilt Agent Store</em> + token release on Pump.fun.</p>
+        </div>
+        <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
+          <h3 class="text-cyan-300 font-semibold mb-2">Q1–Q2 2026</h3>
+          <p class="text-sm">Release Aetheron SDK and X402-Linker for chained, composable AI workflows.</p>
+        </div>
+        <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
+          <h3 class="text-cyan-300 font-semibold mb-2">Q3–Q4 2026</h3>
+          <p class="text-sm">Deploy Aetheron Trust Ledger + open community marketplace and CoinGecko listings.</p>
+        </div>
+      </div>
+
+      <a href="/roadmap" class="inline-block mt-10 btn text-sm px-6 py-2">View Full Roadmap →</a>
+    </section>
+
+    <div id="modal-bg" class="modal-bg">
+      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-cyan-300 text-xl font-semibold mb-1">AI Prompt Optimizer</h3>
+            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.25 USDC</span> per request.</span>
+          </div>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+        </div>
+
+        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
+          Enter your raw idea or messy text, and Aetheron will refine it into a <span class="text-cyan-300">production-grade prompt</span>.
+          Your optimized result will be generated as a downloadable PDF or text file.
+        </p>
+
+        <label class="block text-sm text-gray-400 mb-2">Your text</label>
+        <textarea id="user-text" rows="4" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
+          placeholder="e.g., write a short product description for a futuristic AI marketplace"></textarea>
+
+        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
+        <select id="prompt-output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+          <option value="pdf" selected>Premium PDF (.pdf)</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="docx">Word Document (.docx)</option>
+          <option value="html">Web Page (.html)</option>
+          <option value="md">Markdown (.md)</option>
+        </select>
+
+        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="pay_method_prompt" value="USDC" checked>
+                <span>USDC</span>
+            </label>
+
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="pay_method_prompt" value="AETH">
+                <span>AETH</span>
+            </label>
+        </div>
+
+        <div id="prompt-pay-info"
+             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+
+          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
+          <div class="text-cyan-300 font-mono text-sm break-all">
+            {{ payment_wallet }}
+          </div>
+
+          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div id="prompt-pay-amount"
+               class="text-gray-200 text-sm font-semibold">
+            —
+          </div>
+
+          <div id="prompt-aeth-note"
+               class="text-xs text-gray-400 mt-2 hidden">
+            AETH amount is calculated automatically.
+          </div>
+        </div>
+
+        <div class="flex justify-center mt-6 gap-3">
+          <button class="btn px-8 py-2.5 text-base" onclick="submitPromptOptimizer()">Execute</button>
+        </div>
+
+        <div id="result" class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+      </div>
+    </div>
+
+    <div id="modal-code-bg" class="modal-bg">
+      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-cyan-300 text-xl font-semibold mb-1">LLM-Powered Code Explainer</h3>
+            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.50 USDC</span> per request.</p>
+          </div>
+          <button onclick="closeCodeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+        </div>
+
+        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
+          Paste your code snippet below, and Aetheron will generate a detailed report explaining its structure, logic, and complexity.
+          Including <span class="text-cyan-300">readability, performance, and security insights</span>.
+          Supports backend code, JavaScript, and JSX.
+          Export as PDF, TXT, DOCX, HTML, or MD.
+        </p>
+
+        <label class="block text-sm text-gray-400 mb-2">Your code</label>
+        <textarea id="user-code" rows="6" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
+          placeholder="Paste your code here…"></textarea>
+
+        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
+        <select id="output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+          <option value="pdf" selected>Premium PDF (.pdf)</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="docx">Word Document (.docx)</option>
+          <option value="html">Web Page (.html)</option>
+          <option value="md">Markdown (.md)</option>
+        </select>
+
+        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="pay_method_code" value="USDC" checked>
+              <span>USDC</span>
+            </label>
+
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="pay_method_code" value="AETH">
+              <span>AETH</span>
+            </label>
+        </div>
+
+        <div id="code-pay-info"
+             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+
+          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
+          <div class="text-cyan-300 font-mono text-sm break-all">
+            {{ payment_wallet }}
+          </div>
+
+          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div id="code-pay-amount" class="text-gray-200 text-sm font-semibold">—</div>
+
+          <div id="code-aeth-note"
+               class="text-xs text-gray-400 mt-2 hidden">
+            AETH amount is calculated automatically.
+          </div>
+        </div>
+
+        <div class="flex justify-center mt-6 gap-3">
+          <button class="btn px-8 py-2.5 text-base" onclick="submitCodeExplainer()">Execute</button>
+        </div>
+
+        <div id="code-result" class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+      </div>
+    </div>
+
+    <div id="modal-tester-bg" class="modal-bg">
+      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-cyan-300 text-xl font-semibold mb-1">Smart Prompt Tester (PersonaSim)</h3>
+            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.50 USDC</span> per run.</p>
+          </div>
+          <button onclick="closeTesterModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+        </div>
+
+        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
+          Evaluate your prompt through multiple AI perspectives. Including <span class="text-cyan-300">Developer</span>, 
+          <span class="text-cyan-300">Skeptic</span>, and <span class="text-cyan-300">Hacker</span> personas.  
+          Aetheron will analyze responses, highlight strengths, and generate a hardened prompt blueprint for you.
+        </p>
+
+        <label class="block text-sm text-gray-400 mb-2">Your prompt</label>
+        <textarea id="tester-text" rows="5"
+          class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
+          placeholder="Paste the prompt you want to test across personas..."></textarea>
+
+        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
+        <select id="tester-output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+          <option value="pdf" selected>Premium PDF (.pdf)</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="docx">Word Document (.docx)</option>
+          <option value="html">Web Page (.html)</option>
+          <option value="md">Markdown (.md)</option>
+        </select>
+
+        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="pay_method_tester" value="USDC" checked>
+              <span>USDC</span>
+            </label>
+
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="pay_method_tester" value="AETH">
+              <span>AETH</span>
+            </label>
+        </div>
+
+        <div id="tester-pay-info"
+             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+
+          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
+          <div class="text-cyan-300 font-mono text-sm break-all">
+            {{ payment_wallet }}
+          </div>
+
+          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div id="tester-pay-amount" class="text-gray-200 text-sm font-semibold">—</div>
+
+          <div id="tester-aeth-note"
+               class="text-xs text-gray-400 mt-2 hidden">
+            AETH amount is calculated automatically.
+          </div>
+        </div>
+
+        <div class="flex justify-center mt-6 gap-3">
+          <button class="btn px-8 py-2.5 text-base" onclick="submitPromptTester()">Execute</button>
+        </div>
+
+        <div id="tester-result"
+          class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+      </div>
+    </div>
+
+    <div id="modal-contract-bg" class="modal-bg">
+      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-cyan-300 text-xl font-semibold mb-1">Contract Intelligence Analyzer</h3>
+            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">1.00 USDC</span> per request.</p>
+          </div>
+
+          <button onclick="closeContractModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+        </div>
+
+        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
+          Enter an Ethereum or Solana contract address.  
+          Aetheron will extract metadata, functions, risks, and known issues.
+        </p>
+
+        <label class="block text-sm text-gray-400 mb-2">Contract Address</label>
+        <input id="contract-address"
+          class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 text-gray-200 outline-none"
+          placeholder="0x.... or Solana address" />
+
+        <label class="block text-sm text-gray-400 mb-1 mt-4">Network</label>
+        <select id="contract-network"
+          class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 text-gray-200">
+          <option value="ethereum">Ethereum</option>
+          <option value="solana">Solana</option>
+        </select>
+
+        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
+        <select id="contract-output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+          <option value="pdf" selected>Premium PDF (.pdf)</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="docx">Word Document (.docx)</option>
+          <option value="html">Web Page (.html)</option>
+          <option value="md">Markdown (.md)</option>
+        </select>
+
+        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="pay_method_contract" value="USDC" checked>
+              <span>USDC</span>
+            </label>
+
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="pay_method_contract" value="AETH">
+              <span>AETH</span>
+            </label>
+        </div>
+
+        <div id="contract-pay-info"
+             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+
+          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
+          <div class="text-cyan-300 font-mono text-sm break-all">
+            {{ payment_wallet }}
+          </div>
+
+          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div id="contract-pay-amount"
+               class="text-gray-200 text-sm font-semibold">
+            —
+          </div>
+
+          <div id="contract-aeth-note"
+               class="text-xs text-gray-400 mt-2 hidden">
+             AETH amount is calculated automatically.
+          </div>
+        </div>
+
+        <div class="flex justify-center mt-6 gap-3">
+          <button class="btn px-8 py-2.5 text-base" onclick="submitContractIntel()">Analyze</button>
+        </div>
+ 
+        <div id="contract-result"
+          class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+
+      </div>
+    </div>
+
+  <div id="modal-risk-bg" class="modal-bg">
+    <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl
+                p-4 w-[440px] max-h-[80vh] overflow-y-auto">
+
+      <div class="flex justify-between items-start mb-3">
+        <div>
+          <h3 class="text-cyan-300 text-lg font-semibold mb-1">Agent Risk & Simulation Engine</h3>
+          <p class="text-sm text-gray-400">
+            Price: <span class="text-cyan-300 font-semibold">0.75 USDC</span> per request.
+          </p>
+        </div>
+        <button onclick="closeRiskModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+      </div>
+
+      <p class="text-gray-400 text-sm mb-3 leading-relaxed">
+        Run a Monte Carlo GBM simulation using configurable runs, steps, drift, volatility, and start price.
+        Output is exported through the same asset pipeline.
+      </p>
+
+      <label class="block text-sm text-gray-400 mb-1">Runs</label>
+      <input id="risk-runs" type="number" min="1" value="2000"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+
+      <label class="block text-sm text-gray-400 mb-1 mt-2">Steps</label>
+      <input id="risk-steps" type="number" min="1" value="252"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+
+      <label class="block text-sm text-gray-400 mb-1 mt-2">Mu (drift)</label>
+      <input id="risk-mu" type="number" step="0.0001" value="0.08"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+
+      <label class="block text-sm text-gray-400 mb-1 mt-2">Sigma (volatility)</label>
+      <input id="risk-sigma" type="number" step="0.0001" value="0.25"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+
+      <label class="block text-sm text-gray-400 mb-1 mt-2">Start Price</label>
+      <input id="risk-start-price" type="number" step="0.0001" value="1.0"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+
+      <label class="block text-sm text-gray-400 mb-1 mt-2">Seed (optional)</label>
+      <input id="risk-seed" type="number" placeholder="Leave empty for random"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+
+      <label class="block text-sm text-gray-400 mb-1 mt-3">Output format</label>
+      <select id="risk-output-format"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 outline-none text-gray-200">
+        <option value="pdf" selected>Premium PDF (.pdf)</option>
+        <option value="txt">Plain Text (.txt)</option>
+        <option value="docx">Word Document (.docx)</option>
+        <option value="html">Web Page (.html)</option>
+        <option value="md">Markdown (.md)</option>
+      </select>
+
+      <label class="block text-sm text-gray-400 mt-3 mb-1">Payment method</label>
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="pay_method_risk" value="USDC" checked>
+          <span>USDC</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="pay_method_risk" value="AETH">
+          <span>AETH</span>
+        </label>
+      </div>
+
+      <div id="risk-pay-info"
+           class="mt-3 bg-black/30 border border-cyan-400/20 rounded-lg p-2 hidden">
+        <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
+        <div class="text-cyan-300 font-mono text-xs break-all">
+          {{ payment_wallet }}
+        </div>
+
+        <div class="text-xs text-gray-400 mt-2 mb-1">Send this amount</div>
+        <div id="risk-pay-amount" class="text-gray-200 text-sm font-semibold">—</div>
+
+        <div id="risk-aeth-note" class="text-xs text-gray-400 mt-1 hidden">
+          AETH amount is calculated automatically.
+        </div>
+      </div>
+
+      <div class="flex justify-center mt-4">
+        <button class="btn px-7 py-2 text-base" onclick="submitRiskEngine()">Simulate</button>
+      </div>
+
+      <div id="risk-result"
+           class="mt-4 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-56 hidden text-gray-300"></div>
+
+    </div>
+  </div>
+
+<script>
+    const componentLocks = {
+      "prompt-optimizer": false,
+      "code-explainer": false,
+      "prompt-tester": false,
+      "contract-intel": false,
+      "risk-engine": false
+    };
+
+    async function safeJson(res) {
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { error: "Non-JSON response", raw: text.slice(0, 200) };
+      }
+    }
+
+    function lock(key) {
+      if (componentLocks[key]) return false;
+      componentLocks[key] = true;
+      return true;
+    }
+
+    function unlock(key) {
+       componentLocks[key] = false;
+    }
+</script>
+
+<script>
+async function callPaidComponent({ key, endpoint, payload, onQueued, payMethodName }) {
+  if (!lock(key)) return;
+
+  showLoading();
+
+  const selected =
+    document.querySelector(`input[name='${payMethodName}']:checked`)?.value || "USDC";
+
+  try {
+    let res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-USER-WALLET": window.currentWallet,
+        "X-PAYMENT-METHOD": selected
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.status === 402) {
+      alert(
+        "Payment required.\n\n" +
+        "Send the shown amount to the provided wallet,\n" +
+        "then paste the transaction signature."
+      );
+
+      const sig = prompt("Paste your Solana transaction signature:");
+
+      if (!sig) {
+        hideLoading();
+        unlock(key);
+
+        return { cancelled: true };
+      }
+
+      res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-USER-WALLET": window.currentWallet,
+          "X-TX-SIG": sig,
+          "X-PAYMENT-METHOD": selected
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    if (res.status === 409) {
+      alert("This transaction was already used. Please retry.");
+      return;
+    }
+
+    if (!res.ok) {
+      const err = await safeJson(res);
+      alert(err.detail || err.error || "Request failed.");
+      return;
+    }
+
+    const data = await safeJson(res);
+    onQueued?.(data);
+    return { success: true };
+
+  } catch (e) {
+    console.error(`[${key}]`, e);
+    alert("Unexpected error. Please retry.");
+  } finally {
+    hideLoading();
+    unlock(key);
+  }
+}
+</script> 
+
+<script>
+async function updatePromptPayAmount() {
+  const method =
+    document.querySelector("input[name='pay_method_prompt']:checked")?.value || "USDC";
+
+  const box = document.getElementById("prompt-pay-info");
+  const amount = document.getElementById("prompt-pay-amount");
+  const note = document.getElementById("prompt-aeth-note");
+
+  box.classList.remove("hidden");
+
+  if (method === "USDC") {
+    note.classList.add("hidden");
+    amount.textContent = "0.25 USDC";
+    return;
+  }
+
+  note.classList.remove("hidden");
+  amount.textContent = "Fetching AETH amount…";
+
+  try {
+    const res = await fetch("/api/price/aeth?usdc_price=0.25");
+    const data = await res.json();
+    amount.textContent = `${data.required_aeth} AETH`;
+  } catch {
+    amount.textContent = "Failed to fetch AETH amount";
+  }
+}
+
+document.querySelectorAll("input[name='pay_method_prompt']")
+  .forEach(r => r.addEventListener("change", updatePromptPayAmount));
+</script>
+
+<script>
+async function updateTesterPayAmount() {
+  const method =
+    document.querySelector("input[name='pay_method_tester']:checked")?.value || "USDC";
+
+  const box = document.getElementById("tester-pay-info");
+  const amount = document.getElementById("tester-pay-amount");
+  const note = document.getElementById("tester-aeth-note");
+
+  box.classList.remove("hidden");
+
+  if (method === "USDC") {
+    note.classList.add("hidden");
+    amount.textContent = "0.50 USDC";
+    return;
+  }
+
+  note.classList.remove("hidden");
+  amount.textContent = "Fetching AETH amount…";
+
+  try {
+    const res = await fetch("/api/price/aeth?usdc_price=0.50");
+    const data = await res.json();
+    amount.textContent = `${data.required_aeth} AETH`;
+  } catch {
+    amount.textContent = "Failed to fetch AETH amount";
+  }
+}
+
+document.querySelectorAll("input[name='pay_method_tester']")
+  .forEach(r => r.addEventListener("change", updateTesterPayAmount));
+</script>
+
+<script>
+async function updateCodePayAmount() {
+  const method =
+    document.querySelector("input[name='pay_method_code']:checked")?.value || "USDC";
+
+  const box = document.getElementById("code-pay-info");
+  const amount = document.getElementById("code-pay-amount");
+  const note = document.getElementById("code-aeth-note");
+
+  box.classList.remove("hidden");
+
+  if (method === "USDC") {
+    note.classList.add("hidden");
+    amount.textContent = "0.50 USDC";
+    return;
+  }
+
+  note.classList.remove("hidden");
+  amount.textContent = "Fetching AETH amount…";
+
+  try {
+    const res = await fetch("/api/price/aeth?usdc_price=0.50");
+    const data = await res.json();
+    amount.textContent = `${data.required_aeth} AETH`;
+  } catch {
+    amount.textContent = "Failed to fetch AETH amount";
+  }
+}
+
+document.querySelectorAll("input[name='pay_method_code']")
+  .forEach(r => r.addEventListener("change", updateCodePayAmount));
+</script>
+
+<script>
+async function updateContractPayAmount() {
+  const method =
+    document.querySelector("input[name='pay_method_contract']:checked")?.value || "USDC";
+
+  const box = document.getElementById("contract-pay-info");
+  const amount = document.getElementById("contract-pay-amount");
+  const note = document.getElementById("contract-aeth-note");
+
+  box.classList.remove("hidden");
+
+  if (method === "USDC") {
+    note.classList.add("hidden");
+    amount.textContent = "1.00 USDC";
+    return;
+  }
+
+  note.classList.remove("hidden");
+  amount.textContent = "Fetching AETH amount…";
+
+  try {
+    const res = await fetch("/api/price/aeth?usdc_price=1.00");
+    const data = await res.json();
+    amount.textContent = `${data.required_aeth} AETH`;
+  } catch {
+    amount.textContent = "Failed to fetch AETH amount";
+  }
+}
+
+document.querySelectorAll("input[name='pay_method_contract']")
+  .forEach(r => r.addEventListener("change", updateContractPayAmount));
+</script>
+
+<script>
+async function submitPromptOptimizer() {
+  const text = document.getElementById("user-text").value.trim();
+  const format = document.getElementById("prompt-output-format").value;
+  const resultDiv = document.getElementById("result");
+
+  if (!window.currentWallet) return alert("Connect wallet first.");
+  if (!text) return alert("Enter text.");
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Submitting…";
+
+  const res = await callPaidComponent({
+    key: "prompt-optimizer",
+    endpoint: "/api/prompt-optimizer",
+    payload: { text, format },
+    payMethodName: "pay_method_prompt",
+    onQueued: d => pollJobStatus(d.task_id, resultDiv, format)
+  });
+
+    if (res?.cancelled) {
+      resultDiv.classList.add("hidden");
+      resultDiv.textContent = "";
+    }
+}
+
+async function submitCodeExplainer() {
+  const text = document.getElementById("user-code").value.trim();
+  const format = document.getElementById("output-format").value;
+  const resultDiv = document.getElementById("code-result");
+
+  if (!window.currentWallet) return alert("Connect wallet first.");
+  if (!text) return alert("Paste code.");
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Submitting…";
+
+  const res = await callPaidComponent({
+    key: "code-explainer",
+    endpoint: "/api/code-explainer",
+    payload: { text, format },
+    payMethodName: "pay_method_code",
+    onQueued: d => pollJobStatus(d.task_id, resultDiv, format)
+  });
+
+  if (res?.cancelled) {
+    resultDiv.classList.add("hidden");
+    resultDiv.textContent = "";
+  }
+}
+
+async function submitPromptTester() {
+  const text = document.getElementById("tester-text").value.trim();
+  const format = document.getElementById("tester-output-format").value;
+  const resultDiv = document.getElementById("tester-result");
+
+  if (!window.currentWallet) return alert("Connect wallet first.");
+  if (!text) return alert("Enter prompt.");
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Submitting…";
+
+  const res = await callPaidComponent({
+    key: "prompt-tester",
+    endpoint: "/api/prompt-tester",
+    payload: { text, format },
+    payMethodName: "pay_method_tester",
+    onQueued: d => pollJobStatus(d.task_id, resultDiv, format)
+  });
+
+  if (res?.cancelled) {
+    resultDiv.classList.add("hidden");
+    resultDiv.textContent = "";
+  }
+}
+
+async function submitContractIntel() {
+  const contract_address = document.getElementById("contract-address").value.trim();
+  const network = document.getElementById("contract-network").value;
+  const format = document.getElementById("contract-output-format").value;
+  const resultDiv = document.getElementById("contract-result");
+
+  if (!window.currentWallet) return alert("Connect wallet first.");
+  if (!contract_address) return alert("Enter contract address.");
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Submitting…";
+
+  const res = await callPaidComponent({
+    key: "contract-intel",
+    endpoint: "/api/contract-intel",
+    payload: { contract_address, network, format },
+    payMethodName: "pay_method_contract",
+    onQueued: d => pollJobStatus(d.task_id, resultDiv, format)
+  });
+
+  if (res?.cancelled) {
+    resultDiv.classList.add("hidden");
+    resultDiv.textContent = "";
+  }
+}
+</script>
+    
+    <script>
+  function detectNetworkFromAddress(addr) {
+    const ethRegex = /^0x[a-fA-F0-9]{40}$/;
+
+    const solRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+    if (ethRegex.test(addr)) return "ethereum";
+    if (solRegex.test(addr)) return "solana";
+    return null;
+  }
+
+  function closeModal() {
+    document.getElementById("modal-bg").style.display = "none";
+  }
+
+  function closeCodeModal() {
+    document.getElementById("modal-code-bg").style.display = "none";
+  }
+
+  function closeContractModal() {
+  document.getElementById("modal-contract-bg").style.display = "none";
+}
+
+  const searchInput = document.getElementById("search");
+  const filterButtons = document.querySelectorAll("[data-filter-btn]");
+  const cards = document.querySelectorAll("#components-grid .card");
+  let activeCategory = "All";
+
+   function applyFilters() {
+    const term = (searchInput?.value || "").trim().toLowerCase();
+
+    cards.forEach((card) => {
+      const name = (card.dataset.name || "").toLowerCase();
+      const cat = card.dataset.category || "All";
+
+      const matchesSearch = !term || name.includes(term);
+      const matchesCategory =
+        activeCategory === "All" || cat === activeCategory;
+
+      if (matchesSearch && matchesCategory) {
+        card.style.display = "flex";
+      } else {
+        card.style.display = "none";
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+
+    const addrInput = document.getElementById("contract-address");
+    const networkSelect = document.getElementById("contract-network");
+
+    if (addrInput && networkSelect) {
+      addrInput.addEventListener("input", () => {
+        const detected = detectNetworkFromAddress(addrInput.value.trim());
+        if (detected) networkSelect.value = detected;
+      });
+    }
+
+    function closeTesterModal(){ document.getElementById("modal-tester-bg").style.display = "none"; }
+
+    window.closeTesterModal = closeTesterModal;
+    window.closeContractModal = closeContractModal;
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => applyFilters());
+  }
+
+  filterButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const cat = btn.dataset.category || "All";
+
+      if (activeCategory === cat && cat !== "All") {
+        activeCategory = "All";
+      } else {
+        activeCategory = cat;
+      }
+
+      filterButtons.forEach((b) => b.classList.remove("active"));
+      filterButtons.forEach((b) => {
+        if (b.dataset.category === activeCategory) {
+          b.classList.add("active");
+        }
+      });
+
+      applyFilters();
+    });
+  });
+
+  applyFilters();
+
+  window.closeModal = closeModal;
+});
+
+async function loadMyAssets(page = 1) {
+  const section = document.getElementById("my-assets-section");
+  const list = document.getElementById("my-assets-list");
+  if (!window.currentWallet) return;
+
+  section.classList.remove("hidden");
+  list.innerHTML = "<p class='text-gray-400 text-center'>Loading your assets...</p>";
+
+  try {
+    const res = await fetch(`/api/my-assets/${window.currentWallet}?page=${page}`);
+    const data = await res.json();
+    const entries = data.entries || [];
+
+    if (entries.length === 0) {
+      list.innerHTML = "<p class='text-gray-500 text-center'>No assets yet. Run a component!</p>";
+      return;
+    }
+
+    list.innerHTML = entries.map(e => `
+      <div class="flex justify-between items-center border-b border-cyan-400/10 py-2">
+        <div>
+          <div class="text-cyan-300 font-semibold">${e.component}</div>
+          <div class="text-xs text-gray-400">${new Date(e.timestamp * 1000).toLocaleString()}</div>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-cyan-400 font-mono text-sm">
+              ${e.price.toFixed(2)} ${e.currency}
+          </span>
+          <a href="/download/${e.filename}" class="text-cyan-300 hover:text-cyan-200 text-sm">Download</a>
+        </div>
+      </div>
+    `).join("");
+
+    list.innerHTML += `
+      <div class="flex justify-center items-center gap-6 mt-6">
+        ${data.page > 1 ? `
+          <button onclick="loadMyAssets(${data.page - 1})"
+            class="px-4 py-2 bg-gray-800 text-cyan-300 rounded-lg hover:bg-gray-700">
+            ← Previous
+          </button>
+        ` : ""}
+
+        <span class="text-gray-400">
+          Page <span class="text-cyan-300">${data.page}</span> of 
+          <span class="text-cyan-300">${data.total_pages}</span>
+        </span>
+
+        ${data.page < data.total_pages ? `
+          <button onclick="loadMyAssets(${data.page + 1})"
+            class="px-4 py-2 bg-gray-800 text-cyan-300 rounded-lg hover:bg-gray-700">
+            Next →
+          </button>
+        ` : ""}
+      </div>
+    `;
+
+  } catch (err) {
+    console.error("Error loading assets:", err);
+    list.innerHTML = `<p class='text-red-400 text-center'>Error loading assets.</p>`;
+  }
+}
+
+function onWalletConnected() {
+  const assetsSection = document.getElementById("my-assets-section");
+  if (window.currentWallet && assetsSection) {
+    loadMyAssets();
+  }
+}
+
+window.addEventListener("wallet:connected", () => {
+  onWalletConnected();
+});
+
+async function pollJobStatus(taskId, resultDiv, userFormat = "pdf") {
+  resultDiv.textContent = "Processing your request... don’t refresh. (20-60s)";
+  while (true) {
+    const res = await fetch(`/api/job-status/${taskId}`);
+    const data = await res.json();
+
+    if (data.state === "SUCCESS") {
+      const url = data.result.download_url;
+      const format = userFormat || data.result.format || "pdf";
+      const label = format.toUpperCase();
+
+      resultDiv.innerHTML = `
+        <b>Completed!</b><br>
+        <a href="${url}" target="_blank" class="text-cyan-400 underline">
+          Download ${label}
+        </a>
+      `;
+    
+      if (format === "pdf") {
+        window.open(url, "_blank");
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `aetheron_${Date.now()}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      hideLoading();
+      break;
+    }
+
+    if (data.state === "FAILURE") {
+      resultDiv.textContent = "Failed: " + (data.error || "Unknown error");
+      hideLoading();
+      break;
+    }
+
+    await new Promise(r => setTimeout(r, 3000));
+  }
+}
+
+async function updateRiskPayAmount() {
+  const method =
+    document.querySelector("input[name='pay_method_risk']:checked")?.value || "USDC";
+
+  const box = document.getElementById("risk-pay-info");
+  const amount = document.getElementById("risk-pay-amount");
+  const note = document.getElementById("risk-aeth-note");
+
+  box.classList.remove("hidden");
+
+  const usdcPrice = 0.75;
+
+  if (method === "USDC") {
+    note.classList.add("hidden");
+    amount.textContent = `${usdcPrice.toFixed(2)} USDC`;
+    return;
+  }
+
+  note.classList.remove("hidden");
+  amount.textContent = "Fetching AETH amount…";
+
+  try {
+    const res = await fetch(`/api/price/aeth?usdc_price=${usdcPrice}`);
+    const data = await res.json();
+    amount.textContent = `${data.required_aeth} AETH`;
+  } catch {
+    amount.textContent = "Failed to fetch AETH amount";
+  }
+}
+
+async function submitRiskEngine() {
+  const runs = parseInt(document.getElementById("risk-runs").value, 10);
+  const steps = parseInt(document.getElementById("risk-steps").value, 10);
+  const mu = parseFloat(document.getElementById("risk-mu").value);
+  const sigma = parseFloat(document.getElementById("risk-sigma").value);
+  const start_price = parseFloat(document.getElementById("risk-start-price").value);
+  const seedRaw = document.getElementById("risk-seed").value.trim();
+  const seed = seedRaw === "" ? null : parseInt(seedRaw, 10);
+
+  const format = document.getElementById("risk-output-format").value;
+  const resultDiv = document.getElementById("risk-result");
+
+  if (!window.currentWallet) return alert("Connect wallet first.");
+  if (!Number.isInteger(runs) || runs <= 0) return alert("Runs must be > 0.");
+  if (!Number.isInteger(steps) || steps <= 0) return alert("Steps must be > 0.");
+  if (!Number.isFinite(mu)) return alert("Mu must be a number.");
+  if (!Number.isFinite(sigma) || sigma < 0) return alert("Sigma must be >= 0.");
+  if (!Number.isFinite(start_price) || start_price <= 0) return alert("Start price must be > 0.");
+  if (seed !== null && !Number.isInteger(seed)) return alert("Seed must be an integer or empty.");
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Submitting…";
+
+  const res = await callPaidComponent({
+    key: "risk-engine",
+    endpoint: "/api/risk-engine",
+    payload: { runs, steps, mu, sigma, start_price, seed, format },
+    payMethodName: "pay_method_risk",
+    onQueued: d => pollJobStatus(d.task_id, resultDiv, format)
+  });
+
+  if (res?.cancelled) {
+    resultDiv.classList.add("hidden");
+    resultDiv.textContent = "";
+  }
+}
+
+function closeRiskModal() {
+  document.getElementById("modal-risk-bg").style.display = "none";
+}
+window.closeRiskModal = closeRiskModal;
+
+document.querySelectorAll("input[name='pay_method_risk']")
+  .forEach(r => r.addEventListener("change", updateRiskPayAmount));
+</script>
+
+<script>
+function requireWallet() {
+  if (!window.currentWallet) {
+    alert("Connect your wallet first.");
+    return false;
+  }
+  return true;
+}
+</script>
+
+<script>
+function showLoading() {
+  document.getElementById("loading")?.classList.remove("hidden");
+}
+
+function hideLoading() {
+  document.getElementById("loading")?.classList.add("hidden");
+}
+</script>
+
+<script>
+function toggleMobileMenu() {
+    const nav = document.getElementById("mobile-nav");
+    nav.classList.toggle("hidden");
+    nav.classList.toggle("flex");
+}
+</script>
+
+{% endblock %}
+

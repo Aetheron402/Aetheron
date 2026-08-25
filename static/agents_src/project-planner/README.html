@@ -1,0 +1,222 @@
+<h1 id="project-organizer-agent-template">Project Organizer Agent Template</h1>
+<hr>
+<h1 id="0-introduction">0. Introduction</h1>
+<p>Modern projects generate large amounts of structured information:</p>
+<ul>
+<li>tasks</li>
+<li>notes</li>
+<li>milestones</li>
+<li>progress indicators</li>
+<li>deadlines</li>
+<li>contextual knowledge</li>
+</ul>
+<p>While many tools exist to manage this information, most are designed
+primarily for manual interaction and lack a programmable architecture
+that developers can extend, automate, or integrate with other systems.</p>
+<p>The <strong>Project Organizer Agent Template</strong> is a <strong>modular project
+coordination framework</strong> designed to manage structured project state in
+a deterministic, extensible, and storage‑agnostic way.</p>
+<p>This template is <strong>not a productivity application</strong>.</p>
+<p>Instead, it is an <strong>agent foundation</strong> that developers can extend to
+build:</p>
+<ul>
+<li>automated project coordination agents</li>
+<li>CLI-based task management tools</li>
+<li>web dashboards for project tracking</li>
+<li>AI-assisted planning systems</li>
+<li>integrations with external services</li>
+<li>multi-project coordination platforms</li>
+</ul>
+<p>The template focuses on <strong>architecture, reliability, and extensibility</strong>
+rather than user interface design.</p>
+<p>It provides the underlying infrastructure needed to build such systems
+without having to repeatedly solve common problems such as:</p>
+<ul>
+<li>storage abstraction</li>
+<li>project state management</li>
+<li>lifecycle automation</li>
+<li>reminder logic</li>
+<li>configuration systems</li>
+<li>testing frameworks</li>
+</ul>
+<p>This document serves as a <strong>complete onboarding guide</strong> explaining how
+the system works and how it can be extended.</p>
+<hr>
+<h1 id="1-quick-start-guide-beginner-friendly-">1. Quick Start Guide (Beginner Friendly)</h1>
+<h2 id="step-1-install-dependencies">Step 1 --- Install dependencies</h2>
+<p>From inside the project directory:</p>
+<pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre><p>All dependencies used in this template are widely adopted Python
+libraries and are considered safe for general development environments.</p>
+<hr>
+<h2 id="step-2-review-configuration">Step 2 --- Review configuration</h2>
+<p>Configuration is stored in:</p>
+<pre><code><span class="hljs-built_in">config</span>/<span class="hljs-built_in">default</span>.json
+</code></pre><p>This configuration file controls behavior such as:</p>
+<ul>
+<li>storage backend</li>
+<li>reminder detection</li>
+<li>cleanup policies</li>
+<li>summary generation</li>
+</ul>
+<p>The goal of the configuration system is to allow users to <strong>adjust core
+behavior without modifying Python code</strong>.</p>
+<hr>
+<h2 id="step-3-run-the-organizer">Step 3 --- Run the organizer</h2>
+<p>Start the organizer by running:</p>
+<pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
+</code></pre><p>During startup, the agent will:</p>
+<ol>
+<li>Load configuration settings</li>
+<li>Initialize the selected storage backend</li>
+<li>Initialize the project organizer core modules</li>
+<li>Run maintenance tasks</li>
+<li>Generate a project summary</li>
+<li>Enter the runtime loop</li>
+</ol>
+<p>When running, the organizer will remain active until you stop it with:</p>
+<pre><code>CTRL + <span class="hljs-keyword">C</span>
+</code></pre><hr>
+<h1 id="2-what-this-template-is-and-is-not-">2. What This Template Is (And Is Not)</h1>
+<h2 id="what-this-template-is-">What this template <strong>is</strong></h2>
+<ul>
+<li>A reusable <strong>project organization engine</strong></li>
+<li>A reference architecture for building task management agents</li>
+<li>A framework for managing structured project state</li>
+<li>A deterministic automation foundation</li>
+<li>A safe starting point for building productivity tools</li>
+</ul>
+<p>The template focuses on <strong>system design rather than UI design</strong>.</p>
+<hr>
+<h2 id="what-this-template-is-not-">What this template <strong>is not</strong></h2>
+<ul>
+<li>A graphical task manager</li>
+<li>A SaaS productivity platform</li>
+<li>A collaborative workspace application</li>
+<li>A finished end‑user product</li>
+</ul>
+<p>This repository provides <strong>the underlying infrastructure</strong> that could be
+used to build such systems.</p>
+<hr>
+<h1 id="3-feature-overview">3. Feature Overview</h1>
+<h3 id="storage-agnostic-architecture">Storage‑agnostic architecture</h3>
+<p>The organizer does not assume any specific storage system.</p>
+<p>All project data is accessed through a <strong>storage abstraction layer</strong>.</p>
+<p>Currently supported storage backends include:</p>
+<ul>
+<li>JSON file storage</li>
+<li>SQLite database storage</li>
+</ul>
+<p>Additional storage backends can be implemented without modifying the
+core logic.</p>
+<hr>
+<h3 id="modular-domain-architecture">Modular domain architecture</h3>
+<p>The core system separates project data into distinct domains:</p>
+<ul>
+<li>Tasks</li>
+<li>Notes</li>
+<li>Milestones</li>
+<li>Project status</li>
+</ul>
+<p>Each domain module manages its own lifecycle rules.</p>
+<hr>
+<h3 id="automation-services">Automation services</h3>
+<p>The organizer includes several automation components:</p>
+<p>Cleanup Service\
+Removes outdated or empty project data.</p>
+<p>Reminder Service\
+Detects upcoming deadlines.</p>
+<p>Summary Service\
+Generates project status reports.</p>
+<hr>
+<h3 id="config-driven-behavior">Config‑driven behavior</h3>
+<p>Most behavior is controlled via configuration files rather than code.</p>
+<p>This allows users to modify:</p>
+<ul>
+<li>reminder intervals</li>
+<li>cleanup thresholds</li>
+<li>storage backend selection</li>
+<li>automation policies</li>
+</ul>
+<p>without modifying Python modules.</p>
+<hr>
+<h1 id="4-architecture-overview">4. Architecture Overview</h1>
+<pre><code>Interfaces (<span class="hljs-keyword">CLI</span> / Web / Automation)
+            │
+            ▼
+        <span class="hljs-keyword">app</span>.py
+            │
+ ┌──────────┼───────────┐
+ ▼          ▼           ▼
+</code></pre><p>Core Services Storage tasks cleanup json_store notes reminders
+sqlite_store milestones summaries</p>
+<pre><code>            ▼
+        <span class="hljs-class"><span class="hljs-keyword">data</span>/db.json</span>
+</code></pre><hr>
+<h1 id="5-configuration-guide">5. Configuration Guide</h1>
+<p>Configuration lives in:</p>
+<pre><code><span class="hljs-built_in">config</span>/<span class="hljs-built_in">default</span>.json
+</code></pre><p>Example configuration:</p>
+<p>{ &quot;storage&quot;: { &quot;backend&quot;: &quot;json&quot;, &quot;path&quot;: &quot;data/db.json&quot; }, &quot;services&quot;:
+{ &quot;cleanup&quot;: {&quot;enabled&quot;: true}, &quot;reminders&quot;: {&quot;enabled&quot;: true},
+&quot;summaries&quot;: {&quot;enabled&quot;: true} } }</p>
+<hr>
+<h1 id="6-storage-system">6. Storage System</h1>
+<p>Storage backends are located in:</p>
+<pre><code>storage/
+</code></pre><p>Includes:</p>
+<ul>
+<li>base.py</li>
+<li>json_store.py</li>
+<li>sqlite_store.py</li>
+</ul>
+<hr>
+<h1 id="7-core-project-logic">7. Core Project Logic</h1>
+<p>Core project modules live in:</p>
+<pre><code>core/
+</code></pre><p>Modules include:</p>
+<ul>
+<li>tasks.py</li>
+<li>notes.py</li>
+<li>milestones.py</li>
+<li>status.py</li>
+<li>organizer.py</li>
+</ul>
+<hr>
+<h1 id="8-services">8. Services</h1>
+<p>Automation services live in:</p>
+<pre><code>services/
+</code></pre><p>Includes:</p>
+<ul>
+<li>cleanup</li>
+<li>reminders</li>
+<li>summaries</li>
+</ul>
+<hr>
+<h1 id="9-testing">9. Testing</h1>
+<p>Tests are located in:</p>
+<pre><code>tests/
+</code></pre><p>Run the test suite using:</p>
+<pre><code><span class="hljs-attribute">pytest</span>
+</code></pre><p>Tests verify:</p>
+<ul>
+<li>storage correctness</li>
+<li>task behavior</li>
+<li>note functionality</li>
+</ul>
+<hr>
+<h1 id="10-intended-audience">10. Intended Audience</h1>
+<p>This template is intended for:</p>
+<ul>
+<li>developers building productivity tools</li>
+<li>engineers designing automation systems</li>
+<li>teams building internal planning tools</li>
+<li>developers integrating AI assistants with project management</li>
+</ul>
+<hr>
+<h1 id="11-license-disclaimer">11. License &amp; Disclaimer</h1>
+<p>This repository is provided as a <strong>software template</strong>.</p>
+<p>It is intended as a starting point for building project management
+systems.</p>
+<p>Use this template at your own discretion.</p>
+<hr>

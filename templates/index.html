@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aetheron – AI Components powered by X402</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Favicons -->
+    <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
+    <link rel="manifest" href="/static/favicon/site.webmanifest">
+    <meta name="theme-color" content="#030712">
+
+    <style>
+      body {
+        background-color: #030712;
+        overflow: auto;
+      }
+
+      .background {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        z-index: 0;
+      }
+
+      .particle {
+        position: absolute;
+        background: rgba(34, 211, 238, 0.3);
+        border-radius: 50%;
+        width: 2px;
+        height: 2px;
+        animation: floatUp linear infinite;
+      }
+
+      @keyframes floatUp {
+        0% { transform: translateY(100vh); opacity: 0; }
+        30% { opacity: 1; }
+        100% { transform: translateY(-10vh); opacity: 0; }
+      }
+
+      .scanlines {
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.04) 0,
+          rgba(255, 255, 255, 0.04) 1px,
+          transparent 2px,
+          transparent 4px
+        );
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #main-content {
+        position: relative;
+        z-index: 10;
+        opacity: 1;
+        transform: none;
+      }
+
+      @keyframes floatText {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-6px); }
+        100% { transform: translateY(0px); }
+      }
+
+      @keyframes glowPulse {
+        0% { box-shadow: 0 0 0 rgba(34, 211, 238, 0.4); }
+        50% { box-shadow: 0 0 25px rgba(34, 211, 238, 0.8); }
+        100% { box-shadow: 0 0 0 rgba(34, 211, 238, 0.4); }
+      }
+    </style>
+  </head>
+
+  <body class="text-gray-100 font-sans page-fade">
+    
+    <div id="boot-sequence"
+         class="fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden">
+
+      <canvas id="matrix-canvas" class="absolute inset-0"></canvas>
+
+      <div id="boot-text"
+           class="relative z-10 text-cyan-300 font-mono text-lg opacity-0">
+      </div>
+
+    </div>
+
+    <div class="background">
+      <div id="particle-container"></div>
+      <div class="scanlines"></div>
+    </div>
+
+    <section
+      id="main-content"
+      class="min-h-screen flex flex-col items-center justify-center text-center p-8"
+    >
+      <h1
+        class="text-5xl md:text-6xl font-bold mb-4 animate-[floatText_3s_ease-in-out_infinite]"
+      >
+        Welcome to <span class="text-cyan-400">Aetheron</span>
+      </h1>
+
+     <p class="text-gray-400 max-w-xl mb-6">
+        A premium AI component marketplace powered by the X402 protocol.
+      </p>
+
+      <button
+        id="explore-btn"
+        class="px-6 py-3 bg-cyan-500 text-black rounded-xl font-semibold hover:bg-cyan-400 transition animate-[glowPulse_3s_infinite]"
+      >
+        Explore Components
+      </button>
+
+      <style>
+      @keyframes soft-bounce {
+        0%, 100% { transform: translateY(0); opacity: 0.85; }
+        50% { transform: translateY(3px); opacity: 1; }
+      }
+      .animate-soft-bounce {
+        animation: soft-bounce 1.8s ease-in-out infinite;
+      }
+      </style>
+
+    <script>
+    const particleContainer = document.getElementById("particle-container");
+
+    if (particleContainer) {
+      for (let i = 0; i < 80; i++) {
+        const p = document.createElement("div");
+        p.classList.add("particle");
+        p.style.left = Math.random() * 100 + "%";
+        p.style.animationDuration = 4 + Math.random() * 8 + "s";
+        p.style.animationDelay = Math.random() * 5 + "s";
+        particleContainer.appendChild(p);
+      }
+    }
+
+    const boot = document.getElementById("boot-sequence");
+    const canvas = document.getElementById("matrix-canvas");
+
+    if (boot && canvas) {
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const chars = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const fontSize = 14;
+      const columns = Math.floor(canvas.width / fontSize);
+      const drops = Array(columns)
+        .fill(0)
+        .map(() => Math.floor(Math.random() * (canvas.height / fontSize)));
+
+      function drawMatrix() {
+        ctx.fillStyle = "rgba(0,0,0,0.08)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "rgba(34,211,238,0.35)";
+        ctx.font = `${fontSize}px monospace`;
+
+        drops.forEach((y, i) => {
+          const char = chars[Math.floor(Math.random() * chars.length)];
+          ctx.fillText(char, i * fontSize, y * fontSize);
+
+          if (y * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i]++;
+        });
+      }
+
+      const matrixInterval = setInterval(drawMatrix, 40);
+
+      setTimeout(() => {
+        clearInterval(matrixInterval);
+        canvas.style.transition = "transform 0.9s ease, opacity 0.9s ease";
+        canvas.style.transform = "scale(0.05)";
+        canvas.style.opacity = "0";
+      }, 2200);
+
+      setTimeout(() => {
+        const text = document.getElementById("boot-text");
+        const msg = "Aetheron is alive_";
+        let i = 0;
+
+        text.style.opacity = "1";
+
+        const typer = setInterval(() => {
+          text.textContent += msg[i++];
+          if (i >= msg.length) clearInterval(typer);
+        }, 60);
+      }, 2600);
+
+      setTimeout(() => {
+        boot.style.transition = "opacity 0.6s ease";
+        boot.style.opacity = "0";
+        setTimeout(() => boot.remove(), 600);
+      }, 5000);
+    }
+
+    const exploreBtn = document.getElementById("explore-btn");
+    if (exploreBtn) {
+      exploreBtn.addEventListener("click", () => {
+        window.location.href = "/shop";
+      });
+    }
+</script>
+  </body>
+</html>

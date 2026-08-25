@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Legal – Aetheron{% endblock %}
+
+{% block body_class %}page-legal{% endblock %}
+
+{% block content %}
+
+<div class="page-fade">
+
+<section class="max-w-4xl mx-auto">
+
+  <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">/ Aetheron / Legal</p>
+
+  <a href="/shop"
+     class="inline-flex items-center text-cyan-300 hover:text-cyan-200 text-sm mb-6 transition">
+    ← Back to Shop
+  </a>
+
+  <h1 class="text-4xl font-bold text-cyan-400 mb-6">Legal & Policies</h1>
+
+  <div class="space-y-8 text-gray-300">
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">Terms of Service</h2>
+      <p>
+        Aetheron provides AI-based tools that generate analytical or creative outputs.
+        Use of the platform constitutes agreement with the following:
+      </p>
+      <ul class="list-disc ml-6 space-y-1 mt-2">
+        <li>Components are provided “as is” with no guarantee of uptime or accuracy.</li>
+        <li>Users retain ownership of their inputs and resulting outputs.</li>
+        <li>All payments occur on-chain using USDC or $AETH. Aetheron never holds private keys or funds.</li>
+      </ul>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">Privacy Policy</h2>
+      <p>
+        Aetheron collects minimal data solely to fulfill and verify purchases:
+      </p>
+      <ul class="list-disc ml-6 space-y-1 mt-2">
+        <li>Wallet address, transaction signature, and timestamp.</li>
+        <li>Prompt/code input and generated output (temporarily for delivery).</li>
+        <li>Basic usage logs for performance and abuse prevention.</li>
+      </ul>
+      <p class="mt-2">
+        We do not sell, rent, or permanently store personal data. All payments are handled directly through user wallets.
+      </p>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">Disclaimer</h2>
+      <p>
+        Aetheron’s AI modules produce informational and creative content — not financial, legal, or professional advice.
+        All outputs should be reviewed and validated independently.
+      </p>
+      <p class="mt-2">
+        By using Aetheron, you acknowledge that all on-chain payments are final once confirmed and
+        that Aetheron holds no responsibility for outcomes derived from model outputs.
+      </p>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">Data Transparency</h2>
+      <p>
+        All transactions processed through Aetheron are verifiable on-chain via the X402 protocol.
+        This ensures open auditability of payments and module calls.
+      </p>
+      <ul class="list-disc ml-6 mt-3 space-y-1">
+        <li>Each component execution is linked to a unique Solana transaction ID.</li>
+        <li>Temporary data is automatically purged after successful delivery.</li>
+        <li>Security reviews and audit summaries will be published for each release.</li>
+      </ul>
+    </div>
+
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">Governance & Contact</h2>
+      <p>
+        Aetheron is developed by an independent team building openly and progressively toward decentralized governance. Future iterations of the platform will introduce
+        <span class="text-cyan-300">$AETH</span> token governance, enabling community voting on roadmap priorities,
+        component curation, and protocol fees.
+      </p>
+      <p class="mt-2 text-gray-400 text-sm">
+        For partnerships, compliance, or inquiries: <span class="text-cyan-300">team@aetheron402.com</span>
+      </p>
+    </div>
+
+  </div>
+
+  <p class="text-center mt-12">
+    <a href="#" class="text-cyan-400 hover:text-cyan-300 text-sm">↑ Back to top</a>
+  </p>
+</section>
+{% endblock %}

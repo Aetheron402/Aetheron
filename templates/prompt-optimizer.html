@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}AI Prompt Optimizer – Aetheron{% endblock %}
+
+{% block body_class %}page-prompt-optimizer{% endblock %}
+
+{% block content %}
+<h1 class="text-4xl font-bold mb-4 text-cyan-400">AI Prompt Optimizer</h1>
+<p class="text-gray-400 mb-6">Enter messy prompt text below to optimize it for structured, agent-ready usage.</p>
+
+<textarea id="input" rows="6" class="w-full p-4 rounded bg-gray-800 text-white mb-4" placeholder="Type your unstructured prompt..."></textarea>
+
+<div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+  <div>
+    <label for="format" class="text-gray-300 mr-2 font-medium">Output format:</label>
+    <select id="format" name="format" class="bg-gray-800 text-white p-2 rounded border border-gray-700">
+      <option value="pdf">Premium PDF (.pdf)</option>
+      <option value="txt">Plain Text (.txt)</option>
+    </select>
+  </div>
+
+  <button onclick="submitPrompt()" class="btn">
+    Optimize Prompt
+  </button>
+</div>
+
+<div id="result" class="mt-6 bg-gray-800 p-4 rounded hidden whitespace-pre-wrap"></div>
+
+<div id="actions" class="mt-4 hidden flex gap-4">
+  <button onclick="copyToClipboard()" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">Copy</button>
+  <button onclick="downloadAsTxt()" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">Download .txt</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let optimizedText = "";
+
+async function submitPrompt() {
+  const input = document.getElementById("input").value.trim();
+  const resultBox = document.getElementById("result");
+  const actions = document.getElementById("actions");
+
+  resultBox.innerHTML = "Optimizing...";
+  resultBox.classList.remove("hidden");
+  actions.classList.add("hidden");
+
+  const userWallet = window.currentWallet;
+  if (!userWallet) {
+    resultBox.innerHTML = "Connect your wallet first using the button above.";
+    return;
+  }
+
+  const res = await fetch("/api/prompt-optimizer", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-WALLET": userWallet
+    },
+    body: JSON.stringify({
+      text: input,
+      format: document.getElementById("format").value
+    }),
+  });
+
+  const data = await res.json();
+
+  if (res.status === 200) {
+    optimizedText = data.optimized_prompt;
+    const fileLabel = data.format === "txt" ? "Download .txt" : "Download .pdf";
+    resultBox.innerHTML = `
+      <p class="text-cyan-400 font-semibold mb-2">Deliverable ready:</p>
+      <a href="${data.download_url}" target="_blank" class="underline text-cyan-300">${fileLabel}</a>
+    `;
+    actions.classList.remove("hidden");
+    window.open(data.download_url, "_blank");
+  }
+  else if (res.status === 402) {
+    resultBox.innerHTML = "Payment required. Please complete the transaction in your wallet and try again.";
+  }
+  else {
+    resultBox.innerHTML = `<div class="text-red-400"> ${data.message}</div><pre class="text-xs mt-2">${JSON.stringify(data, null, 2)}</pre>`;
+  }
+}
+
+function copyToClipboard() {
+  navigator.clipboard.writeText(optimizedText).then(() => {
+    alert("Optimized prompt copied to clipboard!");
+  });
+}
+
+function downloadAsTxt() {
+  const blob = new Blob([optimizedText], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.download = "optimized_prompt.txt";
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

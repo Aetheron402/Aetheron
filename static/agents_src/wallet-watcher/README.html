@@ -1,0 +1,351 @@
+<hr>
+<h3 id="-license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.<br>Redistribution, resale, repackaging, or inclusion in any paid product or service is <strong>strictly prohibited</strong>.<br>See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+<h1 id="wallet-watcher-bot">Wallet Watcher Bot</h1>
+<p><em>A production‑grade wallet activity monitoring agent with real‑time event detection, webhook alerts, strategy modules, and an extensible architecture.</em></p>
+<p>This README is written with <strong>richness, clarity, and depth</strong> — including deep feature explanations, diagrams, workflows, advanced usage, onboarding guides, troubleshooting flows, and developer extension points.</p>
+<hr>
+<h1 id="-0-introduction">0. Introduction</h1>
+<p>The <strong>Wallet Watcher Bot</strong> is a fast, lightweight, highly extendable wallet monitoring framework.<br>After adding <strong>your RPC</strong> and <strong>target wallet address</strong>, the bot tracks:</p>
+<ul>
+<li>Token transfers  </li>
+<li>NFT-style movements  </li>
+<li>Swap/liquidity‑style behavior  </li>
+<li>Any meaningful account events  </li>
+</ul>
+<p>This makes it ideal for:</p>
+<ul>
+<li>Wallet tracking bots  </li>
+<li>Discord alert integrations  </li>
+<li>Personal trading analytics  </li>
+<li>Whale watching / internal tooling  </li>
+<li>Real-time monitoring dashboards  </li>
+<li>On‑chain reporting systems  </li>
+</ul>
+<p>This guide explains the bot <strong>from zero to full customization</strong>, friendly for beginners and powerful for developers.</p>
+<hr>
+<h1 id="-1-quick-start-guide-beginner-mode-">1. Quick Start Guide (Beginner Mode)</h1>
+<h3 id="-step-1-install-python">Step 1 — Install Python</h3>
+<p><a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p>
+<p>Check:</p>
+<pre><code><span class="hljs-keyword">python</span> --<span class="hljs-keyword">version</span>
+</code></pre><hr>
+<h3 id="-step-2-install-dependencies">Step 2 — Install dependencies</h3>
+<pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre><hr>
+<h3 id="-step-3-edit-config-json">Step 3 — Edit config.json</h3>
+<pre><code class="lang-json">{
+  <span class="hljs-attr">"rpc"</span>: {
+    <span class="hljs-attr">"url"</span>: <span class="hljs-string">"YOUR_RPC_URL"</span>,
+    <span class="hljs-attr">"poll_interval_seconds"</span>: <span class="hljs-number">8</span>
+  },
+  <span class="hljs-attr">"wallets_to_watch"</span>: [<span class="hljs-string">"TARGET_WALLET"</span>],
+  <span class="hljs-attr">"notifications"</span>: {
+    <span class="hljs-attr">"enabled"</span>: <span class="hljs-literal">false</span>,
+    <span class="hljs-attr">"webhook_url"</span>: <span class="hljs-string">""</span>
+  }
+}
+</code></pre>
+<hr>
+<h3 id="-step-4-run-the-watcher">Step 4 — Run the watcher</h3>
+<pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
+</code></pre><p>You’ll now see live wallet events printed in your terminal.</p>
+<hr>
+<h1 id="-2-feature-overview">2. Feature Overview</h1>
+<h3 id="-near-real-time-wallet-activity-monitoring">✔ Near real-time wallet activity monitoring</h3>
+<h3 id="-token-transfer-detection">✔ Token transfer detection</h3>
+<h3 id="-nft-style-activity-detection">✔ NFT-style activity detection</h3>
+<h3 id="-swap-liquidity-style-pattern-detection">✔ Swap/liquidity‑style pattern detection</h3>
+<h3 id="-webhook-alert-support-discord-slack-custom-">✔ Webhook alert support (Discord/Slack/Custom)</h3>
+<h3 id="-config-driven-behavior">✔ Config-driven behavior</h3>
+<h3 id="-clean-extension-points-for-developers">✔ Clean extension points for developers</h3>
+<h3 id="-lightweight-rpc-friendly">✔ Lightweight + RPC‑friendly</h3>
+<hr>
+<h1 id="-3-architecture-diagram-visual-overview-">3. Architecture Diagram (Visual Overview)</h1>
+<pre><code>                     ┌───────────────────────────┐
+                     │   RPC Endpoint / Node     │
+                     └──────────────┬────────────┘
+                                    ▼
+                     ┌───────────────────────────┐
+                     │         rpc<span class="hljs-selector-class">.py</span>            │
+                     │  Chain polling + parsing  │
+                     └──────────────┬────────────┘
+                                    ▼
+                     ┌───────────────────────────┐
+                     │        helpers<span class="hljs-selector-class">.py</span>         │
+                     │ Formatting, logging,      │
+                     │ webhook notification      │
+                     └──────────────┬────────────┘
+                                    ▼
+                     ┌───────────────────────────┐
+                     │         main<span class="hljs-selector-class">.py</span>           │
+                     │ Config load + event loop  │
+                     └───────────────────────────┘
+</code></pre><hr>
+<h1 id="-4-folder-structure">4. Folder Structure</h1>
+<pre><code>wallet-watcher/
+ ├── main.py               <span class="hljs-meta"># Event loop + core logic</span>
+ ├── config.json           <span class="hljs-meta"># All user settings</span>
+ ├── requirements.txt      <span class="hljs-meta"># Dependencies</span>
+ ├── README.md             <span class="hljs-meta"># Documentation</span>
+ └── utils/
+      ├── helpers.py       <span class="hljs-meta"># Logging, formatting, webhooks</span>
+      ├── rpc.py           <span class="hljs-meta"># RPC client wrapper</span>
+      └── __init__.py
+</code></pre><hr>
+<h1 id="-5-configuration-guide-full-breakdown-">5. Configuration Guide (Full Breakdown)</h1>
+<p>The bot is controlled entirely through <strong>config.json</strong>.</p>
+<hr>
+<h2 id="-rpc">rpc</h2>
+<pre><code class="lang-json"><span class="hljs-string">"rpc"</span>: {
+  <span class="hljs-string">"url"</span>: <span class="hljs-string">"https://api.mainnet-beta.solana.com"</span>,
+  <span class="hljs-string">"poll_interval_seconds"</span>: <span class="hljs-number">8</span>,
+  <span class="hljs-string">"timeout_seconds"</span>: <span class="hljs-number">10</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>RPC endpoint used to fetch activity</td>
+</tr>
+<tr>
+<td><code>poll_interval_seconds</code></td>
+<td>Frequency of checks (lower = faster, higher = safer)</td>
+</tr>
+<tr>
+<td><code>timeout_seconds</code></td>
+<td>Maximum wait time for RPC responses</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommended settings:</strong></p>
+<ul>
+<li><strong>Fast tracking:</strong> 2–4 seconds  </li>
+<li><strong>Balanced:</strong> 5–8 seconds  </li>
+<li><strong>CPU/RPC friendly:</strong> 10–15 seconds  </li>
+</ul>
+<hr>
+<h2 id="-wallets_to_watch">wallets_to_watch</h2>
+<pre><code class="lang-json"><span class="hljs-string">"wallets_to_watch"</span>: [<span class="hljs-string">"YOUR_WALLET"</span>]
+</code></pre>
+<p>Supports <strong>multiple wallets</strong>:</p>
+<pre><code class="lang-json"><span class="hljs-string">"wallets_to_watch"</span>: [
+  <span class="hljs-string">"Wallet1..."</span>,
+  <span class="hljs-string">"Wallet2..."</span>
+]
+</code></pre>
+<hr>
+<h2 id="-notifications">notifications</h2>
+<pre><code class="lang-json"><span class="hljs-string">"notifications"</span>: {
+  <span class="hljs-string">"enabled"</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-string">"webhook_url"</span>: <span class="hljs-string">"YOUR_WEBHOOK"</span>
+}
+</code></pre>
+<p>Send events to:</p>
+<ul>
+<li>Discord  </li>
+<li>Slack  </li>
+<li>Custom endpoints  </li>
+</ul>
+<hr>
+<h2 id="-logging">logging</h2>
+<pre><code class="lang-json"><span class="hljs-string">"logging"</span>: {
+  <span class="hljs-string">"level"</span>: <span class="hljs-string">"INFO"</span>,
+  <span class="hljs-string">"to_file"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"file_name"</span>: <span class="hljs-string">"wallet_watcher.log"</span>
+}
+</code></pre>
+<p>Log levels:</p>
+<ul>
+<li><code>DEBUG</code> = most information  </li>
+<li><code>INFO</code> = recommended default  </li>
+<li><code>WARNING</code> / <code>ERROR</code> = reduced output  </li>
+</ul>
+<hr>
+<h1 id="-6-event-types-full-classification-">6. Event Types (Full Classification)</h1>
+<p>The bot classifies all detected activity into <strong>three main categories</strong>:</p>
+<hr>
+<h2 id="-1-token-transfer-detection">1. Token Transfer Detection</h2>
+<p>Triggered when:</p>
+<ul>
+<li>SPL / ERC-style tokens move  </li>
+<li>Wallet sends or receives tokens  </li>
+<li>Balance changes appear on-chain  </li>
+</ul>
+<p>Useful for:</p>
+<ul>
+<li>Whale tracking  </li>
+<li>Trading automation triggers  </li>
+<li>Alert bots  </li>
+</ul>
+<hr>
+<h2 id="-2-nft-style-movements">2. NFT-Style Movements</h2>
+<p>Triggered by:</p>
+<ul>
+<li>NFT mint  </li>
+<li>NFT transfer  </li>
+<li>Ownership changes  </li>
+<li>Activity signals resembling NFT interactions  </li>
+</ul>
+<p>Useful for:</p>
+<ul>
+<li>NFT trading bots  </li>
+<li>Collection activity monitors  </li>
+</ul>
+<hr>
+<h2 id="-3-swap-liquidity-activity-signals">3. Swap / Liquidity Activity Signals</h2>
+<p>Pattern-based detection of:</p>
+<ul>
+<li>Swaps  </li>
+<li>Liquidity adds/removes  </li>
+<li>Program-level interactions  </li>
+</ul>
+<p>Useful for:</p>
+<ul>
+<li>Trading insights  </li>
+<li>Wallet strategy tracking  </li>
+<li>Automated alert systems  </li>
+</ul>
+<hr>
+<h1 id="-7-how-the-system-works-internally">7. How the System Works Internally</h1>
+<pre><code><span class="hljs-selector-tag">main</span><span class="hljs-selector-class">.py</span>
+ ├─ <span class="hljs-selector-tag">load_config</span>()
+ ├─ <span class="hljs-selector-tag">setup_logging</span>()
+ ├─ <span class="hljs-selector-tag">initialize</span> <span class="hljs-selector-tag">RPC</span> <span class="hljs-selector-tag">client</span>
+ └─ <span class="hljs-selector-tag">main</span> <span class="hljs-selector-tag">loop</span>:
+       ├─ <span class="hljs-selector-tag">fetch</span> <span class="hljs-selector-tag">recent</span> <span class="hljs-selector-tag">events</span> <span class="hljs-selector-tag">via</span> <span class="hljs-selector-tag">RPC</span>
+       ├─ <span class="hljs-selector-tag">interpret</span> + <span class="hljs-selector-tag">classify</span> (token, NFT, swap)
+       ├─ <span class="hljs-selector-tag">log</span> <span class="hljs-selector-tag">results</span>
+       ├─ <span class="hljs-selector-tag">send</span> <span class="hljs-selector-tag">webhook</span> (optional)
+       └─ <span class="hljs-selector-tag">sleep</span> <span class="hljs-selector-tag">poll_interval_seconds</span>
+</code></pre><hr>
+<h1 id="-8-strategy-examples-user-guide-section-">8. Strategy Examples (User Guide Section)</h1>
+<p>These examples help beginners configure the watcher for different goals.</p>
+<hr>
+<h2 id="-strategy-a-whale-watching">Strategy A — Whale Watching</h2>
+<p>Ideal config:</p>
+<ul>
+<li><code>poll_interval_seconds: 3–5</code>  </li>
+<li>Webhooks enabled  </li>
+<li>Track large token movements  </li>
+<li>Add filters for high‑value tokens  </li>
+</ul>
+<hr>
+<h2 id="-strategy-b-nft-wallet-tracker">Strategy B — NFT Wallet Tracker</h2>
+<ul>
+<li>Lower frequency needed (8–12 sec)  </li>
+<li>Focus on NFT‑style events  </li>
+<li>Use Discord for alerting  </li>
+</ul>
+<hr>
+<h2 id="-strategy-c-personal-trading-monitor">Strategy C — Personal Trading Monitor</h2>
+<ul>
+<li>Watch your own wallet  </li>
+<li>Track swaps  </li>
+<li>Get pinged when trades settle  </li>
+</ul>
+<hr>
+<h2 id="-strategy-d-quiet-monitoring-rpc-friendly-">Strategy D — Quiet Monitoring (RPC Friendly)</h2>
+<ul>
+<li><code>poll_interval_seconds: 12–18</code>  </li>
+<li>Logging level WARNING  </li>
+<li>No webhooks  </li>
+</ul>
+<hr>
+<h1 id="-9-extending-the-agent-developer-mode-">9. Extending the Agent (Developer Mode)</h1>
+<h3 id="add-new-event-categories">Add new event categories</h3>
+<p>Modify <code>rpc.py</code> → detection logic.</p>
+<h3 id="add-filtering-logic">Add filtering logic</h3>
+<p>Add rules in <code>helpers.py</code>.</p>
+<h3 id="add-reaction-logic">Add reaction logic</h3>
+<p>Inside <code>main.py</code>, inside the loop:</p>
+<pre><code class="lang-python"><span class="hljs-keyword">if</span> <span class="hljs-keyword">event</span>[<span class="hljs-string">"type"</span>] == <span class="hljs-string">"swap"</span>:
+    do_something(<span class="hljs-keyword">event</span>)
+</code></pre>
+<h3 id="connect-to-external-systems">Connect to external systems</h3>
+<p>Examples:</p>
+<ul>
+<li>Database storage  </li>
+<li>Dashboards  </li>
+<li>Telegram alerts  </li>
+<li>Trading bots  </li>
+<li>AI analysis pipelines  </li>
+</ul>
+<hr>
+<h1 id="-10-webhook-formats-copy-paste-">10. Webhook Formats (Copy-Paste)</h1>
+<h3 id="discord-json-payload">Discord JSON Payload</h3>
+<pre><code class="lang-json">{
+  <span class="hljs-attr">"content"</span>: <span class="hljs-string">"**New Wallet Event Detected**"</span>,
+  <span class="hljs-attr">"embeds"</span>: [{
+    <span class="hljs-attr">"title"</span>: <span class="hljs-string">"Token Transfer"</span>,
+    <span class="hljs-attr">"description"</span>: <span class="hljs-string">"Wallet sent 5.2 SOL"</span>,
+    <span class="hljs-attr">"color"</span>: <span class="hljs-number">1127128</span>
+  }]
+}
+</code></pre>
+<hr>
+<h1 id="-11-troubleshooting-guide-flowchart-">11. Troubleshooting Guide (Flowchart)</h1>
+<pre><code><span class="hljs-keyword">START</span>
+  │
+  ├─ Bot shows <span class="hljs-keyword">no</span> <span class="hljs-keyword">events</span>?
+  │       ├─ RPC <span class="hljs-keyword">URL</span> valid?
+  │       ├─ <span class="hljs-keyword">Wallet</span> active recently?
+  │       └─ Increase poll <span class="hljs-built_in">interval</span>?
+  │
+  ├─ Webhook <span class="hljs-keyword">not</span> firing?
+  │       ├─ notifications.enabled = <span class="hljs-literal">true</span>?
+  │       ├─ Webhook <span class="hljs-keyword">URL</span> valid?
+  │       └─ Internet <span class="hljs-keyword">connection</span> stable?
+  │
+  ├─ Too many RPC <span class="hljs-keyword">errors</span>?
+  │       ├─ Increase poll <span class="hljs-built_in">interval</span>
+  │       └─ <span class="hljs-keyword">Switch</span> <span class="hljs-keyword">to</span> a more stable RPC
+  │
+  └─ <span class="hljs-keyword">Logs</span> too noisy?
+          ├─ <span class="hljs-keyword">Set</span> <span class="hljs-keyword">level</span> = <span class="hljs-keyword">WARNING</span>
+          └─ <span class="hljs-keyword">Disable</span> DEBUG prints
+</code></pre><hr>
+<h1 id="-12-beginner-mistakes-to-avoid">12. Beginner Mistakes to Avoid</h1>
+<p>❌ Using a slow/free RPC<br>❌ Forgetting to add your wallet address<br>❌ Expecting events when the wallet is inactive<br>❌ Setting poll interval below 2 seconds<br>❌ Forgetting to enable webhooks  </p>
+<hr>
+<h1 id="-13-recommended-settings">13. Recommended Settings</h1>
+<h3 id="safe-beginner-mode-">Safe beginner mode:</h3>
+<pre><code><span class="hljs-symbol">poll_interval_seconds:</span> <span class="hljs-number">8</span>
+<span class="hljs-symbol">logging:</span> INFO
+<span class="hljs-symbol">notifications:</span> off
+</code></pre><h3 id="fast-mode-active-wallets-">Fast mode (active wallets):</h3>
+<pre><code>poll_interval_second<span class="hljs-variable">s:</span> <span class="hljs-number">3</span>–<span class="hljs-number">5</span>
+loggin<span class="hljs-variable">g:</span> INFO
+notification<span class="hljs-variable">s:</span> <span class="hljs-keyword">on</span>
+</code></pre><h3 id="low-noise-mode-">Low‑noise mode:</h3>
+<pre><code><span class="hljs-symbol">poll_interval_seconds:</span> <span class="hljs-number">12</span>
+<span class="hljs-symbol">logging:</span> WARNING
+</code></pre><hr>
+<h1 id="-14-roadmap-expanded-">14. Roadmap (Expanded)</h1>
+<h3 id="-coming-soon">Coming soon</h3>
+<ul>
+<li>Multi-chain version (EVM, Sui, Aptos)  </li>
+<li>Token filtering  </li>
+<li>Program-specific detectors  </li>
+<li>Real swap decoding  </li>
+<li>Dashboard exporter module  </li>
+</ul>
+<h3 id="-long-term">Long-term</h3>
+<ul>
+<li>AI wallet behavior prediction  </li>
+<li>Advanced transaction decoding  </li>
+<li>Multi-wallet analytics suite  </li>
+</ul>
+<hr>
+<h1 id="-15-disclaimer">15. Disclaimer</h1>
+<p>This is a <strong>wallet monitoring framework</strong>.<br>Use your own RPC infrastructure for production deployments.<br>Always follow blockchain provider terms.</p>
+<hr>
+<h1 id="-end-of-document">End of Document</h1>

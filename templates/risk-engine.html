@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Risk & Simulation Engine — Aetheron{% endblock %}
+
+{% block body_class %}page-risk-engine{% endblock %}
+
+{% block content %}
+
+<main class="max-w-3xl mx-auto mt-12 px-4">
+
+  <h2 class="text-3xl font-semibold text-cyan-300 mb-2">
+    Agent Risk & Simulation Engine
+  </h2>
+
+  <p class="text-gray-400 mb-6">
+    Run Monte Carlo simulations, tail-risk percentiles, and drawdown analysis.<br>
+    <span class="text-cyan-400">Price: 1.00 USDC per run</span>
+  </p>
+
+  <!-- Runs / Steps -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm text-gray-400 mb-2">Runs</label>
+      <input
+        id="runs"
+        type="number"
+        value="2000"
+        min="100"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+      />
+      <p class="text-xs text-gray-500 mt-1">Higher runs = smoother percentiles.</p>
+    </div>
+
+    <div>
+      <label class="block text-sm text-gray-400 mb-2">Steps</label>
+      <input
+        id="steps"
+        type="number"
+        value="365"
+        min="10"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+      />
+      <p class="text-xs text-gray-500 mt-1">Steps = time resolution (e.g. 365 days).</p>
+    </div>
+  </div>
+
+  <!-- Model params -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+    <div>
+      <label class="block text-sm text-gray-400 mb-2">Start price</label>
+      <input
+        id="start_price"
+        type="number"
+        value="1.0"
+        step="0.0001"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+      />
+    </div>
+
+    <div>
+      <label class="block text-sm text-gray-400 mb-2">Seed (optional)</label>
+      <input
+        id="seed"
+        type="number"
+        placeholder="1337"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+      />
+    </div>
+
+    <div>
+      <label class="block text-sm text-gray-400 mb-2">Drift (mu)</label>
+      <input
+        id="mu"
+        type="number"
+        value="0.0"
+        step="0.0001"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+      />
+    </div>
+
+    <div>
+      <label class="block text-sm text-gray-400 mb-2">Volatility (sigma)</label>
+      <input
+        id="sigma"
+        type="number"
+        value="0.8"
+        step="0.0001"
+        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+      />
+    </div>
+  </div>
+
+  <!-- Format -->
+  <label class="block text-sm text-gray-400 mb-1 mt-5">Output Format</label>
+  <select
+    id="risk-format"
+    class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+  >
+    <option value="pdf" selected>Premium PDF (.pdf)</option>
+    <option value="txt">Plain Text (.txt)</option>
+    <option value="md">Markdown (.md)</option>
+  </select>
+
+  <div class="flex gap-3 mt-5">
+    <button class="btn" onclick="tryRiskCall()">Run Simulation</button>
+  </div>
+
+  <div
+    id="risk-result"
+    class="mt-6 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-96 hidden">
+  </div>
+
+</main>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function safeJson(res) {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { return { error: "Non-JSON response", raw: text.slice(0, 300) }; }
+}
+
+async function tryRiskCall() {
+  const resultDiv = document.getElementById("risk-result");
+
+  const runs = Number(document.getElementById("runs").value);
+  const steps = Number(document.getElementById("steps").value);
+  const start_price = Number(document.getElementById("start_price").value);
+  const mu = Number(document.getElementById("mu").value);
+  const sigma = Number(document.getElementById("sigma").value);
+  const format = document.getElementById("risk-format").value;
+
+  const seedRaw = document.getElementById("seed").value.trim();
+  const seed = seedRaw ? Number(seedRaw) : null;
+
+  if (!window.currentWallet) {
+    alert("Please connect your wallet first.");
+    return;
+  }
+
+  if (!runs || runs < 100) {
+    alert("Runs too low (min 100).");
+    return;
+  }
+
+  if (!steps || steps < 10) {
+    alert("Steps too low (min 10).");
+    return;
+  }
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Sending request...";
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+
+    const res = await fetch("/api/risk-engine", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        runs,
+        steps,
+        start_price,
+        mu,
+        sigma,
+        seed,
+        format
+      })
+    });
+
+    const data = await safeJson(res);
+
+    if (res.status === 402) {
+      resultDiv.textContent =
+        "Payment required. Please complete the transaction.";
+      return;
+    }
+
+    if (res.status === 202) {
+      resultDiv.innerHTML = `
+        <div class="text-cyan-300 font-semibold mb-1">Simulation queued</div>
+        <div class="text-gray-200">Task ID: ${data.task_id}</div>
+      `;
+      return;
+    }
+
+    resultDiv.textContent =
+      "Error: " + (data.detail || data.message || data.error || "Unknown error");
+
+  } catch (err) {
+    console.error(err);
+    resultDiv.textContent = "Request failed: " + err.message;
+  }
+}
+</script>
+{% endblock %}

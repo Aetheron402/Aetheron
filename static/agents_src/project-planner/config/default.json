@@ -1,0 +1,34 @@
+{
+  "storage": {
+    "backend": "json",
+    "path": "data/db.json"
+  },
+
+  "services": {
+    "cleanup": {
+      "enabled": true,
+      "prune_done_tasks_after_days": 30,
+      "prune_empty_notes": true,
+      "prune_archived_milestones": false
+    },
+
+    "reminders": {
+      "enabled": true,
+      "lookahead_minutes": 60,
+      "remind_done_tasks": false,
+      "dedupe_key_field": "last_reminded_at",
+      "min_repeat_minutes": 60
+    },
+
+    "summaries": {
+      "enabled": true,
+      "store_as_note": false,
+      "note_title_prefix": "Project Summary",
+      "max_recent_notes": 5
+    }
+  },
+
+  "organizer": {
+    "auto_snapshot": false
+  }
+}

@@ -1,0 +1,15 @@
+Aetheron Components – License Agreement
+
+You are granted a personal, non-transferable, non-commercial license to use this software.
+
+You MAY:
+- Use this software for personal or research purposes
+- Modify the code for your own private use
+
+You may NOT:
+- Resell, redistribute, or repackage this software
+- Publish it online or in paid groups
+- Include it in external products or commercial tools without explicit permission
+
+Copyright © 2025 Aetheron. All rights reserved.
+Unauthorized distribution or resale is prohibited.

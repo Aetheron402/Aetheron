@@ -1,0 +1,90 @@
+{% extends "base.html" %} 
+
+{% block title %}Smart Prompt Tester (PersonaSim) — Aetheron {% endblock %} 
+
+{% block body_class %}page-personasim{% endblock %} 
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-12 px-4">
+  <h2 class="text-3xl font-semibold text-cyan-300 mb-2">Smart Prompt Tester (PersonaSim)</h2>
+    <p class="text-gray-400 mb-6">Run your prompt across multiple AI personas — Developer, Skeptic, and Hacker — and see how it holds up.<br>
+      <span class="text-cyan-400">Price: 0.50 USDC per run</span>
+    </p>
+
+    <label class="block text-sm text-gray-400 mb-2">Your prompt</label>
+    <textarea id="user-prompt" rows="8" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none" placeholder="Paste your prompt here..."></textarea>
+
+    <label class="block text-sm text-gray-400 mb-1 mt-3">Output format</label>
+    <select id="tester-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none">
+      <option value="pdf" selected>Premium PDF (.pdf)</option>
+      <option value="txt">Plain Text (.txt)</option>
+    </select>
+
+    <div class="flex gap-3 mt-5">
+      <button class="btn" onclick="tryTesterCall()">Run Prompt Test</button>
+    </div>
+
+    <div id="tester-result" class="mt-6 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-96 hidden"></div>
+  </div>
+{% endblock %}
+      
+{% block scripts %}
+<script defer>
+
+async function tryTesterCall(){
+  const resultDiv = document.getElementById("tester-result");
+  const text = document.getElementById("user-prompt").value.trim();
+  const format = document.getElementById("tester-format").value;
+  if (!window.currentWallet) {
+    alert("Please connect your wallet first.");
+    return;
+  }
+  if(!text){ alert("Please enter a prompt first."); return; }
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Sending request...";
+
+  try{
+    const headers = { "Content-Type": "application/json" };
+
+    const res = await fetch("/api/prompt-tester", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text, format })
+    });
+
+    if(res.status === 402){
+      resultDiv.textContent = "Payment required. Please complete the transaction in your wallet.";
+      return;
+    }
+
+    const data = await res.json();
+
+    if(res.status === 200){
+      resultDiv.innerHTML = `
+        <div class="text-cyan-300 font-semibold mb-1">PersonaSim Report:</div>
+        <div class="text-gray-200 whitespace-pre-line">${data.optimized_prompt}</div>
+        <p class="text-xs text-cyan-400 mt-2">Engine: ${data.engine_version} | Asset ID: ${data.asset_id}</p>
+      `;
+      if (data.download_url) {
+        if (data.format === "pdf") {
+          window.open(data.download_url, "_blank");
+        } else {
+          const a = document.createElement("a");
+          a.href = data.download_url;
+          a.download = `personasim_${Date.now()}.txt`;
+          a.click();
+        }
+      }
+    } else {
+          resultDiv.textContent = "Error: " + (data.message || "Unknown error");
+        }
+      }catch(err){
+        console.error(err);
+        resultDiv.textContent = "Request failed: " + err.message;
+      }
+    }
+
+    window.tryTesterCall = tryTesterCall;
+  </script>
+{% endblock %}

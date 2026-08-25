@@ -1,0 +1,40 @@
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ---- Runtime artefacts ----
+# Generated reports are uploaded to R2; the local copies are disposable.
+generated/
+*.log
+
+# ---- Local databases ----
+# ledger.db is the SQLite fallback ledger; dump.rdb is a Redis snapshot.
+*.db
+*.sqlite3
+dump.rdb
+
+# ---- Solana localnet ----
+# Contains validator/faucet/stake keypairs. Never commit.
+test-ledger/
+*keypair*.json
+
+# ---- Node / SDK ----
+node_modules/
+
+# ---- Editors & OS ----
+.DS_Store
+.idea/
+.vscode/
+
+# ---- SDK build output ----
+# Built at publish time (npm run build), not committed.
+sdk/dist/

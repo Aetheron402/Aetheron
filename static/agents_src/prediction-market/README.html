@@ -1,0 +1,261 @@
+<h3 id="license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.\
+Redistribution, resale, repackaging, or inclusion in any paid product or
+service is <strong>strictly prohibited</strong>.\
+See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+<h1 id="prediction-market-agent-template">Prediction Market Agent Template</h1>
+<hr>
+<h1 id="0-introduction">0. Introduction</h1>
+<p>Prediction markets allow participants to express conviction about future
+outcomes by taking positions on events rather than price movements. They
+are powerful tools for forecasting, hedging, and probabilistic
+decision-making --- but most platforms still require manual interaction
+and lack reusable execution infrastructure.</p>
+<p>The <strong>Prediction Market Agent Template</strong> is a <strong>production-quality
+execution framework</strong> designed to automate participation in prediction
+markets in a controlled, modular, and extensible way.</p>
+<p>This template is not a trading bot.\
+It is an <strong>execution agent foundation</strong>.</p>
+<p>It provides everything needed to build:</p>
+<ul>
+<li>Automated outcome-based strategies\</li>
+<li>Rule-driven betting agents\</li>
+<li>Risk-managed exposure systems\</li>
+<li>Event-driven lifecycle automation\</li>
+<li>Custom integrations with any prediction market</li>
+</ul>
+<p>...without rewriting execution logic, sizing logic, or position
+management.</p>
+<p>This document serves as a <strong>full onboarding guide</strong> for both beginners
+and advanced builders.</p>
+<hr>
+<h1 id="1-quick-start-guide-beginner-friendly-">1. Quick Start Guide (Beginner-Friendly)</h1>
+<h2 id="step-1-install-dependencies">Step 1 --- Install dependencies</h2>
+<p>From inside the project directory:</p>
+<pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre><p>All dependencies are standard and safe.</p>
+<hr>
+<h2 id="step-2-review-config-json-">Step 2 --- Review <code>config.json</code></h2>
+<p>The agent is fully configurable.\
+You can run it immediately with defaults, or adjust:</p>
+<ul>
+<li>run interval\</li>
+<li>bankroll reference\</li>
+<li>exposure limits\</li>
+<li>strategy thresholds\</li>
+<li>lifecycle timing</li>
+</ul>
+<p>No Python changes required.</p>
+<hr>
+<h2 id="step-3-run-the-agent">Step 3 --- Run the agent</h2>
+<pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
+</code></pre><p>When running, the agent will:</p>
+<ul>
+<li>clearly log startup information\</li>
+<li>state that it is using mock data\</li>
+<li>explain what to replace to go live\</li>
+<li>show decision flow step-by-step</li>
+</ul>
+<p>No API keys. No real trading. Safe by default.</p>
+<hr>
+<h1 id="2-what-this-template-is-and-is-not-">2. What This Template Is (And Is Not)</h1>
+<h2 id="what-it-is">What it is</h2>
+<ul>
+<li>A reusable execution engine\</li>
+<li>A reference architecture for prediction market automation\</li>
+<li>A configurable, deterministic agent framework\</li>
+<li>A safe foundation for real-money systems</li>
+</ul>
+<h2 id="what-it-is-not">What it is not</h2>
+<ul>
+<li>A plug-and-play betting bot\</li>
+<li>A market analytics platform\</li>
+<li>A prediction engine\</li>
+<li>A guarantee of profit</li>
+</ul>
+<hr>
+<h1 id="3-feature-overview">3. Feature Overview</h1>
+<h3 id="-venue-agnostic-by-design">✔ Venue-agnostic by design</h3>
+<p>The agent does not assume any specific prediction market.\
+All market-specific logic lives in the adapter layer.</p>
+<hr>
+<h3 id="-deterministic-execution-flow">✔ Deterministic execution flow</h3>
+<p>Every execution cycle follows the same steps:</p>
+<ol>
+<li>Fetch markets\</li>
+<li>Manage existing positions\</li>
+<li>Evaluate strategy rules\</li>
+<li>Calculate position size\</li>
+<li>Enforce risk limits\</li>
+<li>Execute orders</li>
+</ol>
+<p>No hidden behavior. No side effects.</p>
+<hr>
+<h3 id="-built-in-risk-management">✔ Built-in risk management</h3>
+<p>Includes:</p>
+<ul>
+<li>bankroll-aware sizing\</li>
+<li>global exposure limits\</li>
+<li>centralized risk enforcement</li>
+</ul>
+<p>Risk logic is separate from strategy logic.</p>
+<hr>
+<h3 id="-lifecycle-based-exits">✔ Lifecycle-based exits</h3>
+<p>Positions are automatically exited when:</p>
+<ul>
+<li>the market closes\</li>
+<li>a maximum hold time is exceeded</li>
+</ul>
+<p>This prevents unmanaged or forgotten exposure.</p>
+<hr>
+<h3 id="-config-driven-behavior">✔ Config-driven behavior</h3>
+<p>Most behavior is controlled via <code>config.json</code>.\
+Users do not need to edit code for common changes.</p>
+<hr>
+<h3 id="-safe-by-default">✔ Safe by default</h3>
+<ul>
+<li>Mock adapter included\</li>
+<li>Explicit <code>[MOCK]</code> logging\</li>
+<li>No real execution unless added intentionally</li>
+</ul>
+<hr>
+<h1 id="4-architecture-overview">4. Architecture Overview</h1>
+<pre><code>┌────────────────────────────┐
+│   Prediction Market API    │
+│   (<span class="hljs-keyword">user</span> <span class="hljs-title">implementation</span>)    │
+└──────────────┬─────────────┘
+               ▼
+       ┌───────────────────┐
+       │   Adapter Layer   │
+       │  adapters/*.py    │
+       └───────────────────┘
+               │ Normalized Markets
+               ▼
+       ┌───────────────────┐
+       │ Execution Engine  │
+       │   engine.py       │
+       └───────────────────┘
+               │
+     ┌─────────┼───────────┐
+     ▼         ▼           ▼
+ Strategy     Sizing       Risk
+(strategy)   (sizing)   (exposure)
+     │         │           │
+     └─────────┴───────────┘
+               ▼
+       ┌───────────────────┐
+       │ Lifecycle Manager │
+       │  lifecycle.py    │
+       └───────────────────┘
+</code></pre><hr>
+<h1 id="5-configuration-guide-config-json-">5. Configuration Guide (<code>config.json</code>)</h1>
+<p>Example configuration:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-attr">"bankroll"</span>: <span class="hljs-number">1000.0</span>,
+  <span class="hljs-attr">"max_exposure"</span>: <span class="hljs-number">300.0</span>,
+  <span class="hljs-attr">"strategy"</span>: {
+    <span class="hljs-attr">"type"</span>: <span class="hljs-string">"probability_threshold"</span>,
+    <span class="hljs-attr">"min_probability"</span>: <span class="hljs-number">0.30</span>
+  },
+  <span class="hljs-attr">"sizing"</span>: {
+    <span class="hljs-attr">"type"</span>: <span class="hljs-string">"fixed_fraction"</span>,
+    <span class="hljs-attr">"fraction"</span>: <span class="hljs-number">0.05</span>,
+    <span class="hljs-attr">"max_size"</span>: <span class="hljs-number">100.0</span>
+  },
+  <span class="hljs-attr">"risk_limits"</span>: {
+    <span class="hljs-attr">"max_exposure"</span>: <span class="hljs-number">300.0</span>
+  },
+  <span class="hljs-attr">"lifecycle"</span>: {
+    <span class="hljs-attr">"max_hold_time_seconds"</span>: <span class="hljs-number">21600</span>
+  },
+  <span class="hljs-attr">"run_interval"</span>: <span class="hljs-number">10</span>
+}
+</code></pre>
+<hr>
+<h2 id="bankroll">bankroll</h2>
+<p>Reference capital used for sizing calculations.</p>
+<h2 id="max_exposure">max_exposure</h2>
+<p>Maximum total exposure allowed across all positions.</p>
+<h2 id="strategy">strategy</h2>
+<p>Defines <strong>when</strong> the agent decides to act.</p>
+<h2 id="sizing">sizing</h2>
+<p>Defines <strong>how much</strong> capital is allocated per decision.</p>
+<h2 id="lifecycle">lifecycle</h2>
+<p>Defines <strong>how long</strong> positions may remain open.</p>
+<h2 id="run_interval">run_interval</h2>
+<p>Execution frequency in seconds.</p>
+<hr>
+<h1 id="6-adapter-system-most-important-section-">6. Adapter System (Most Important Section)</h1>
+<p>Adapters live in:</p>
+<pre><code>prediction_market_agent<span class="hljs-regexp">/adapters/</span>
+</code></pre><h2 id="-base-py-"><code>base.py</code></h2>
+<p>Defines the adapter interface.\
+This file should not be modified.</p>
+<h2 id="-example-py-"><code>example.py</code></h2>
+<p>A fully logged mock adapter that:</p>
+<ul>
+<li>returns fake markets\</li>
+<li>simulates execution\</li>
+<li>stores positions in memory</li>
+</ul>
+<p>This file exists purely as a reference.</p>
+<hr>
+<h2 id="going-live-what-users-actually-change-">Going live (what users actually change)</h2>
+<p>To trade for real, users only need to:</p>
+<ol>
+<li>Copy <code>example.py</code></li>
+<li>Rename it (e.g. <code>my_adapter.py</code>)</li>
+<li>Implement real API calls</li>
+<li>Replace the adapter instantiation in <code>main.py</code></li>
+</ol>
+<p>No engine changes required.</p>
+<hr>
+<h1 id="7-execution-flow-detailed-">7. Execution Flow (Detailed)</h1>
+<p>On each run:</p>
+<ul>
+<li>markets are fetched from the adapter\</li>
+<li>existing positions are evaluated for exit\</li>
+<li>strategies evaluate market conditions\</li>
+<li>position sizes are calculated\</li>
+<li>risk rules are enforced\</li>
+<li>orders are executed</li>
+</ul>
+<p>All steps are logged.</p>
+<hr>
+<h1 id="8-logging-transparency">8. Logging &amp; Transparency</h1>
+<p>The agent logs:</p>
+<ul>
+<li>startup instructions\</li>
+<li>execution ticks\</li>
+<li>strategy decisions\</li>
+<li>sizing calculations\</li>
+<li>risk rejections\</li>
+<li>lifecycle exits\</li>
+<li>mock execution notices</li>
+</ul>
+<p>Logs are designed to teach users how the agent works.</p>
+<hr>
+<h1 id="9-safety-notes">9. Safety Notes</h1>
+<ul>
+<li>This template does not trade by default\</li>
+<li>Real trading requires custom adapters\</li>
+<li>Always test with small sizes\</li>
+<li>You are responsible for any real trading logic</li>
+</ul>
+<hr>
+<h1 id="10-intended-audience">10. Intended Audience</h1>
+<ul>
+<li>Developers building prediction market bots\</li>
+<li>Traders automating outcome-based strategies\</li>
+<li>Researchers testing probabilistic execution\</li>
+<li>Builders integrating multiple markets</li>
+</ul>
+<p>Not intended as a ready-made betting product.</p>
+<hr>
+<h1 id="11-license-disclaimer">11. License &amp; Disclaimer</h1>
+<p>This repository is a <strong>template</strong>, not a trading system.\
+No financial advice is provided.\
+You assume all risk for any real trading code you implement.</p>
+<hr>
+<h1 id="end-of-document">End of Document</h1>

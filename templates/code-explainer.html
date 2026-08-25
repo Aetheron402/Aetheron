@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}LLM-Powered Code Explainer — Aetheron{% endblock %}
+
+{% block body_class %}page-code-explainer{% endblock %}
+
+{% block content %}
+
+<h2 class="text-3xl font-semibold text-cyan-300 mb-2">
+  LLM-Powered Code Explainer
+</h2>
+
+<p class="text-gray-400 mb-6">
+  Understand any code instantly — get explanations, complexity ratings, and refactor suggestions.<br>
+  <span class="text-cyan-400">Price: 0.50 USDC per use</span>
+</p>
+
+<label class="block text-sm text-gray-400 mb-2">
+  Paste your code below
+</label>
+
+<textarea
+  id="user-code"
+  rows="10"
+  class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none"
+  placeholder="Paste Python, JavaScript, or Solidity code here..."></textarea>
+
+<div class="flex gap-3 mt-5">
+  <button class="btn" onclick="tryCodeCall()">Explain Code</button>
+</div>
+
+<div
+  id="code-result"
+  class="mt-6 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-96 hidden">
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function tryCodeCall() {
+  const resultDiv = document.getElementById("code-result");
+  const code = document.getElementById("user-code").value.trim();
+
+  if (!window.currentWallet) {
+    alert("Please connect your wallet first.");
+    return;
+  }
+
+  if (!code) {
+    alert("Please paste your code first.");
+    return;
+  }
+
+  resultDiv.classList.remove("hidden");
+  resultDiv.textContent = "Sending request...";
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+
+    const res = await fetch("/api/code-explainer", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        text: code,
+        wallet: window.currentWallet
+      })
+    });
+
+    const data = await safeJson(res);
+
+    if (res.status === 402) {
+      resultDiv.textContent =
+        "Payment required. Please complete the transaction in your wallet.";
+      return;
+    }
+
+    if (res.status === 200) {
+      resultDiv.innerHTML = `
+        <div class="text-cyan-300 font-semibold mb-1">
+          Code Analysis Generated:
+        </div>
+        <div class="text-gray-200 whitespace-pre-line">
+          ${data.optimized_prompt}
+        </div>
+        <p class="text-xs text-cyan-400 mt-2">
+          Engine: ${data.engine_version} | Asset ID: ${data.asset_id}
+        </p>
+      `;
+
+      const blob = new Blob([data.optimized_prompt], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `code_explainer_${Date.now()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      resultDiv.textContent =
+        "Error: " + (data.message || data.error || "Unknown error");
+    }
+  } catch (err) {
+    console.error(err);
+    resultDiv.textContent = "Request failed: " + err.message;
+  }
+}
+</script>
+{% endblock %}

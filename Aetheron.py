@@ -1,0 +1,1321 @@
+from fastapi import FastAPI, Request, Header, HTTPException
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    FileResponse,
+    StreamingResponse,
+)
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+
+import requests
+
+from pydantic import BaseModel
+
+from dotenv import load_dotenv
+from openai import OpenAI
+from solana.rpc.api import Client
+from datetime import datetime
+from solders.pubkey import Pubkey
+
+from ledger_utils import (
+    init_ledger,
+    add_entry,
+    get_recent,
+    get_by_wallet,
+    get_by_wallet_paginated,
+    get_wallet_entry_count,
+    get_by_tx_sig,
+    row_to_dict,
+)
+from aeth_price import calculate_required_aeth, AethPricingError
+
+from payment_state import add_partial, get_partial, clear_partial
+
+from celery.result import AsyncResult
+from solders.signature import Signature
+
+import random
+import string
+import os
+import time
+import shutil
+import traceback
+import re
+
+load_dotenv()
+
+
+def _require_env(name: str, why: str) -> str:
+    """Fetch a mandatory setting, failing at boot with an actionable message."""
+    value = (os.getenv(name) or "").strip()
+    if not value:
+        raise RuntimeError(
+            f"{name} is not set — {why}. "
+            f"Set it in your .env (see .env.example) or in the Railway variables."
+        )
+    return value
+
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
+REDIS_URL = os.getenv("REDIS_URL")
+
+# Unset until the relaunched token exists. Every AETH code path is gated on this
+# being truthy, so setting it in the Railway variables activates AETH payments
+# with no redeploy and no code change.
+AETH_MINT = (os.getenv("AETH_MINT_ADDRESS") or "").strip() or None
+
+SOLANA_RPC = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+solana_client = Client(SOLANA_RPC)
+
+client = None
+
+def get_openai_client():
+    global client
+    if client is None:
+        if not OPENAI_API_KEY:
+            raise RuntimeError("OPENAI_API_KEY not set")
+        client = OpenAI(api_key=OPENAI_API_KEY)
+    return client
+
+# Canonical SPL USDC mint on Solana mainnet. Overridable so the stack can be
+# pointed at devnet, but the default is a public network constant, not config.
+USDC_MINT = os.getenv("USDC_MINT", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+
+# Deliberately mandatory: a payment app that boots without knowing where funds
+# are sent would silently route them to whatever wallet was last hardcoded.
+PAYMENT_WALLET = _require_env(
+    "PAYMENT_WALLET",
+    "it is the Solana wallet that receives every payment",
+)
+
+# Priced via env so they can be tuned from the Railway variables without a deploy.
+PROMPT_OPTIMIZER_PRICE_USDC = os.getenv("PRICE_PROMPT_OPTIMIZER", "0.25")
+CODE_EXPLAINER_PRICE_USDC = os.getenv("PRICE_CODE_EXPLAINER", "0.50")
+PROMPT_TESTER_PRICE_USDC = os.getenv("PRICE_PROMPT_TESTER", "0.50")
+CONTRACT_INTEL_PRICE_USDC = os.getenv("PRICE_CONTRACT_INTEL", "1.00")
+RISK_ENGINE_PRICE_USDC = os.getenv("PRICE_RISK_ENGINE", "0.75")
+AGENT_PRICE_USDC = os.getenv("PRICE_AGENT", "4.99")
+PAYMENT_NETWORK = "Solana"
+PAYMENT_CURRENCY = "USDC"
+
+USDC_DECIMALS = 6
+
+app = FastAPI(
+    title="Aetheron",
+    description="AI Component Shop powered by X402",
+    version="0.1"
+)
+templates = Jinja2Templates(directory="templates")
+
+init_ledger()
+
+templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M")
+
+# Exposed as globals so no template ever restates a payment address as a literal.
+# These are the values users copy and send funds to, so they must come from the
+# same source the backend verifies against — never from a second, drifting copy.
+templates.env.globals["payment_wallet"] = PAYMENT_WALLET
+templates.env.globals["payment_network"] = PAYMENT_NETWORK
+templates.env.globals["aeth_enabled"] = bool(AETH_MINT)
+templates.env.globals["aeth_mint"] = AETH_MINT or ""
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon/favicon.ico")
+
+def _extract_signers(message: dict) -> list[str]:
+    """
+    Solana jsonParsed responses can represent accountKeys in two formats:
+    - list[str]
+    - list[{"pubkey": str, "signer": bool, ...}]
+    This helper returns a best-effort list of signers.
+    """
+    keys = message.get("accountKeys", []) or []
+
+    if keys and isinstance(keys[0], str):
+        return [keys[0]]
+
+    out = []
+    for k in keys:
+        if isinstance(k, dict) and k.get("signer") is True:
+            pk = k.get("pubkey")
+            if pk:
+                out.append(pk)
+    return out
+    
+def guess_media_type(filename: str) -> str:
+    ext = filename.lower().split(".")[-1]
+
+    if ext == "pdf":
+        return "application/pdf"
+    if ext == "txt":
+        return "text/plain"
+    if ext == "md":
+        return "text/markdown"
+    if ext == "html":
+        return "text/html"
+    if ext == "docx":
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    return "application/octet-stream"
+
+def _iter_token_instructions(tx: dict):
+    """
+    Yield both top-level and inner instructions.
+    Many token transfers happen in meta.innerInstructions (CPI).
+    """
+    msg = (tx.get("transaction") or {}).get("message") or {}
+    meta = tx.get("meta") or {}
+
+    for ix in (msg.get("instructions") or []):
+        yield ix
+
+    for inner in (meta.get("innerInstructions") or []):
+        for ix in (inner.get("instructions") or []):
+            yield ix
+
+def get_mint_decimals(mint: str) -> int:
+    resp = solana_client.get_token_supply(Pubkey.from_string(mint))
+    if not resp or not resp.value:
+        raise ValueError("Failed to fetch mint supply")
+    return resp.value.decimals
+
+def detect_code_features(code: str) -> dict:
+    contains_jsx = bool(re.search(r"<[A-Z][A-Za-z0-9_]*(\s|>)", code))
+    contains_html = bool(re.search(r"<[a-z][^>]*>", code)) and not contains_jsx
+
+    return {
+        "contains_html": contains_html,
+        "contains_jsx": contains_jsx,
+        "contains_dom": any(
+            k in code for k in (
+                "document.",
+                "window.",
+                "innerHTML",
+                "querySelector",
+                "getElementById"
+            )
+        )
+    }
+
+def verify_payment(
+    tx_sig: str | None,
+    user_wallet: str | None,
+    price_usdc: float,
+    payment_method: str = "USDC",
+    component: str = "generic",
+) -> bool | dict:
+    """
+    Verifies Solana USDC payment by checking for an SPL transfer into a token account
+    owned by PAYMENT_WALLET with mint == USDC_MINT and amount >= required.
+    Also includes replay protection using your ledger.
+    """
+
+    AETH_TOLERANCE = 0.01  # 1%
+
+    if not tx_sig or not user_wallet:
+        return False
+
+    payment_method = payment_method.upper()
+
+    if payment_method == "USDC":
+        pass
+    elif payment_method == "AETH":
+        pass
+    else:
+        return False
+
+    resp = None
+
+    # Anything that is not a real base58 signature is a failed payment, not a
+    # server error. Without this guard a malformed X-TX-SIG raised out of the
+    # handler and surfaced as a 500 instead of the 402 the client expects.
+    try:
+        sig = Signature.from_string(tx_sig)
+    except (ValueError, TypeError):
+        print(f"Rejected malformed transaction signature: {tx_sig[:32]!r}")
+        return False
+
+    for _ in range(15):
+        resp = solana_client.get_transaction(
+            sig,
+            encoding="jsonParsed",
+            commitment = "confirmed",
+        )
+        if resp and resp.value:
+            break
+        time.sleep(0.4)
+    
+    if not resp or not resp.value:
+        return False
+
+    tx = resp.value
+
+    txd = tx.to_json() if hasattr(tx, "to_json") else None
+    if txd:
+        import json
+        tx = json.loads(txd)
+
+    meta = tx.get("meta")
+    if not meta or meta.get("err") is not None:
+        return False
+
+    if get_by_tx_sig(tx_sig):
+        raise HTTPException(status_code=409, detail="Transaction signature already used")
+
+    message = (tx.get("transaction") or {}).get("message") or {}
+
+    keys = message.get("accountKeys", []) or []
+    signers = _extract_signers(message)
+
+    if keys and isinstance(keys[0], dict):
+        if user_wallet not in signers:
+            return False
+
+    if payment_method == "USDC":
+        expected_amount = int(float(price_usdc) * (10 ** USDC_DECIMALS))
+        target_mint = USDC_MINT
+
+    elif payment_method == "AETH":
+        required_aeth = calculate_required_aeth(price_usdc)
+
+        aeth_decimals = get_mint_decimals(AETH_MINT)
+
+        expected_amount = int(required_aeth * (10 ** aeth_decimals))
+        target_mint = AETH_MINT
+
+    else:
+        return False
+
+    def extract_paid_amount(tx):
+        meta = tx.get("meta") or {}
+        post_balances = meta.get("postTokenBalances") or []
+        pre_balances = meta.get("preTokenBalances") or []
+
+        paid = 0
+
+        for post in post_balances:
+            if post.get("mint") != target_mint:
+                continue
+
+            post_amt = int(post["uiTokenAmount"]["amount"])
+            pre_amt = 0
+
+            for pre in pre_balances:
+                if pre.get("mint") != target_mint:
+                    continue
+
+                if payment_method == "USDC":
+                    if pre.get("owner") != PAYMENT_WALLET:
+                        continue
+
+                if pre.get("accountIndex") == post.get("accountIndex"):
+                    pre_amt = int(pre["uiTokenAmount"]["amount"])
+                    break
+
+            delta = post_amt - pre_amt
+            if delta > 0:
+                paid += delta
+
+        return paid
+
+    paid_amount = 0
+
+    max_retries = 6 if payment_method == "AETH" else 1
+
+    for _ in range(max_retries):
+        resp = solana_client.get_transaction(
+            sig,
+            encoding="jsonParsed",
+            commitment = "confirmed",
+        )
+
+        if not resp or not resp.value:
+            time.sleep(1.2)
+            continue
+
+        tx = resp.value
+
+        txd = tx.to_json() if hasattr(tx, "to_json") else None
+        if txd:
+            import json
+            tx = json.loads(txd)
+
+        paid_amount = extract_paid_amount(tx)
+
+        if paid_amount >= expected_amount:
+            break
+
+        time.sleep(1.2)
+
+    if payment_method == "USDC" and paid_amount < expected_amount:
+        existing = get_partial(user_wallet, component, "USDC")
+        if existing:
+            paid_amount += existing["amount"]
+
+        if paid_amount < expected_amount:
+            add_partial(
+                wallet=user_wallet,
+                component=component,
+                currency="USDC",
+                amount=paid_amount,
+                required=expected_amount,
+            )
+
+            return {
+                "status": "partial",
+                "paid": paid_amount / (10 ** USDC_DECIMALS),
+                "required": expected_amount / (10 ** USDC_DECIMALS),
+                "remaining": (expected_amount - paid_amount) / (10 ** USDC_DECIMALS),
+            }
+
+        clear_partial(user_wallet, component, "USDC")
+        return True
+
+    if payment_method == "AETH":
+        existing = get_partial(user_wallet, component, "AETH")
+        if existing:
+             paid_amount += existing["amount"]
+
+    if payment_method == "AETH":
+        tolerance_min = expected_amount * (1 - AETH_TOLERANCE)
+
+        if paid_amount >= tolerance_min:
+            clear_partial(user_wallet, component, "AETH")
+            return True
+
+        add_partial(
+            wallet=user_wallet,
+            component=component,
+            currency="AETH",
+            amount=paid_amount,
+            required=expected_amount,
+        )
+
+        decimals = get_mint_decimals(AETH_MINT)
+
+        return {
+            "status": "partial",
+            "paid": paid_amount / (10 ** decimals),
+            "required": expected_amount / (10 ** decimals),
+            "remaining": (expected_amount - paid_amount) / (10 ** decimals),
+        }
+    
+    return True
+
+class PromptIn(BaseModel):
+    text: str
+    format: str | None = "pdf"
+
+class ContractIntelInput(BaseModel):
+    contract_address: str
+    network: str
+    format: str | None = "pdf"
+
+class RiskEngineInput(BaseModel):
+    runs: int
+    steps: int
+    start_price: float
+    mu: float
+    sigma: float
+    seed: int | None = None
+    format: str | None = "pdf"
+
+@app.post("/api/risk-engine")
+def risk_engine_api(
+    payload: RiskEngineInput,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    payment_method = x_payment_method or "USDC"
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    payment_check = verify_payment(
+        x_payment,
+        user_wallet,
+        float(RISK_ENGINE_PRICE_USDC),
+        payment_method,
+        component="risk-engine",
+    )
+
+    if payment_check is False:
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Payment required to use Agent Risk & Simulation Engine",
+                "component": "risk-engine",
+            },
+        )
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Partial payment received",
+                "paid": payment_check["paid"],
+                "remaining": payment_check["remaining"],
+                "currency": payment_method,
+            },
+        )
+
+    if payload.runs < 100:
+        raise HTTPException(status_code=400, detail="runs must be >= 100")
+    if payload.steps < 10:
+        raise HTTPException(status_code=400, detail="steps must be >= 10")
+    if payload.start_price <= 0:
+        raise HTTPException(status_code=400, detail="start_price must be > 0")
+    if payload.sigma < 0:
+        raise HTTPException(status_code=400, detail="sigma must be >= 0")
+
+    asset_id = "X402-RISK-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    try:
+        from celery_worker import process_risk_engine
+
+        task = process_risk_engine.delay(
+            asset_id,
+            payload.runs,
+            payload.steps,
+            payload.mu,
+            payload.sigma,
+            payload.start_price,
+            payload.seed,
+            (payload.format or "pdf"),
+            user_wallet,
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        ledger_price = float(RISK_ENGINE_PRICE_USDC)
+
+        add_entry(
+            asset_id=asset_id,
+            wallet=user_wallet,
+            tx_sig=x_payment,
+            component="risk-engine",
+            price=ledger_price,
+            currency=payment_method,
+            status="pending",
+            filename=None
+        )
+    except Exception as e:
+        print("Ledger log failure (risk engine):", e)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "Risk simulation queued",
+            "asset_id": asset_id,
+            "task_id": task.id
+        }
+    )
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+    
+@app.get("/api/status")
+def api_status():
+    try:
+        # Lightweight, reliable call
+        resp = solana_client.get_latest_blockhash()
+
+        if resp and resp.value:
+            return {"ok": True}
+
+        return JSONResponse(status_code=503, content={"ok": False})
+
+    except Exception:
+        return JSONResponse(status_code=503, content={"ok": False})
+
+@app.get("/shop", response_class=HTMLResponse)
+def shop(request: Request):
+    components = [
+        {
+            "id": 1,
+            "slug": "prompt-optimizer",
+            "name": "AI Prompt Optimizer",
+            "description": "Turn rough notes or unstructured ideas into polished, high-quality prompts with clear goals, context, and formatting.",
+            "price": f"{PROMPT_OPTIMIZER_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+        {
+            "id": 2,
+            "slug": "code-explainer",
+            "name": "LLM-Powered Code Explainer",
+            "description": "Get readable explanations of any code snippet, including logic breakdowns, complexity insights, and suggested improvements.",
+            "price": f"{CODE_EXPLAINER_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+        {
+            "id": 3,
+            "slug": "prompt-tester",
+            "name": "Smart Prompt Tester (PersonaSim)",
+            "description": "Test your prompt against multiple AI personas—Developer, Skeptic, Hacker—to uncover blind spots, weaknesses, and ways to strengthen it.",
+            "price": f"{PROMPT_TESTER_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+        {
+            "id": 4,
+            "slug": "contract-intel",
+            "name": "Contract Intelligence Analyzer",
+            "description": "Input Ethereum or Solana contract address and get metadata, function counts, and known issues.",
+            "price": "1.00 USDC",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+        {
+            "id": 5,
+            "slug": "agents",
+            "name": "Prebuilt Agent Store",
+            "description": "Access prebuilt automation agents like trading bots, Discord/Telegram helpers, wallet watchers and monitoring scripts, all delivered ready to deploy.",
+            "price": "4.99 USDC",
+            "type": "download",
+            "coming_soon": False,
+        },
+        {
+            "id": 6,
+            "slug": "risk-engine",
+            "name": "Agent Risk & Simulation Engine",
+            "description": "Run Monte Carlo-style simulations with configurable runs/steps/mu/sigma and export the report.",
+            "price": f"{RISK_ENGINE_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+    ]
+
+    return templates.TemplateResponse("shop.html", {"request": request, "components": components})
+
+
+@app.get("/prompt-optimizer", response_class=HTMLResponse)
+def prompt_optimizer_page(request: Request):
+    return templates.TemplateResponse("prompt-optimizer.html", {"request": request})
+
+@app.get("/code-explainer", response_class=HTMLResponse)
+def code_explainer_page(request: Request):
+    return templates.TemplateResponse("code-explainer.html", {"request": request})
+
+@app.get("/prompt-tester", response_class=HTMLResponse)
+def prompt_tester_page(request: Request):
+    return templates.TemplateResponse("prompt-tester.html", {"request": request})
+
+@app.get("/contract-intel", response_class=HTMLResponse)
+def contract_intel_page(request: Request):
+    return templates.TemplateResponse("contract-intel.html", {"request": request})
+
+@app.get("/risk-engine", response_class=HTMLResponse)
+def risk_engine_page(request: Request):
+    return templates.TemplateResponse("risk-engine.html", {"request": request})
+
+@app.get("/agents", response_class=HTMLResponse)
+def agents_page(request: Request):
+    return templates.TemplateResponse("agents.html", {"request": request})
+
+@app.get("/learn", response_class=HTMLResponse)
+def learn_page(request: Request):
+    return templates.TemplateResponse("learn.html", {"request": request})
+
+@app.get("/legal", response_class=HTMLResponse)
+def legal_page(request: Request):
+    return templates.TemplateResponse("legal.html", {"request": request})
+
+@app.get("/roadmap", response_class=HTMLResponse)
+def roadmap_page(request: Request):
+    return templates.TemplateResponse("roadmap.html", {"request": request})
+    
+@app.get("/sdk", response_class=HTMLResponse)
+def sdk_page(request: Request):
+    return templates.TemplateResponse("sdk.html", {"request": request})
+
+@app.get("/api/job-status/{task_id}")
+def job_status(task_id: str):
+    """
+    Returns {"state": "...", "result": {...}} when ready.
+    result -> {"download_url": "/download/...", "filename": "...", "format": "pdf|txt"}
+    """
+    from celery_worker import celery
+    res = AsyncResult(task_id, app=celery)
+    state = res.state
+    out = {"state": state}
+
+    if state == "SUCCESS":
+        out["result"] = res.result
+
+    if state == "FAILURE":
+        out["error"] = str(res.info)
+
+    return out
+
+@app.get("/ledger", response_class=HTMLResponse)
+def ledger_page(request: Request):
+    wallet = request.headers.get("X-USER-WALLET")
+
+    if wallet:
+        entries = get_by_wallet(wallet)
+    else:
+        entries = []
+
+    return templates.TemplateResponse("ledger.html", {
+        "request": request,
+        "entries": entries,
+        "wallet": wallet or "Not connected"
+    })
+
+@app.get("/api/price/aeth")
+def api_price_aeth(usdc_price: float, refresh: bool = False):
+    """
+    Returns how many AETH are required to pay the given USDC price.
+    """
+    try:
+        required = calculate_required_aeth(usdc_price, force_refresh=refresh)
+        return {
+            "usdc_price": usdc_price,
+            "required_aeth": required
+        }
+    except AethPricingError as e:
+        raise HTTPException(status_code=502, detail=f"AETH pricing error: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+@app.get("/api/ledger")
+def ledger_api():
+    return [row_to_dict(r) for r in get_recent(limit=50)]
+
+@app.get("/api/download_agent/{agent_id}")
+def download_agent(
+    agent_id: str,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    try:
+        payment_method = (x_payment_method or "USDC").upper()
+        user_wallet = request.headers.get("X-USER-WALLET")
+
+        payment_check = verify_payment(
+            x_payment,
+            user_wallet,
+            float(AGENT_PRICE_USDC),
+            payment_method,
+            component=f"agent:{agent_id}",
+        )
+
+        if payment_check is False:
+            return JSONResponse(
+                status_code=402,
+                content={
+                    "status": 402,
+                    "message": "Payment required for agent download",
+                    "agent_id": agent_id,
+                },
+            )
+
+        if isinstance(payment_check, dict):
+            return JSONResponse(
+                status_code=402,
+                content={
+                    "status": 402,
+                    "message": "Partial payment received",
+                    "paid": payment_check["paid"],
+                    "remaining": payment_check["remaining"],
+                    "currency": "AETH",
+                    "agent_id": agent_id,
+                },
+            )
+
+        agent_paths = {
+            "solana-sniper": "static/agents_src/solana-sniper",
+            "wallet-watcher": "static/agents_src/wallet-watcher",
+            "discord-helper": "static/agents_src/discord-helper",
+            "pumpfun-launcher": "static/agents_src/pumpfun-launcher",
+            "solana-trading-assistant": "static/agents_src/solana-trading-assistant",
+            "market-tracker": "static/agents_src/market-tracker",
+            "prediction-market": "static/agents_src/prediction-market",
+            "alpha-scanner": "static/agents_src/alpha-scanner",
+            "project-planner": "static/agents_src/project-planner",
+        }
+
+        if agent_id not in agent_paths:
+            raise HTTPException(status_code=404, detail="Invalid agent ID")
+
+        src_folder = agent_paths[agent_id]
+        if not os.path.exists(src_folder):
+            raise HTTPException(status_code=404, detail="Agent source folder not found")
+
+        zip_base = f"/tmp/{agent_id}"
+        zip_path = f"{zip_base}.zip"
+
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+
+        shutil.make_archive(zip_base, "zip", src_folder)
+
+        return FileResponse(
+            zip_path,
+            filename=f"{agent_id}.zip",
+            media_type="application/zip",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/agents")
+def list_agents():
+    agents = [
+        {
+            "id": "solana-sniper",
+            "title": "Solana Sniper Bot",
+            "description": "Snipes new Pump.fun tokens instantly with adjustable timing, filters, and blacklist protection.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "wallet-watcher",
+            "title": "Wallet Watcher (Whale Tracker)",
+            "description": "Tracks any wallet in real-time and alerts on buys, sells, transfers, approvals, and liquidity changes.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "discord-helper",
+            "title": "Discord AI Helper Bot",
+            "description": "A customizable AI bot for Discord — moderation, auto-replies, chat, commands, and wallet verification.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "pumpfun-launcher",
+            "title": "Pump.fun Launch Assistant",
+            "description": "Monitors new Pump.fun launches, liquidity events, and early momentum signals.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "solana-trading-assistant",
+            "title": "Solana Trading Assistant",
+            "description": "Analyzes Solana tokens, identifies trends, volume shifts, and supports trading decisions.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "market-tracker",
+            "title": "Market Tracker Agent (Template)",
+            "description": "Tracks market regimes using risk, volatility, liquidity, correlation, and psychology signals.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "prediction-market",
+            "title": "Prediction Market Agent (Template)",
+            "description": "Analyzes prediction markets, implied probabilities, sentiment, and mispricing opportunities",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "alpha-scanner",
+            "title": "Alpha Scanner Agent (Template)",
+            "description": "Scans social, on-chain, and market signals to detect emerging narratives and ranked alpha opportunities.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "project-planner",
+            "title": "Project Planner Agent (Template)",
+            "description": "A modular project coordination framework for managing tasks, notes, milestones, reminders, cleanup, and structured project summaries.",
+            "price": AGENT_PRICE_USDC,
+        },
+    ]
+    return {"agents": agents}  
+    
+@app.get("/my-assets/{wallet}", response_class=HTMLResponse)
+def my_assets_page(request: Request, wallet: str):
+    try:
+        entries = get_by_wallet(wallet)
+    except Exception as e:
+        print("Ledger fetch error:", e)
+        entries = []
+
+    try:
+        return templates.TemplateResponse("my_assets.html", {
+            "request": request,
+            "entries": entries or [],
+            "wallet": wallet
+        })
+    except Exception as e:
+        print("Template render error:", e)
+        return HTMLResponse(
+            content=f"<h2 style='color:red;text-align:center;'>Error loading assets for {wallet}</h2>",
+            status_code=200
+        )
+
+@app.post("/api/contract-intel")
+def contract_intel_api(
+    payload: ContractIntelInput,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    payment_method = x_payment_method or "USDC"
+
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    payment_check = verify_payment(
+        x_payment,
+        user_wallet,
+        float(CONTRACT_INTEL_PRICE_USDC),
+        payment_method,
+        component="contract-intel",
+    )
+
+    if payment_check is False:
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Payment required to use Contract Intelligence Analyzer",
+                "component": "contract-intel",
+            },
+        )
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Partial payment received",
+                "paid": payment_check["paid"],
+                "remaining": payment_check["remaining"],
+                "currency": "AETH",
+            },
+        )
+
+    contract_address = payload.contract_address.strip()
+    network = payload.network.strip().lower()
+
+    if network not in ["solana", "ethereum"]:
+        return JSONResponse(status_code=400, content={"error": "Invalid network"})
+
+    asset_id = "X402-CONTRACT-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    try:
+        from celery_worker import process_contract_intel
+        
+        task = process_contract_intel.delay(
+            asset_id,
+            contract_address,
+            network,
+            (payload.format or "pdf"),
+            request.headers.get("X-USER-WALLET"),
+        )
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    try:
+        ledger_price = float(CONTRACT_INTEL_PRICE_USDC)
+
+        add_entry(
+            asset_id=asset_id,
+            wallet=user_wallet,
+            tx_sig=x_payment,
+            component="contract-intel",
+            price=ledger_price,
+            currency=payment_method,
+            status="pending",
+            filename=None
+        )
+    except Exception as e:
+        print("Ledger log failure (contract intel):", e)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "Contract scan queued",
+            "asset_id": asset_id,
+            "task_id": task.id
+        }
+    )
+
+@app.get("/buy_agent/{agent_id}")
+def buy_agent(agent_id: str):
+    return JSONResponse(
+        status_code=402,
+        content={
+            "status": 402,
+            "message": "Payment required for agent download",
+            "agent_id": agent_id,
+            "price": AGENT_PRICE_USDC,
+            "currency": PAYMENT_CURRENCY,
+            "network": PAYMENT_NETWORK,
+            "wallet": PAYMENT_WALLET,
+            "how_to_pay": "Send payment and retry with an X-TX-SIG header.",
+        }
+    )
+    
+@app.get("/api/my-assets/{wallet}")
+def api_my_assets(wallet: str, request: Request):
+    page = int(request.query_params.get("page", 1))
+    per_page = 5
+    offset = (page - 1) * per_page
+
+    entries = get_by_wallet_paginated(wallet, limit=per_page, offset=offset)
+    dict_entries = [row_to_dict(e) for e in entries]
+
+    total = get_wallet_entry_count(wallet)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return {
+        "entries": dict_entries,
+        "page": page,
+        "total_pages": total_pages
+    }
+
+@app.get("/buy/{component_id}")
+def buy_component(component_id: int):
+    return JSONResponse(
+        content={"status": "Payment Required", "component_id": component_id},
+        status_code=402,
+    )
+
+def cleanup_generated_folder():
+    """Delete old generated files older than 24 hours."""
+    folder = "generated"
+    if not os.path.exists(folder):
+        return
+    now = time.time()
+    for f in os.listdir(folder):
+        path = os.path.join(folder, f)
+        if os.path.isfile(path) and now - os.path.getmtime(path) > 86400:  # 24h
+            os.remove(path)
+
+@app.post("/api/prompt-optimizer")
+def prompt_optimizer(
+    payload: PromptIn,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    payment_method = x_payment_method or "USDC"
+
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    payment_check = verify_payment(
+        x_payment,
+        user_wallet,
+        float(PROMPT_OPTIMIZER_PRICE_USDC),
+        payment_method,
+        component="prompt-optimizer",
+    )
+
+    if payment_check is False:
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Payment required to use AI Prompt Optimizer",
+                "component": "prompt-optimizer",
+            },
+        )
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Partial payment received",
+                "paid": payment_check["paid"],
+                "remaining": payment_check["remaining"],
+                "currency": "AETH",
+            },
+        )
+
+
+    user_text = (payload.text or "").strip()
+    if not user_text:
+        return JSONResponse(status_code=400, content={"error": "Empty prompt"})
+
+    asset_id = "X402-PROMPT-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    try:
+        from celery_worker import process_prompt
+
+        task = process_prompt.delay(
+            asset_id,
+            user_text,
+            (payload.format or "pdf"),
+            request.headers.get("X-USER-WALLET")
+        )
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    try:
+        ledger_price = float(PROMPT_OPTIMIZER_PRICE_USDC)
+
+        add_entry(
+            asset_id=asset_id,
+            wallet=user_wallet,
+            tx_sig=x_payment,
+            component="prompt-optimizer",
+            price=ledger_price,
+            currency=payment_method,
+            status="pending",
+            filename=None
+        )
+    except Exception as e:
+        print("Ledger log failure (prompt optimizer):", e)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "Prompt queued for processing",
+            "asset_id": asset_id,
+            "task_id": task.id
+        }
+    )
+    
+class CodeInput(BaseModel):
+    text: str
+    wallet: str | None = None
+    chain: str | None = None
+    format: str | None = "pdf"
+
+@app.post("/api/code-explainer")
+def code_explainer(
+    payload: CodeInput,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    payment_method = x_payment_method or "USDC"
+
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    payment_check = verify_payment(
+        x_payment,
+        user_wallet,
+        float(CODE_EXPLAINER_PRICE_USDC),
+        payment_method,
+        component="code-explainer",
+    )
+
+    if payment_check is False:
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Payment required to use LLM-Powered Code Explainer",
+                "component": "code-explainer",
+            },
+        )
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Partial payment received",
+                "paid": payment_check["paid"],
+                "remaining": payment_check["remaining"],
+                "currency": "AETH",
+            },
+        )
+
+    code_text = (payload.text or "").strip()
+    if not code_text:
+        return JSONResponse(status_code=400, content={"error": "Empty code input"})
+
+    asset_id = "X402-CODE-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    try:
+        from celery_worker import process_code
+
+        features = detect_code_features(code_text)
+        
+        task = process_code.delay(
+            asset_id,
+            code_text,
+            (payload.format or "pdf"),
+            request.headers.get("X-USER-WALLET"),
+            features,
+        )
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    try:
+        ledger_price = float(CODE_EXPLAINER_PRICE_USDC)
+
+        add_entry(
+            asset_id=asset_id,
+            wallet=user_wallet,
+            tx_sig=x_payment,
+            component="code-explainer",
+            price=ledger_price,
+            currency=payment_method,
+            status="pending",
+            filename=None
+        )
+    except Exception as e:
+        print("Ledger log failure (code explainer):", e)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "Code analysis queued",
+            "asset_id": asset_id,
+            "task_id": task.id
+        }
+    )
+    
+class PromptTestIn(BaseModel):
+    text: str
+    format: str | None = "pdf"
+
+@app.post("/api/prompt-tester")
+def prompt_tester(
+    payload: PromptTestIn,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    payment_method = x_payment_method or "USDC"
+
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    payment_check = verify_payment(
+        x_payment,
+        user_wallet,
+        float(PROMPT_TESTER_PRICE_USDC),
+        payment_method,
+        component="prompt-tester",
+    )
+
+    if payment_check is False:
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Payment required to use Smart Prompt Tester",
+                "component": "prompt-tester",
+            },
+        )
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Partial payment received",
+                "paid": payment_check["paid"],
+                "remaining": payment_check["remaining"],
+                "currency": "AETH",
+            },
+        )
+
+    user_prompt = (payload.text or "").strip()
+    if not user_prompt:
+        return JSONResponse(status_code=400, content={"error": "Empty prompt"})
+
+    asset_id = "X402-TESTER-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    try:
+        from celery_worker import process_tester
+        
+        task = process_tester.delay(
+            asset_id,
+            user_prompt,
+            (payload.format or "pdf"),
+            request.headers.get("X-USER-WALLET")
+        )
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    try:
+        ledger_price = float(PROMPT_TESTER_PRICE_USDC)
+
+        add_entry(
+            asset_id=asset_id,
+            wallet=user_wallet,
+            tx_sig=x_payment,
+            component="prompt-tester",
+            price=ledger_price,
+            currency=payment_method,
+            status="pending",
+            filename=None
+        )
+    except Exception as e:
+        print("Ledger log failure (prompt tester):", e)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "Prompt tester queued",
+            "asset_id": asset_id,
+            "task_id": task.id
+        }
+    )
+
+@app.get("/download/{filename}")
+def download_file(filename: str):
+
+    if not filename or filename.lower() in ("null", "none", "undefined"):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    public_base = os.getenv("R2_PUBLIC_BASE")
+
+    if not public_base:
+        raise HTTPException(status_code=500, detail="R2 configuration missing")
+
+    clean_name = filename.lstrip("/")
+    file_url = f"{public_base}/{clean_name}"
+
+    try:
+        r = requests.get(file_url, stream=True, timeout=30)
+        r.raise_for_status()
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{os.path.basename(filename)}"'
+    }
+
+    return StreamingResponse(
+        r.iter_content(chunk_size=8192),
+        media_type=guess_media_type(filename),
+        headers=headers,
+    )
+
+@app.post("/api/prompt-optimize")
+def prompt_optimize_alias(
+    payload: PromptIn,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    return prompt_optimizer(
+        payload,
+        request,
+        x_payment,
+        x_payment_method,
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": str(exc)
+        }
+    )
+

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}My Assets – Aetheron{% endblock %}
+
+{% block body_class %}page-assets{% endblock %}
+
+{% block content %}
+<section class="max-w-5xl mx-auto">
+  <h1 class="text-3xl font-bold text-cyan-400 mb-2">My Assets</h1>
+  <p class="text-gray-400 mb-8 font-mono">
+    Wallet: {{ wallet }}
+  </p>
+
+  <div class="overflow-x-auto border border-cyan-400/20 rounded-lg">
+    <table class="min-w-full text-sm text-gray-300">
+      <thead class="bg-gray-800 text-cyan-300">
+        <tr>
+          <th class="p-3 text-left">Time</th>
+          <th class="p-3 text-left">Component</th>
+          <th class="p-3 text-left">Payment</th>
+          <th class="p-3 text-left">File</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for e in entries %}
+        {# row structure:
+           0=id, 1=asset_id, 2=wallet, 3=tx_signature,
+           4=component, 5=price, 6=currency,
+           7=status, 8=filename, 9=timestamp
+        #}
+
+        <tr class="border-t border-gray-800 hover:bg-gray-900">
+
+          <td class="p-3">{{ e[9] | fmt_ts }}</td>
+
+          <td class="p-3">{{ e[4] }}</td>
+
+          <td class="p-3">
+            <span class="text-cyan-300 font-mono">
+              {{ "%.2f"|format(e[5]) }} {{ e[6] }}
+            </span>
+            <br>
+            {% if e[7] == "success" %}
+              <span class="text-emerald-400 text-xs">success</span>
+            {% else %}
+              <span class="text-red-400 text-xs">failed</span>
+            {% endif %}
+          </td>
+
+          <td class="p-3">
+            {% if e[8] %}
+              <a href="/download/{{ e[8] }}" class="text-cyan-300 hover:underline">Download</a>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+
+        </tr>
+        {% endfor %}
+
+        {% if not entries or entries|length == 0 %}
+        <tr>
+          <td class="p-4 text-gray-500 text-center" colspan="4">
+            No assets yet.
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+
+    </table>
+  </div>
+</section>
+{% endblock %}

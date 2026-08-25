@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{% block title %}Aetheron{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
+  <link rel="manifest" href="/static/favicon/site.webmanifest">
+  <meta name="theme-color" content="#030712">
+</head>
+
+<body class="font-sans {% block body_class %}{% endblock %}">
+
+  <!-- HEADER -->
+  <header class="px-6 py-2 flex justify-between items-center relative">
+
+  <!-- LOGO -->
+  <h1 onclick="window.location.href='/'"
+      class="ml-2 flex items-center gap-4 cursor-pointer group select-none">
+
+    <img src="/static/favicon/favicon.svg"
+          alt="Aetheron"
+          class="w-16 h-16 transition-transform duration-200
+                group-hover:scale-105" />
+
+    <span class="hidden sm:inline text-base font-bold text-cyan-300 tracking-wider">
+      X402
+    </span>
+  </h1>
+
+    <!-- DESKTOP NAV -->
+    <nav class="desktop-nav hidden md:flex gap-6 text-sm items-center">
+      <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">GitHub</a>
+      <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">X</a>
+      <a href="/learn" class="text-gray-400 hover:text-cyan-300 transition">Learn</a>
+      <a href="/sdk" class="text-gray-400 hover:text-cyan-300 transition">SDK</a>
+      <a href="/roadmap" class="text-gray-400 hover:text-cyan-300 transition">Roadmap</a>
+      <a href="/legal" class="text-gray-400 hover:text-cyan-300 transition">Legal</a>
+
+      <span id="system-status"
+            class="hidden sm:flex items-center gap-2 text-xs text-emerald-400 select-none">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Network operational
+      </span>
+
+      <button id="connect-wallet"
+        class="wallet-btn text-white px-3 py-1 rounded text-xs transition">
+        Connect Wallet
+      </button>
+    </nav>
+
+    <!-- MOBILE MENU BUTTON -->
+    <button class="mobile-menu-btn md:hidden text-cyan-300 text-3xl" onclick="toggleMobileMenu()">☰</button>
+
+    <!-- MOBILE NAV -->
+    <nav id="mobile-nav"
+        class="hidden flex-col gap-4 bg-[#030712]/95 border-t border-cyan-400/30 p-4 absolute left-0 right-0 top-full z-50 md:hidden">
+
+      <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-300">GitHub</a>
+      <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-300">X</a>
+      <a href="/learn" class="text-gray-300">Learn</a>
+      <a href="/sdk" class="text-gray-300">SDK</a>
+      <a href="/roadmap" class="text-gray-300">Roadmap</a>
+      <a href="/legal" class="text-gray-300">Legal</a>
+
+      <span id="system-status-mobile"
+            class="flex items-center gap-2 text-xs text-emerald-400 select-none">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Network operational
+      </span>
+
+      <button id="mobile-connect-wallet"
+        class="bg-cyan-700 text-white px-3 py-2 rounded">
+        Connect Wallet
+      </button>
+    </nav>
+  </header>
+
+  <style>
+    :root{
+      --bg: #030712;
+      --panel: rgba(15, 23, 42, 0.78);
+      --panel-strong: rgba(11, 18, 32, 0.90);
+      --border: rgba(56, 189, 248, 0.22);
+      --border-strong: rgba(56, 189, 248, 0.34);
+      --text: #e5e7eb;
+      --muted: rgba(229,231,235,0.70);
+      --cyan: #22d3ee;
+      --cyan-2: #67e8f9;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    html {
+      overflow-y: scroll;
+    }
+
+    .background {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    header > * {
+      position: relative;
+      z-index: 2;
+    }
+
+    .bg-gradient {
+      position: absolute;
+      inset: -25%;
+      background:
+        radial-gradient(65% 50% at 18% 18%, rgba(34,211,238,0.18), transparent 60%),
+        radial-gradient(60% 50% at 82% 22%, rgba(56,189,248,0.16), transparent 62%),
+        radial-gradient(65% 60% at 50% 88%, rgba(34,211,238,0.14), transparent 65%);
+      filter: blur(14px);
+      opacity: 1;
+    }
+
+    .scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.035) 0,
+        rgba(255,255,255,0.035) 1px,
+        transparent 2px,
+        transparent 5px
+      );
+      opacity: 0.35;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,0.65) 100%);
+      opacity: 0.8;
+    }
+
+    .particle {
+      position: absolute;
+      background: rgba(34, 211, 238, 0.28);
+      border-radius: 50%;
+      width: 2px;
+      height: 2px;
+      animation: floatUp linear infinite;
+      will-change: transform, opacity;
+    }
+
+    @keyframes floatUp {
+      0%   { transform: translateY(110vh); opacity: 0; }
+      20%  { opacity: 1; }
+      100% { transform: translateY(-12vh); opacity: 0; }
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 10;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      position: relative;
+      z-index: 20;
+
+      min-height: 80px;
+
+      isolation: isolate;
+
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      background: linear-gradient(
+        180deg,
+        rgba(3,7,18,0.65) 0%,
+        rgba(3,7,18,0.25) 100%
+      );
+    }
+
+    header,
+    header * {
+      transition: none !important;
+    }
+
+    .btn{
+      position: relative;
+      background: linear-gradient(180deg, var(--cyan-2), var(--cyan));
+      color: #001018;
+      font-weight: 700;
+      padding: .55rem 1.05rem;
+      border-radius: .85rem;
+      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+      box-shadow:
+        0 10px 30px rgba(34,211,238,0.18),
+        inset 0 1px 0 rgba(255,255,255,0.35);
+    }
+    .btn:hover{
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+      box-shadow:
+        0 14px 40px rgba(34,211,238,0.22),
+        inset 0 1px 0 rgba(255,255,255,0.42);
+    }
+    .btn:active{ transform: translateY(0px) scale(0.99); }
+
+    .modal-bg{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.68);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index: 70;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .modal{
+      background: linear-gradient(180deg, rgba(11,18,32,0.92), rgba(2,6,23,0.92));
+      border: 1px solid var(--border-strong);
+      border-radius: 1.25rem;
+      width: min(520px, 92vw);
+      padding: 1.25rem;
+      box-shadow:
+        0 30px 90px rgba(0,0,0,0.55),
+        0 0 0 1px rgba(34,211,238,0.10);
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.72));
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+    .card:hover{
+      transform: translateY(-4px);
+      border-color: rgba(34,211,238,0.40);
+      box-shadow:
+        0 18px 60px rgba(0,0,0,0.38),
+        0 0 30px rgba(34,211,238,0.12);
+    }
+
+    .pill{
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.9rem;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      color: #7dd3fc;
+      font-size: .75rem;
+      letter-spacing: .04em;
+      text-transform: lowercase;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    .filter-bar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:.5rem;
+      justify-content:center;
+    }
+
+    .filter-chip{
+      padding: 0.48rem 0.95rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(229,231,235,0.75);
+      background: rgba(15,23,42,0.65);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 9999px;
+      transition: transform .16s ease, background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .filter-chip:hover{
+      transform: translateY(-1px);
+      color: rgba(229,231,235,0.95);
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(34,211,238,0.36);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.28);
+    }
+
+    .filter-chip.active{
+      color: #001018;
+      background: linear-gradient(180deg, rgba(103,232,249,0.95), rgba(34,211,238,0.92));
+      border-color: rgba(34,211,238,0.55);
+      box-shadow:
+        0 16px 40px rgba(34,211,238,0.18),
+        inset 0 1px 0 rgba(255,255,255,0.40);
+    }
+
+    input, textarea, select {
+      color-scheme: dark;
+    }
+
+    @media (max-width: 768px){
+      .modal{ max-height: 85vh; overflow-y: auto; }
+      textarea, .code-input { max-height: 40vh; resize: vertical; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      body{ transition:none; }
+      .particle{ animation:none; opacity:0.35; }
+      .card, .btn, .filter-chip{ transition:none; }
+      .scanlines{ opacity:0.18; }
+    }
+
+    .wallet-btn {
+      background: linear-gradient(180deg, #22d3ee, #0ea5e9);
+      color: #001018;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.35);
+      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+    }
+
+    .wallet-btn:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    .wallet-btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -32px;
+      height: 32px;
+      pointer-events: none;
+      background: linear-gradient(
+        to bottom,
+        rgba(3,7,18,0.25),
+        rgba(3,7,18,0.0)
+      );
+    }
+
+    @keyframes page-fade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .page-fade {
+      animation: page-fade 0.55s ease-out both;
+    }
+
+    #mobile-nav {
+      will-change: transform;
+    }
+  </style>
+
+  <!-- Ambient background -->
+  <div class="background" aria-hidden="true">
+    <div class="bg-gradient"></div>
+    <div id="particle-container"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+  </div>
+
+  <div class="app-shell">
+
+    <!-- PAGE CONTENT -->
+    <main class="p-6">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-cyan-900/30 mt-12 text-center text-sm text-gray-500 p-6">
+      © 2025 Aetheron — Powered by the X402 protocol.
+      <div class="space-x-4 mt-2">
+        <a href="https://github.com/Aetheron402" target="_blank" class="hover:text-cyan-300 transition">GitHub</a>
+        <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">X</a>
+        <a href="/learn" class="hover:text-cyan-300 transition">Learn</a>
+        <a href="/roadmap" class="hover:text-cyan-300 transition">Roadmap</a>
+        <a href="/legal" class="hover:text-cyan-300 transition">Legal</a>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Wallet Selection Modal -->
+  <div id="wallet-select-modal" class="modal-bg" style="display:none;">
+    <div class="modal text-center">
+      <h3 class="text-cyan-300 text-lg font-semibold mb-4">Choose Wallet</h3>
+
+      <button id="phantom-btn" class="btn mb-3 w-full flex items-center justify-center gap-2">
+        Phantom Wallet
+      </button>
+
+      <button class="btn w-full flex flex-col items-center justify-center gap-0.5 bg-gray-800 cursor-not-allowed opacity-60"
+              disabled>
+        <span>MetaMask</span>
+        <span class="text-xs text-gray-400">Coming Q1 2026</span>
+      </button>
+
+      <p class="text-xs text-gray-400 mt-4 cursor-pointer hover:underline"
+         onclick="document.getElementById('wallet-select-modal').style.display='none'">
+        Cancel
+      </p>
+    </div>
+  </div>
+
+  <!-- Ambient particles init -->
+  <script>
+    (function initParticles(){
+      const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced) return;
+
+      const container = document.getElementById("particle-container");
+      if (!container) return;
+
+      const count = 80;
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement("div");
+        p.className = "particle";
+        p.style.left = (Math.random() * 100) + "%";
+        p.style.opacity = (0.25 + Math.random() * 0.5).toFixed(2);
+        p.style.animationDuration = (4 + Math.random() * 10) + "s";
+        p.style.animationDelay = (Math.random() * 6) + "s";
+        container.appendChild(p);
+      }
+    })();
+  </script>
+
+  <!-- WALLET JS -->
+  <script>
+    let currentWallet = "";
+    let currentChain  = "";
+    window.currentWallet = "";
+    const walletBtn = document.getElementById("connect-wallet");
+
+    function shorten(addr) { return "🔗 " + addr.slice(0,4) + "..." + addr.slice(-4); }
+
+    function updateWalletUI() {
+      const mobileWalletBtn = document.getElementById("mobile-connect-wallet");
+      if (!currentWallet) {
+        walletBtn.textContent = "Connect Wallet";
+        if (mobileWalletBtn) mobileWalletBtn.textContent = "Connect Wallet";
+        return;
+      }
+      walletBtn.textContent = shorten(currentWallet);
+      if (mobileWalletBtn) mobileWalletBtn.textContent = shorten(currentWallet);
+    }
+
+    async function connectPhantom() {
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const hasPhantom = !!window.solana?.isPhantom;
+
+      // MOBILE: redirect into Phantom app browser
+      if (isMobile && !hasPhantom) {
+        const target = encodeURIComponent(window.location.href);
+        window.location.href = `https://phantom.app/ul/browse/${target}`;
+        return;
+      }
+
+      // DESKTOP without Phantom
+      if (!hasPhantom) {
+        alert("Please install the Phantom browser extension to continue.");
+        return;
+      }
+
+      try {
+        await window.solana.disconnect().catch(() => {});
+        const res = await window.solana.connect({ onlyIfTrusted: false });
+        currentWallet = res.publicKey.toString();
+        currentChain = "solana";
+        window.currentWallet = currentWallet;
+        updateWalletUI();
+        window.dispatchEvent(new Event("wallet:connected"));
+      } catch (err) {
+        console.error(err);
+      }
+
+      document.getElementById("wallet-select-modal").style.display = "none";
+    }
+
+    async function connectMetamask() {
+      if (!window.ethereum) { alert("MetaMask not found"); return; }
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        currentWallet = accounts[0];
+        currentChain = "ethereum";
+        updateWalletUI();
+      } catch(err) {
+        console.error(err);
+      }
+      document.getElementById("wallet-select-modal").style.display = "none";
+    }
+
+    walletBtn.addEventListener("click", () => {
+      if (!currentWallet) {
+        document.getElementById("wallet-select-modal").style.display = "flex";
+      } else {
+        if (confirm("Disconnect wallet?")) {
+          currentWallet = "";
+          currentChain = "";
+          window.currentWallet = "";
+          updateWalletUI();
+        }
+      }
+    });
+
+    document.getElementById("phantom-btn").onclick = connectPhantom;
+  </script>
+
+  <script>
+    const mobileWalletBtn = document.getElementById("mobile-connect-wallet");
+    if (mobileWalletBtn) {
+      mobileWalletBtn.addEventListener("click", () => {
+        if (!currentWallet) {
+          document.getElementById("wallet-select-modal").style.display = "flex";
+        } else {
+          if (confirm("Disconnect wallet?")) {
+            currentWallet = "";
+            currentChain = "";
+            window.currentWallet = "";
+            updateWalletUI();
+          }
+        }
+      });
+    }
+  </script>
+
+  <script>
+    async function registerPayment({ txSig, payMethod }) {
+      if (!currentWallet) throw new Error("Wallet not connected");
+      return { txSig, wallet: currentWallet, method: payMethod || "USDC" };
+    }
+  </script>
+
+  <script>
+    function toggleMobileMenu() {
+      const nav = document.getElementById("mobile-nav");
+      if (!nav) return;
+      nav.classList.toggle("hidden");
+      nav.classList.toggle("flex");
+    }
+  </script>
+
+  <script>
+    async function requestTxSignature() {
+      const sig = prompt("Paste your transaction signature:");
+      if (!sig) throw new Error("Transaction signature required");
+      return sig.trim();
+    }
+  </script>
+
+  <script>
+    function forceClosePaymentModal() {
+      const modal = document.getElementById("payment-modal");
+      if (!modal) return;
+      modal.style.display = "none";
+      modal.classList.remove("flex");
+      document.body.style.pointerEvents = "auto";
+    }
+  </script>
+
+  <script>
+    const globalLocks = {};
+    function lock(key) { if (globalLocks[key]) return false; globalLocks[key] = true; return true; }
+    function unlock(key) { globalLocks[key] = false; }
+    async function safeJson(res) {
+      const text = await res.text();
+      try { return JSON.parse(text); }
+      catch { return { error: "Invalid JSON response", raw: text.slice(0, 200) }; }
+    }
+  </script>
+
+  <script>
+    let lastStatusCheck = Date.now();
+    function timeAgo(ts) {
+      const sec = Math.floor((Date.now() - ts) / 1000);
+      if (sec < 5) return "just now";
+      if (sec < 60) return `${sec}s ago`;
+      return `${Math.floor(sec / 60)}m ago`;
+    }
+
+    async function checkSystemStatus() {
+      const els = [
+        document.getElementById("system-status"),
+        document.getElementById("system-status-mobile")
+      ].filter(Boolean);
+
+      if (!els.length) return;
+
+      function setOperational() {
+        lastStatusCheck = Date.now();
+        els.forEach(el => {
+          el.innerHTML = `
+            <span class="relative group flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Network operational</span>
+              <span class="absolute top-full mt-2 left-1/2 -translate-x-1/2
+                           whitespace-nowrap text-xs text-gray-300
+                           bg-black/80 border border-white/10
+                           rounded-md px-2 py-1 opacity-0
+                           pointer-events-none transition
+                           group-hover:opacity-100">
+                Last check: ${timeAgo(lastStatusCheck)}
+              </span>
+            </span>
+          `;
+          el.classList.remove("text-yellow-400");
+          el.classList.add("text-emerald-400");
+        });
+      }
+
+      function setDegraded() {
+        els.forEach(el => {
+          el.innerHTML = `
+            <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+            Network degraded
+          `;
+          el.classList.remove("text-emerald-400");
+          el.classList.add("text-yellow-400");
+        });
+      }
+
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        const json = await res.json();
+        json?.ok === true ? setOperational() : setDegraded();
+      } catch {
+        setDegraded();
+      }
+    }
+
+    checkSystemStatus();
+    setInterval(checkSystemStatus, 15000);
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

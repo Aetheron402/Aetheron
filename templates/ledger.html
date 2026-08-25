@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Learn – Aetheron{% endblock %}
+
+{% block body_class %}page-learn{% endblock %}
+
+{% block content %}
+<section class="max-w-5xl mx-auto">
+  {% if wallet %}
+    <h1 class="text-3xl font-bold text-cyan-400 mb-6">
+      Ledger for Wallet:
+      <span class="font-mono text-cyan-300">{{ wallet[:6] }}…{{ wallet[-6:] }}</span>
+    </h1>
+    <p class="text-gray-500 mb-6">Showing only transactions linked to this wallet.</p>
+  {% else %}
+    <h1 class="text-3xl font-bold text-cyan-400 mb-6">Recent Transactions (Global Ledger)</h1>
+  {% endif %}
+
+  <div class="overflow-x-auto border border-cyan-400/20 rounded-lg shadow-sm">
+    <table class="min-w-full text-sm text-gray-300">
+      <thead class="bg-gray-800/80 text-cyan-300">
+        <tr>
+          <th class="p-3 text-left">Time</th>
+          <th class="p-3 text-left">Component</th>
+          <th class="p-3 text-left">Wallet</th>
+          <th class="p-3 text-left">Tx Signature</th>
+          <th class="p-3 text-left">Price</th>
+          <th class="p-3 text-left">Status</th>
+          <th class="p-3 text-left">File</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if entries and entries|length > 0 %}
+          {% for e in entries %}
+          {# e = (id, asset_id, wallet, tx_sig, component, price, status, filename, timestamp) #}
+          <tr class="border-t border-gray-800 hover:bg-gray-900 transition">
+            <td class="p-3">{{ e[8] | fmt_ts }}</td>
+            <td class="p-3 text-cyan-300">{{ e[4] }}</td>
+            <td class="p-3">
+              {% if e[2] %}
+                <span class="font-mono text-gray-400">{{ e[2][:4] }}…{{ e[2][-4:] }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="p-3">
+              {% if e[3] %}
+                <a href="https://solscan.io/tx/{{ e[3] }}" target="_blank"
+                   class="text-cyan-400 hover:text-cyan-200 font-mono">{{ e[3][:6] }}…{{ e[3][-6:] }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="p-3 text-cyan-200 font-mono">{{ "%.2f"|format(e[5] or 0) }} USDC</td>
+            <td class="p-3">
+              {% if e[6] == "success" %}
+                <span class="text-emerald-400 font-semibold">success</span>
+              {% else %}
+                <span class="text-red-400 font-semibold">failed</span>
+              {% endif %}
+            </td>
+            <td class="p-3">
+              {% if e[7] %}
+                <a href="/download/{{ e[7] }}" class="text-cyan-300 hover:underline">Download</a>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7" class="p-4 text-center text-gray-500">
+              {% if wallet %}
+                No transactions found for this wallet.
+              {% else %}
+                No transactions recorded yet.
+              {% endif %}
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if not wallet %}
+  <p class="text-xs text-gray-500 mt-3 text-center">
+    Showing up to the 50 most recent transactions. Connect your wallet to view your personal ledger.
+  </p>
+  {% endif %}
+
+  {% if total_pages > 1 %}
+  <div class="flex justify-center items-center gap-6 mt-6">
+
+    {% if page > 1 %}
+      <a href="/ledger?page={{ page - 1 }}"
+         class="px-4 py-2 bg-gray-800 text-cyan-300 rounded-lg hover:bg-gray-700 transition">
+        ← Previous
+      </a>
+    {% endif %}
+
+    <span class="text-gray-400">
+      Page <span class="text-cyan-300">{{ page }}</span> of <span class="text-cyan-300">{{ total_pages }}</span>
+    </span>
+
+    {% if page < total_pages %}
+      <a href="/ledger?page={{ page + 1 }}"
+         class="px-4 py-2 bg-gray-800 text-cyan-300 rounded-lg hover:bg-gray-700 transition">
+        Next →
+      </a>
+    {% endif %}
+
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

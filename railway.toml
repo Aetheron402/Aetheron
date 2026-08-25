@@ -1,0 +1,17 @@
+[env]
+PORT = "8000"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+
+[[services]]
+name = "aetheron-backend"
+startCommand = "uvicorn Aetheron:app --host 0.0.0.0 --port ${PORT}"
+
+[[services]]
+name = "worker1"
+startCommand = "celery -A celery_worker.celery worker --loglevel=info -n worker1"
+
+[[services]]
+name = "worker2"
+startCommand = "celery -A celery_worker.celery worker --loglevel=info -n worker2"

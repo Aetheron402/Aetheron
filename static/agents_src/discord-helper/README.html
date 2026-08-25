@@ -1,0 +1,321 @@
+<hr>
+<h3 id="-license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.<br>Redistribution, resale, repackaging, or inclusion in any paid product or service is <strong>strictly prohibited</strong>.<br>See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+<h1 id="discord-support-agent">Discord Support Agent</h1>
+<p>A production‑grade, beginner‑friendly, and deeply extensible Discord support bot template.<br>This README is <strong>structure, depth, and polish</strong> — including diagrams, onboarding flows, config walkthroughs, architecture breakdowns, strategy examples, and troubleshooting trees.</p>
+<hr>
+<h1 id="-0-introduction">🧩 0. Introduction</h1>
+<p>Managing a Discord community means facing repeated questions, support bottlenecks, and moderation workload.<br>This <strong>Discord Support Agent</strong> is built to solve that — usable by beginners, extendable by developers, and powerful with optional AI integrations.</p>
+<p>It includes:</p>
+<ul>
+<li>Automated replies (AI or static)  </li>
+<li>Real moderation commands  </li>
+<li>Utility commands for daily use  </li>
+<li>Multi‑provider AI support  </li>
+<li>Clear logging &amp; safety  </li>
+<li>A plug‑and‑play architecture  </li>
+<li>Zero required experience  </li>
+</ul>
+<p>This documentation provides <strong>full technical + beginner onboarding</strong>.</p>
+<hr>
+<h1 id="-1-quick-start-guide-beginner-mode-">1. Quick Start Guide (Beginner Mode)</h1>
+<h3 id="-step-1-install-python-if-you-don-t-already-have-it-"><strong>Step 1 — Install Python (if you don’t already have it)</strong></h3>
+<p>Download Python 3.10+ from:<br><a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p>
+<p>Ensure “Add to PATH” is checked.</p>
+<hr>
+<h3 id="-step-2-install-dependencies-"><strong>Step 2 — Install dependencies</strong></h3>
+<pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre><hr>
+<h3 id="-step-3-get-your-discord-bot-token-"><strong>Step 3 — Get your Discord bot token</strong></h3>
+<ol>
+<li>Go to: <a href="https://discord.com/developers/applications">https://discord.com/developers/applications</a>  </li>
+<li>Click <strong>New Application</strong>  </li>
+<li>Go to <strong>Bot</strong> → “Add Bot”  </li>
+<li>Copy the bot token  </li>
+<li>Enable:  <ul>
+<li><strong>Message Content Intent</strong>  </li>
+<li><strong>Server Members Intent</strong> (optional but recommended)</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h3 id="-step-4-add-your-bot-token-to-config-json-"><strong>Step 4 — Add your bot token to config.json</strong></h3>
+<pre><code class="lang-json"><span class="hljs-string">"discord"</span>: {
+  <span class="hljs-string">"bot_token"</span>: <span class="hljs-string">"YOUR_DISCORD_BOT_TOKEN"</span>,
+  <span class="hljs-string">"prefix"</span>: <span class="hljs-string">"!"</span>
+}
+</code></pre>
+<hr>
+<h3 id="-step-5-optional-enable-ai-replies-"><strong>Step 5 — (Optional) Enable AI replies</strong></h3>
+<pre><code class="lang-json"><span class="hljs-string">"ai"</span>: {
+  <span class="hljs-string">"enabled"</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-string">"provider"</span>: <span class="hljs-string">"openai"</span>,
+  <span class="hljs-string">"openai_api_key"</span>: <span class="hljs-string">"YOUR_KEY"</span>,
+  <span class="hljs-string">"model"</span>: <span class="hljs-string">"gpt-4o"</span>
+}
+</code></pre>
+<hr>
+<h3 id="-step-6-run-the-bot-"><strong>Step 6 — Run the bot</strong></h3>
+<pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
+</code></pre><p>You should see:</p>
+<pre><code>[INFO] Initializing Discord Support Agent...
+[INFO] Logged <span class="hljs-keyword">in</span> <span class="hljs-keyword">as</span> MyBot#<span class="hljs-number">0001</span>
+</code></pre><hr>
+<h1 id="-2-feature-overview-high-level-">2. Feature Overview (High‑Level)</h1>
+<h3 id="-automated-support-replies-ai-or-static-">✔ Automated support replies (AI or static)</h3>
+<h3 id="-moderation-kick-ban-with-permission-checks-">✔ Moderation: kick + ban (with permission checks)</h3>
+<h3 id="-utility-commands-ping-info-help-">✔ Utility commands (ping, info, help)</h3>
+<h3 id="-multiple-ai-providers-supported">✔ Multiple AI providers supported</h3>
+<h3 id="-fully-configurable-behavior">✔ Fully configurable behavior</h3>
+<h3 id="-safe-error-handling-logging">✔ Safe error handling + logging</h3>
+<h3 id="-extendable-architecture-for-advanced-developers">✔ Extendable architecture for advanced developers</h3>
+<hr>
+<h1 id="-3-architecture-diagram">3. Architecture Diagram</h1>
+<pre><code>                   ┌───────────────────────────┐
+                   │        Discord API         │
+                   └──────────────┬────────────┘
+                                  ▼
+                   ┌───────────────────────────┐
+                   │    discord_client<span class="hljs-selector-class">.py</span>      │
+                   │  Event Handling + Commands│
+                   └──────────────┬────────────┘
+                                  ▼
+                   ┌───────────────────────────┐
+                   │           ai<span class="hljs-selector-class">.py</span>           │
+                   │ Multi‑provider AI routing │
+                   └──────────────┬────────────┘
+                                  ▼
+                   ┌───────────────────────────┐
+                   │        helpers<span class="hljs-selector-class">.py</span>         │
+                   │ Formatting + Utilities    │
+                   └──────────────┬────────────┘
+                                  ▼
+                   ┌───────────────────────────┐
+                   │          main<span class="hljs-selector-class">.py</span>          │
+                   │ Config + Startup Manager  │
+                   └───────────────────────────┘
+</code></pre><hr>
+<h1 id="-4-folder-structure">4. Folder Structure</h1>
+<pre><code>discord-support-agent/
+ ├── main<span class="hljs-selector-class">.py</span>
+ ├── config<span class="hljs-selector-class">.json</span>
+ ├── requirements<span class="hljs-selector-class">.txt</span>
+ ├── README<span class="hljs-selector-class">.md</span>
+ └── utils/
+      ├── __init__<span class="hljs-selector-class">.py</span>
+      ├── helpers<span class="hljs-selector-class">.py</span>
+      ├── discord_client<span class="hljs-selector-class">.py</span>
+      └── ai.py
+</code></pre><hr>
+<h1 id="-5-configuration-guide-every-setting-explained-">5. Configuration Guide (Every Setting Explained)</h1>
+<p>Below is <strong>full walkthrough</strong> of each config parameter.</p>
+<hr>
+<h2 id="-discord">discord</h2>
+<pre><code class="lang-json"><span class="hljs-string">"discord"</span>: {
+  <span class="hljs-string">"bot_token"</span>: <span class="hljs-string">"YOUR_DISCORD_BOT_TOKEN"</span>,
+  <span class="hljs-string">"prefix"</span>: <span class="hljs-string">"!"</span>
+}
+</code></pre>
+<p><strong>prefix</strong><br>Commands like <code>!help</code>, <code>!ping</code>, <code>!ban</code> use this prefix.</p>
+<hr>
+<h2 id="-ai">ai</h2>
+<pre><code class="lang-json"><span class="hljs-string">"ai"</span>: {
+  <span class="hljs-string">"enabled"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"provider"</span>: <span class="hljs-string">"openai"</span>,
+  <span class="hljs-string">"openai_api_key"</span>: <span class="hljs-string">""</span>,
+  <span class="hljs-string">"model"</span>: <span class="hljs-string">"gpt-4o-mini"</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>enabled</td>
+<td>Whether AI replies are allowed</td>
+</tr>
+<tr>
+<td>provider</td>
+<td>openai / anthropic / openrouter / custom</td>
+</tr>
+<tr>
+<td>model</td>
+<td>Default model used for replies</td>
+</tr>
+<tr>
+<td>openai_api_key</td>
+<td>Your provider key</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="-logging">logging</h2>
+<pre><code class="lang-json"><span class="hljs-string">"logging"</span>: {
+  <span class="hljs-string">"level"</span>: <span class="hljs-string">"INFO"</span>,
+  <span class="hljs-string">"to_file"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"file_name"</span>: <span class="hljs-string">"discord_agent.log"</span>
+}
+</code></pre>
+<ul>
+<li><code>INFO</code> recommended for production  </li>
+<li><code>DEBUG</code> recommended during development  </li>
+</ul>
+<hr>
+<h1 id="-6-commands-reference-full-breakdown-">6. Commands Reference (Full Breakdown)</h1>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+<th>Permissions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>!help</code></td>
+<td>List commands</td>
+<td>Everyone</td>
+</tr>
+<tr>
+<td><code>!info</code></td>
+<td>Bot info</td>
+<td>Everyone</td>
+</tr>
+<tr>
+<td><code>!ping</code></td>
+<td>Pong</td>
+<td>Everyone</td>
+</tr>
+<tr>
+<td><code>!kick @user</code></td>
+<td>Kick a member</td>
+<td>Moderator</td>
+</tr>
+<tr>
+<td><code>!ban @user</code></td>
+<td>Ban a member</td>
+<td>Admin</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="-7-ai-behavior-how-replies-work-">7. AI Behavior (How Replies Work)</h1>
+<p>If AI is enabled:</p>
+<ol>
+<li>User sends message  </li>
+<li>Bot checks if message should trigger AI  </li>
+<li>Bot sends prompt → provider  </li>
+<li>Provider returns generated response  </li>
+<li>Bot sends formatted reply  </li>
+</ol>
+<p>Providers supported:</p>
+<ul>
+<li><strong>OpenAI</strong> (default)</li>
+<li><strong>Anthropic (Claude)</strong></li>
+<li><strong>OpenRouter</strong></li>
+<li><strong>Custom API endpoints</strong></li>
+</ul>
+<hr>
+<h1 id="-8-how-the-bot-works-internally-detailed-">8. How the Bot Works Internally (Detailed)</h1>
+<h3 id="-main-py-"><strong>main.py</strong></h3>
+<ul>
+<li>Loads config  </li>
+<li>Initializes logger  </li>
+<li>Creates Discord client  </li>
+<li>Starts event loop  </li>
+</ul>
+<h3 id="-discord_client-py-"><strong>discord_client.py</strong></h3>
+<p>Handles:</p>
+<ul>
+<li>on_ready  </li>
+<li>on_message  </li>
+<li>command routing  </li>
+<li>permission validation  </li>
+<li>error handling  </li>
+</ul>
+<h3 id="-ai-py-"><strong>ai.py</strong></h3>
+<ul>
+<li>Handles API calls  </li>
+<li>Provider selection  </li>
+<li>Error fallback  </li>
+<li>Message formatting  </li>
+</ul>
+<hr>
+<h1 id="-9-real-world-use-cases">9. Real‑World Use Cases</h1>
+<h3 id="-use-case-a-support-bot-"><strong>Use Case A — Support Bot</strong></h3>
+<p>Auto‑reply to FAQs using AI.</p>
+<h3 id="-use-case-b-moderation-assistant-"><strong>Use Case B — Moderation Assistant</strong></h3>
+<p>Kick/ban enforcement + notifications.</p>
+<h3 id="-use-case-c-community-helper-"><strong>Use Case C — Community Helper</strong></h3>
+<p>Provide server info, onboarding, or rules.</p>
+<h3 id="-use-case-d-customer-support-"><strong>Use Case D — Customer Support</strong></h3>
+<p>Integrate with your product’s AI assistant.</p>
+<hr>
+<h1 id="-10-extending-the-bot-developer-guide-">10. Extending the Bot (Developer Guide)</h1>
+<h3 id="adding-a-new-command">Adding a new command</h3>
+<pre><code class="lang-python"><span class="hljs-meta">@bot.command()</span>
+<span class="hljs-keyword">async</span> <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">echo</span><span class="hljs-params">(ctx, *, message)</span>:</span>
+    <span class="hljs-keyword">await</span> ctx.send(message)
+</code></pre>
+<h3 id="adding-custom-ai-rules">Adding custom AI rules</h3>
+<pre><code class="lang-python"><span class="hljs-keyword">if</span> <span class="hljs-string">"pricing"</span> <span class="hljs-keyword">in</span> msg:
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">await</span> ai.quick_reply(<span class="hljs-string">"Explain pricing clearly"</span>)
+</code></pre>
+<hr>
+<h1 id="-11-troubleshooting-guide-flowchart-style-">11. Troubleshooting Guide (Flowchart Style)</h1>
+<pre><code><span class="hljs-keyword">START</span>
+  │
+  ├─ <span class="hljs-keyword">Is</span> the bot <span class="hljs-keyword">online</span>?
+  │      ├─ <span class="hljs-keyword">No</span> → <span class="hljs-keyword">Check</span> token &amp; intents
+  │      └─ Yes
+  │
+  ├─ Bot <span class="hljs-keyword">not</span> responding <span class="hljs-keyword">to</span> messages?
+  │      ├─ Message <span class="hljs-keyword">Content</span> Intent enabled?
+  │      ├─ Bot has channel permissions?
+  │      └─ Prefix correct?
+  │
+  ├─ AI <span class="hljs-keyword">not</span> responding?
+  │      ├─ ai.enabled = <span class="hljs-literal">true</span>?
+  │      ├─ API <span class="hljs-keyword">key</span> valid?
+  │      └─ Provider reachable?
+  │
+  └─ Moderation commands failing?
+         ├─ Bot has Kick/Ban permissions?
+         ├─ <span class="hljs-keyword">User</span> has <span class="hljs-keyword">required</span> <span class="hljs-keyword">role</span>?
+         └─ Target has <span class="hljs-keyword">lower</span> <span class="hljs-keyword">role</span>?
+</code></pre><hr>
+<h1 id="-12-security-notes">12. Security Notes</h1>
+<ul>
+<li>Never share your bot token  </li>
+<li>Always rotate API keys periodically  </li>
+<li>Use Discord role hierarchy for moderation  </li>
+<li>Never allow AI to run administrator commands  </li>
+<li>Log moderation actions for transparency  </li>
+</ul>
+<hr>
+<h1 id="-13-beginner-mistakes-to-avoid">13. Beginner Mistakes to Avoid</h1>
+<p>❌ Forgetting Message Content Intent<br>❌ Using the wrong Python version<br>❌ Running the bot from the wrong folder<br>❌ Forgetting to prefix commands<br>❌ Expecting AI replies when <code>enabled = false</code>  </p>
+<hr>
+<h1 id="-14-recommended-setup-copy-paste-configs-">🟦 14. Recommended Setup (Copy‑Paste Configs)</h1>
+<h3 id="-safe-mode-beginners-"><strong>Safe Mode (Beginners)</strong></h3>
+<pre><code class="lang-json"><span class="hljs-string">"ai"</span>: {
+  <span class="hljs-string">"enabled"</span>: <span class="hljs-literal">false</span>
+}
+</code></pre>
+<h3 id="-ai-mode-full-replies-"><strong>AI Mode (Full Replies)</strong></h3>
+<pre><code class="lang-json"><span class="hljs-string">"ai"</span>: {
+  <span class="hljs-string">"enabled"</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-string">"provider"</span>: <span class="hljs-string">"openai"</span>,
+  <span class="hljs-string">"model"</span>: <span class="hljs-string">"gpt-4o"</span>
+}
+</code></pre>
+<hr>
+<h1 id="-15-disclaimer">15. Disclaimer</h1>
+<p>This is a <strong>production-ready template</strong>, not a finished SaaS.<br>Use responsibly and follow Discord&#39;s Terms of Service.</p>
+<hr>
+<h1 id="-end-of-document">End of Document</h1>

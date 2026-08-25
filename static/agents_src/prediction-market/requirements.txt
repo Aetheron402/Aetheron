@@ -1,0 +1,21 @@
+# Core environment & config
+python-dotenv>=1.0.0
+
+# HTTP & networking (for adapters)
+requests>=2.31.0
+aiohttp>=3.9.0
+
+# Data validation & parsing
+pydantic>=2.5.0
+
+# Time & scheduling helpers
+python-dateutil>=2.8.2
+
+# Logging & observability
+rich>=13.7.0
+
+# Optional persistence
+sqlalchemy>=2.0.0
+
+# Testing (recommended for builders)
+pytest>=8.0.0

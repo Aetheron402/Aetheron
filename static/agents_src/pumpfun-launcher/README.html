@@ -1,0 +1,314 @@
+<hr>
+<h3 id="-license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.<br>Redistribution, resale, repackaging, or inclusion in any paid product or service is <strong>strictly prohibited</strong>.<br>See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+<h1 id="pump-fun-launch-assistant">Pump.fun Launch Assistant</h1>
+<hr>
+<h1 id="-0-introduction">🧩 0. Introduction</h1>
+<p>Pump.fun is one of the fastest‑moving launchpads in crypto. Hundreds of tokens launch each hour, and identifying high‑potential mints early requires fast information flow, good filtering, and sane risk controls.</p>
+<p>This <strong>Pump.fun Launch Assistant</strong> is a <strong>production‑quality template</strong> designed to give users everything they need to build:</p>
+<ul>
+<li>A monitoring bot  </li>
+<li>A signal generator  </li>
+<li>A research assistant  </li>
+<li>A custom trading system  </li>
+<li>A wallet intelligence pipeline  </li>
+</ul>
+<p>…without writing any discovery, filtering, or RPC code.</p>
+<p>This documentation explains <strong>exactly how the assistant works</strong>, how to customize it, how to integrate real trading <em>if desired</em>, and how to safely run it — even if you’re a beginner.</p>
+<p>This is a <strong>full technical + beginner onboarding guide</strong>, optimized for developers, traders, and automation builders.</p>
+<hr>
+<h1 id="-1-quick-start-guide-beginner-friendly-">1. Quick Start Guide (Beginner‑Friendly)</h1>
+<h2 id="-step-1-install-dependencies">Step 1 — Install dependencies</h2>
+<p>Open a terminal inside the folder:</p>
+<pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre><p>That&#39;s it.</p>
+<h2 id="-step-2-edit-config-json-optional-">Step 2 — Edit config.json (optional)</h2>
+<p>You can run the assistant with default settings, but beginners often adjust:</p>
+<ul>
+<li><code>min_liquidity_sol</code></li>
+<li><code>min_bonding_curve_percent</code></li>
+<li><code>min_trades_5m</code></li>
+</ul>
+<p>All settings are fully explained later.</p>
+<h2 id="-step-3-run-the-assistant">Step 3 — Run the assistant</h2>
+<pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
+</code></pre><p>Immediately, you’ll see live Pump.fun token data flowing through your terminal.</p>
+<p>No keys. No API setup. No coding.</p>
+<hr>
+<h1 id="-2-feature-overview-high-level-summary-">2. Feature Overview (High-Level Summary)</h1>
+<h3 id="-real-time-pump-fun-feed">✔ Real-time Pump.fun feed</h3>
+<p>Fetches the newest launched tokens with their data:</p>
+<ul>
+<li>mint address  </li>
+<li>liquidity  </li>
+<li>BC %  </li>
+<li>market cap  </li>
+<li>trading activity  </li>
+<li>renounce status  </li>
+<li>liquidity lock  </li>
+<li>mint authority disabled  </li>
+</ul>
+<h3 id="-advanced-filtering">✔ Advanced filtering</h3>
+<p>Avoids:</p>
+<ul>
+<li>ultra‑early rugs  </li>
+<li>tokens with no liquidity  </li>
+<li>dead launches  </li>
+<li>known malicious creators  </li>
+<li>tokens missing renounce or lock  </li>
+<li>tokens with active mint authority  </li>
+</ul>
+<h3 id="-webhook-notification-support">✔ Webhook notification support</h3>
+<p>Send alerts to:</p>
+<ul>
+<li>Discord  </li>
+<li>Slack  </li>
+<li>Telegram (via bot webhook adapters)  </li>
+</ul>
+<h3 id="-execution-hook">✔ Execution hook</h3>
+<p>A safe function where users can add:</p>
+<ul>
+<li>Jupiter swaps  </li>
+<li>Raydium swaps  </li>
+<li>Alerts  </li>
+<li>Logging  </li>
+<li>Custom analytics  </li>
+</ul>
+<h3 id="-config-driven">✔ Config-driven</h3>
+<p>Everything is adjustable from <strong>config.json</strong>.</p>
+<h3 id="-perfect-for-beginners">✔ Perfect for beginners</h3>
+<p>Doesn’t require any knowledge to run.</p>
+<h3 id="-perfect-for-developers">✔ Perfect for developers</h3>
+<p>Offers clean extension points to build a full automated system.</p>
+<hr>
+<h1 id="-3-architecture-diagram-visual-overview-">3. Architecture Diagram (Visual Overview)</h1>
+<pre><code> ┌───────────────────────┐
+ │     Pump<span class="hljs-selector-class">.fun</span> API      │
+ └───────────┬───────────┘
+             ▼
+     ┌─────────────────┐
+     │ PumpFunClient   │
+     │  (rpc.py)       │
+     └─────────────────┘
+             │ Normalized Tokens
+             ▼
+     ┌─────────────────┐
+     │   helpers<span class="hljs-selector-class">.py</span>    │
+     │ Filtering Logic │
+     └─────────────────┘
+             │ Passed Tokens
+             ▼
+     ┌─────────────────┐
+     │    main<span class="hljs-selector-class">.py</span>      │
+     │ Event Loop      │
+     └─────────────────┘
+             │
+             ├────▶ Webhooks
+             │
+             └────▶ Execution Hook (custom logic)
+</code></pre><hr>
+<h1 id="-4-configuration-guide-every-setting-explained-">4. Configuration Guide (Every Setting Explained)</h1>
+<p>The assistant is controlled through <code>config.json</code>.</p>
+<p>Below is the upgraded explanation for <strong>every parameter</strong>.</p>
+<hr>
+<h2 id="-rpc">🔷 rpc</h2>
+<pre><code><span class="hljs-string">"rpc"</span>: {
+  <span class="hljs-string">"url"</span>: <span class="hljs-string">"https://api.mainnet-beta.solana.com"</span>,
+  <span class="hljs-string">"timeout_seconds"</span>: <span class="hljs-number">10</span>,
+  <span class="hljs-string">"poll_interval_seconds"</span>: <span class="hljs-number">4</span>
+}
+</code></pre><ul>
+<li><p><strong>url</strong> – optional Solana RPC provider<br>(used for deeper checks or future extensions)  </p>
+</li>
+<li><p><strong>poll_interval_seconds</strong>  </p>
+<ul>
+<li>2–3s = sniper speed  </li>
+<li>4–6s = medium  </li>
+<li>7–12s = low frequency  </li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="-pumpfun">pumpfun</h2>
+<pre><code><span class="hljs-string">"pumpfun"</span>: {
+  <span class="hljs-string">"api_url"</span>: <span class="hljs-string">"https://api.pump.fun/v2/tokens/recent"</span>,
+  <span class="hljs-string">"min_liquidity_sol"</span>: <span class="hljs-number">1.5</span>,
+  <span class="hljs-string">"min_bonding_curve_percent"</span>: <span class="hljs-number">10</span>,
+  <span class="hljs-string">"max_market_cap_usd"</span>: <span class="hljs-number">600000</span>,
+  <span class="hljs-string">"track_liquidity_events"</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-string">"track_creator_activity"</span>: <span class="hljs-literal">true</span>
+}
+</code></pre><ul>
+<li><p><strong>min_liquidity_sol</strong><br>Minimum liquidity to consider the token valid.</p>
+</li>
+<li><p><strong>min_bonding_curve_percent</strong><br>Reject tokens that are too early on the bonding curve.</p>
+</li>
+<li><p><strong>max_market_cap_usd</strong><br>Filters out overextended tokens.</p>
+</li>
+<li><p><strong>track_liquidity_events</strong> (future expansion)  </p>
+</li>
+<li><strong>track_creator_activity</strong> (future expansion)</li>
+</ul>
+<hr>
+<h2 id="-filters">filters</h2>
+<pre><code><span class="hljs-string">"filters"</span>: {
+  <span class="hljs-string">"block_renounced_only"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"require_locked_liquidity"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"min_trades_5m"</span>: <span class="hljs-number">5</span>,
+  <span class="hljs-string">"block_mint_authority"</span>: <span class="hljs-literal">true</span>
+}
+</code></pre><ul>
+<li><p><strong>min_trades_5m</strong><br>Ensures a minimum level of real activity.</p>
+</li>
+<li><p><strong>block_mint_authority</strong><br>Critical rug-check filter.</p>
+</li>
+</ul>
+<hr>
+<h2 id="-blacklist">blacklist</h2>
+<p>Self-explanatory filters for scam creators, mints, or programs.</p>
+<hr>
+<h2 id="-notifications">notifications</h2>
+<p>Webhook system (Discord/Slack/etc.):</p>
+<pre><code><span class="hljs-string">"notifications"</span>: {
+  <span class="hljs-string">"enabled"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"webhook_url"</span>: <span class="hljs-string">""</span>
+}
+</code></pre><hr>
+<h2 id="-logging">logging</h2>
+<p>Controls verbosity and output file.</p>
+<hr>
+<h1 id="-5-strategy-examples-trader-focused-section-">5. Strategy Examples (Trader-Focused Section)</h1>
+<p>The assistant supports many styles:</p>
+<hr>
+<h2 id="-example-strategy-a-early-curve-sniping">Example Strategy A — Early Curve Sniping</h2>
+<p>Best for users willing to take higher risk.</p>
+<p>Recommended config:</p>
+<ul>
+<li><code>min_bonding_curve_percent: 5</code>  </li>
+<li><code>min_liquidity_sol: 1.0</code>  </li>
+<li><code>min_trades_5m: 3</code></li>
+</ul>
+<hr>
+<h2 id="-example-strategy-b-safer-curve-entries">Example Strategy B — Safer Curve Entries</h2>
+<p>Focuses on tokens past the critical risk zone.</p>
+<p>Use:</p>
+<ul>
+<li><code>min_bonding_curve_percent: 12–15</code>  </li>
+<li><code>require_locked_liquidity: true</code>  </li>
+</ul>
+<hr>
+<h2 id="-example-strategy-c-volume-confirmation">Example Strategy C — Volume Confirmation</h2>
+<p>Focus on tokens gaining traction.</p>
+<ul>
+<li><code>min_trades_5m: 10–20</code>  </li>
+<li><code>min_liquidity_sol: 2.0+</code>  </li>
+</ul>
+<hr>
+<h2 id="-example-strategy-d-creator-reputation-scoring">Example Strategy D — Creator Reputation Scoring</h2>
+<p>Block bad creators:</p>
+<pre><code><span class="hljs-string">"creator_addresses"</span>: [<span class="hljs-string">"BadCreator1..."</span>, <span class="hljs-string">"BadCreator2..."</span>]
+</code></pre><hr>
+<h1 id="-6-execution-hook-developer-section-">6. Execution Hook (Developer Section)</h1>
+<p>Inside <strong>main.py</strong>:</p>
+<pre><code class="lang-python"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">execute_signal</span><span class="hljs-params">(<span class="hljs-keyword">self</span>, token)</span></span>:
+    <span class="hljs-keyword">self</span>.logger.info(f<span class="hljs-string">"Execution hook triggered for {token['mint']}."</span>)
+</code></pre>
+<p>This is where advanced users add <strong>trading, alerts, or analytics</strong>.</p>
+<hr>
+<h2 id="-example-commented-out-jupiter-swap-template-">Example (commented-out Jupiter swap template):</h2>
+<pre><code class="lang-python"><span class="hljs-meta"># Example Jupiter swap integration (disabled by default)</span>
+<span class="hljs-meta">#</span>
+<span class="hljs-meta"># import requests</span>
+<span class="hljs-meta">#</span>
+<span class="hljs-meta"># def execute_signal(self, token):</span>
+<span class="hljs-meta">#     amount = int(0.1 * 1_000_000_000)  # 0.1 SOL</span>
+<span class="hljs-meta">#     route = requests.get(</span>
+<span class="hljs-meta">#         "https://quote-api.jup.ag/v6/quote",</span>
+<span class="hljs-meta">#         params={</span>
+<span class="hljs-meta">#             "inputMint": "So11111111111111111111111111111111111111112",</span>
+<span class="hljs-meta">#             "outputMint": token["mint"],</span>
+<span class="hljs-meta">#             "amount": amount,</span>
+<span class="hljs-meta">#             "slippageBps": 300</span>
+<span class="hljs-meta">#         }</span>
+<span class="hljs-meta">#     ).json()</span>
+<span class="hljs-meta">#</span>
+<span class="hljs-meta">#     self.logger.info(f"Jupiter route data: {route}")</span>
+</code></pre>
+<p>Safe. Optional. Beginner-friendly.</p>
+<hr>
+<h1 id="-7-system-concepts-glossary-">7. System Concepts (Glossary)</h1>
+<h3 id="-bonding-curve-"><strong>Bonding Curve</strong></h3>
+<p>Defines how price changes as the curve progresses.</p>
+<h3 id="-liquidity-"><strong>Liquidity</strong></h3>
+<p>SOL pooled backing the token.</p>
+<h3 id="-mint-authority-disabled-"><strong>Mint Authority Disabled</strong></h3>
+<p>Whether creator can mint more supply.</p>
+<h3 id="-locked-liquidity-"><strong>Locked Liquidity</strong></h3>
+<p>Whether LP can be pulled.</p>
+<h3 id="-trades-5m-"><strong>Trades 5m</strong></h3>
+<p>Short-term activity.</p>
+<h3 id="-market-cap-"><strong>Market Cap</strong></h3>
+<p>Curve-based valuation.</p>
+<hr>
+<h1 id="-8-troubleshooting-guide-flowchart-">8. Troubleshooting Guide (Flowchart)</h1>
+<pre><code>           <span class="hljs-keyword">START</span>
+             │
+             ▼
+     <span class="hljs-keyword">Is</span> the script running?
+        │          │
+        │          └──▶ Fix Python environment
+        ▼
+<span class="hljs-keyword">Are</span> tokens appearing?
+        │
+   YES  │  <span class="hljs-keyword">NO</span>
+        ▼
+  <span class="hljs-keyword">Do</span> filters feel too <span class="hljs-keyword">strict</span>?
+        │
+   YES  └──▶ <span class="hljs-keyword">Lower</span> filters (<span class="hljs-keyword">min</span> liquidity / BC%)
+   <span class="hljs-keyword">NO</span>         ▼
+              RPC OK?
+              │
+         YES  │  <span class="hljs-keyword">NO</span>
+              ▼
+           Fix RPC / Internet
+</code></pre><hr>
+<h1 id="-9-configuration-wizard">9. Configuration Wizard</h1>
+<h3 id="beginner-mode-safe-">Beginner Mode (safe):</h3>
+<pre><code><span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">1.5</span>
+<span class="hljs-string">min_bonding_curve_percent:</span> <span class="hljs-number">10</span>
+<span class="hljs-string">min_trades_5m:</span> <span class="hljs-number">5</span>
+<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>
+</code></pre><h3 id="normal-mode-">Normal Mode:</h3>
+<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1.2</span>
+<span class="hljs-symbol">min_bonding_curve_percent:</span> <span class="hljs-number">8</span>
+<span class="hljs-symbol">min_trades_5m:</span> <span class="hljs-number">3</span>
+</code></pre><h3 id="aggressive-mode-">Aggressive Mode:</h3>
+<pre><code><span class="hljs-symbol">min_bonding_curve_percent:</span> <span class="hljs-number">3</span>
+<span class="hljs-symbol">min_trades_5m:</span> <span class="hljs-number">1</span>
+</code></pre><h3 id="volume-mode-">Volume Mode:</h3>
+<pre><code><span class="hljs-symbol">min_trades_5m:</span> <span class="hljs-number">15</span>
+</code></pre><hr>
+<h1 id="-10-integration-examples">10. Integration Examples</h1>
+<h2 id="webhook-example">Webhook Example</h2>
+<pre><code class="lang-python"><span class="hljs-function"><span class="hljs-title">send_webhook</span><span class="hljs-params">(url, formatted, self.logger)</span></span>
+</code></pre>
+<h2 id="discord-bot-forwarding">Discord Bot Forwarding</h2>
+<p>Through a simple relay script.</p>
+<h2 id="csv-logging">CSV Logging</h2>
+<pre><code>with <span class="hljs-keyword">open</span>(<span class="hljs-string">"log.csv"</span>, <span class="hljs-string">"a"</span>) <span class="hljs-keyword">as</span> <span class="hljs-keyword">f</span>:
+    <span class="hljs-keyword">f</span>.<span class="hljs-keyword">write</span>(<span class="hljs-keyword">f</span><span class="hljs-comment">"{token['mint']},{token['liquidity_sol']}</span>
+<span class="hljs-comment">")</span>
+</code></pre><hr>
+<h1 id="-11-safety-notes">11. Safety Notes</h1>
+<ul>
+<li>The bot does <strong>NOT</strong> trade by default.  </li>
+<li>Trading must be added manually.  </li>
+<li>Always test trading logic with a burner wallet.  </li>
+<li>Trading carries real financial risk.</li>
+</ul>
+<hr>
+<h1 id="-12-license-disclaimer">12. License &amp; Disclaimer</h1>
+<p>This is a <strong>template</strong>, not a trading system.<br>You are responsible for any real trading code you add.</p>
+<hr>
+<h1 id="-end-of-document">End of Document</h1>

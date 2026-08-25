@@ -1,0 +1,242 @@
+<h3 id="license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.<br>Redistribution, resale, repackaging, or inclusion in any paid product or
+service is <strong>strictly prohibited</strong>.<br>See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+<h1 id="alpha-scanner-agent-template">Alpha Scanner Agent Template</h1>
+<hr>
+<h1 id="0-introduction">0. Introduction</h1>
+<p>Crypto markets are driven less by single data points and more by <strong>emerging narratives</strong> — themes that form when social attention, on-chain behavior, and market structure begin to align.</p>
+<p>Most tools surface raw metrics:</p>
+<ul>
+<li>tweet counts  </li>
+<li>wallet movements  </li>
+<li>volume spikes  </li>
+</ul>
+<p>Individually, these signals are noisy and easy to misinterpret.</p>
+<p>The <strong>Alpha Scanner Agent Template</strong> is a <strong>production-grade reasoning framework</strong> designed to detect, validate, and rank <em>narratives</em> by combining multiple independent signal domains into a single, inspectable decision pipeline.</p>
+<p>This template is <strong>not</strong> a trading bot.<br>It is <strong>not</strong> an analytics dashboard.<br>It is a <strong>logic-first alpha detection engine</strong>.</p>
+<p>It provides everything needed to build:</p>
+<ul>
+<li>Narrative detection systems  </li>
+<li>Multi-signal confirmation engines  </li>
+<li>Alpha scouting agents  </li>
+<li>Research pipelines for emerging themes  </li>
+<li>Risk-aware signal aggregation systems  </li>
+</ul>
+<p>…without hardcoding APIs, execution, or market assumptions.</p>
+<p>This document is a <strong>full onboarding and reference guide</strong>.</p>
+<hr>
+<h1 id="1-quick-start-guide-beginner-friendly-">1. Quick Start Guide (Beginner-Friendly)</h1>
+<h2 id="step-1-install-python">Step 1 — Install Python</h2>
+<p>Python 3.10 or newer is required.</p>
+<p>macOS (recommended):</p>
+<pre><code><span class="hljs-keyword">brew </span><span class="hljs-keyword">install </span>python
+</code></pre><p>Verify:</p>
+<pre><code><span class="hljs-keyword">python3</span> --<span class="hljs-keyword">version</span>
+</code></pre><hr>
+<h2 id="step-2-install-dependencies">Step 2 — Install dependencies</h2>
+<p>From inside the project directory:</p>
+<pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre><p>All dependencies are lightweight and standard.</p>
+<hr>
+<h2 id="step-3-run-the-agent">Step 3 — Run the agent</h2>
+<pre><code><span class="hljs-keyword">python3</span> main.<span class="hljs-keyword">py</span>
+</code></pre><p>When running, the agent will:</p>
+<ul>
+<li>start in <strong>continuous scan mode</strong></li>
+<li>clearly log each scan stage</li>
+<li>use <strong>placeholder signals only</strong></li>
+<li>explain exactly where real logic should be added</li>
+</ul>
+<p>No APIs. No wallets. Safe by default.</p>
+<p>Stop execution with <code>Ctrl+C</code>.</p>
+<hr>
+<h1 id="2-what-this-template-is-and-is-not-">2. What This Template Is (And Is Not)</h1>
+<h2 id="what-it-is">What it is</h2>
+<ul>
+<li>A reusable narrative reasoning engine  </li>
+<li>A reference architecture for alpha scouting  </li>
+<li>A deterministic, inspectable agent framework  </li>
+<li>A safe foundation for real-world integrations  </li>
+</ul>
+<h2 id="what-it-is-not">What it is not</h2>
+<ul>
+<li>A plug-and-play alpha bot  </li>
+<li>A data provider  </li>
+<li>A signal-selling product  </li>
+<li>A profit guarantee  </li>
+</ul>
+<hr>
+<h1 id="3-core-design-philosophy">3. Core Design Philosophy</h1>
+<h3 id="narratives-over-events">Narratives over events</h3>
+<p>A <strong>narrative</strong> is a persistent theme supported by multiple signals across time.</p>
+<p>Narratives:</p>
+<ul>
+<li>evolve gradually  </li>
+<li>gain or lose momentum  </li>
+<li>require confirmation  </li>
+<li>can be filtered and ranked  </li>
+</ul>
+<p>The agent exists to track these dynamics, not chase individual spikes.</p>
+<hr>
+<h3 id="logic-before-data">Logic before data</h3>
+<p>All reasoning logic is implemented <strong>before</strong> any real data is introduced.</p>
+<p>This ensures:</p>
+<ul>
+<li>predictable behavior  </li>
+<li>easy auditing  </li>
+<li>safe extension  </li>
+<li>no hidden assumptions  </li>
+</ul>
+<hr>
+<h3 id="separation-of-concerns">Separation of concerns</h3>
+<p>Each layer does exactly one thing:</p>
+<ul>
+<li>signals observe  </li>
+<li>narratives group  </li>
+<li>fusion validates  </li>
+<li>ranking orders  </li>
+<li>confidence estimates reliability  </li>
+<li>risk suppresses noise  </li>
+</ul>
+<hr>
+<h1 id="4-architecture-overview">4. Architecture Overview</h1>
+<pre><code>┌────────────────────────────┐
+│   Data Sources (User)      │
+│  social / onchain / market │
+└──────────────┬─────────────┘
+               ▼
+       ┌───────────────────┐
+       │ Signal Generators │
+       │  signals/*.<span class="hljs-keyword">py</span>    │
+       └───────────────────┘
+               │ Normalized Signals
+               ▼
+       ┌───────────────────┐
+       │ Narrative Engine  │
+       │ narratives.<span class="hljs-keyword">py</span>    │
+       └───────────────────┘
+               │
+               ▼
+       ┌───────────────────┐
+       │ Signal Fusion     │
+       │ fusion.<span class="hljs-keyword">py</span>        │
+       └───────────────────┘
+               │
+               ▼
+       ┌───────────────────┐
+       │ Ranking + Score   │
+       │ ranking.<span class="hljs-keyword">py</span>       │
+       └───────────────────┘
+               │
+               ▼
+       ┌───────────────────┐
+       │ Confidence Layer  │
+       │ confidence.<span class="hljs-keyword">py</span>    │
+       └───────────────────┘
+               │
+               ▼
+       ┌───────────────────┐
+       │ Risk Filters      │
+       │ risk/*.<span class="hljs-keyword">py</span>        │
+       └───────────────────┘
+               │
+               ▼
+       ┌───────────────────┐
+       │ Opportunities     │
+       │ output            │
+       └───────────────────┘
+</code></pre><hr>
+<h1 id="5-repository-structure">5. Repository Structure</h1>
+<pre><code>alpha-scanner/
+├── core/              <span class="hljs-meta"># reasoning engine</span>
+├── signals/           <span class="hljs-meta"># signal generators (logic-only)</span>
+├── risk/              <span class="hljs-meta"># noise &amp; regime filters</span>
+├── schemas/           <span class="hljs-meta"># explicit data contracts</span>
+├── utils/             <span class="hljs-meta"># shared helpers</span>
+├── <span class="hljs-built_in">config</span>.json        <span class="hljs-meta"># tunable behavior</span>
+├── main.py            <span class="hljs-meta"># runtime entrypoint</span>
+└── requirements.txt
+</code></pre><hr>
+<h1 id="6-configuration-guide-config-json-">6. Configuration Guide (<code>config.json</code>)</h1>
+<p>All behavior is controlled via configuration.</p>
+<p>You can tune:</p>
+<ul>
+<li>scan frequency  </li>
+<li>enabled signal domains  </li>
+<li>fusion thresholds  </li>
+<li>ranking weights  </li>
+<li>confidence limits  </li>
+<li>risk suppression rules  </li>
+</ul>
+<p>No core logic changes required.</p>
+<hr>
+<h1 id="7-implementing-real-signal-logic">7. Implementing Real Signal Logic</h1>
+<p>The template ships with <strong>placeholder signal generators</strong>.</p>
+<p>To go live, users replace logic in:</p>
+<h2 id="-signals-social-py-"><code>signals/social.py</code></h2>
+<p>Examples:</p>
+<ul>
+<li>X / forum scraping  </li>
+<li>discourse velocity  </li>
+<li>influencer clustering  </li>
+</ul>
+<h2 id="-signals-onchain-py-"><code>signals/onchain.py</code></h2>
+<p>Examples:</p>
+<ul>
+<li>wallet clustering  </li>
+<li>net inflows  </li>
+<li>contract interaction spikes  </li>
+</ul>
+<h2 id="-signals-market-py-"><code>signals/market.py</code></h2>
+<p>Examples:</p>
+<ul>
+<li>volume anomalies  </li>
+<li>liquidity shifts  </li>
+<li>volatility regimes  </li>
+</ul>
+<p>As long as valid <code>Signal</code> objects are emitted, the rest of the system remains unchanged.</p>
+<hr>
+<h1 id="8-narrative-lifecycle">8. Narrative Lifecycle</h1>
+<p>Narratives:</p>
+<ul>
+<li>are created on first signal  </li>
+<li>accumulate evidence over time  </li>
+<li>decay when inactive  </li>
+<li>can be suppressed if recycled  </li>
+<li>persist across scan cycles  </li>
+</ul>
+<p>State management is explicit and inspectable.</p>
+<hr>
+<h1 id="9-logging-transparency">9. Logging &amp; Transparency</h1>
+<p>The agent logs:</p>
+<ul>
+<li>every scan cycle  </li>
+<li>every signal source  </li>
+<li>narrative updates  </li>
+<li>fusion decisions  </li>
+<li>ranking outcomes  </li>
+</ul>
+<p>Logs are designed to <strong>teach the system</strong>, not hide it.</p>
+<hr>
+<h1 id="10-safety-notes">10. Safety Notes</h1>
+<ul>
+<li>This template does not connect to real data  </li>
+<li>No execution logic exists  </li>
+<li>All integrations are user-controlled  </li>
+<li>You are responsible for any real-world usage  </li>
+</ul>
+<hr>
+<h1 id="11-intended-audience">11. Intended Audience</h1>
+<ul>
+<li>Builders creating alpha scouts  </li>
+<li>Researchers studying narrative formation  </li>
+<li>Developers integrating multiple data domains  </li>
+<li>Teams building internal research agents  </li>
+</ul>
+<p>Not intended as a finished product.</p>
+<hr>
+<h1 id="12-license-disclaimer">12. License &amp; Disclaimer</h1>
+<p>This repository is a <strong>template</strong>, not an alpha product.<br>No financial advice is provided.<br>You assume all responsibility for any real integrations.</p>
+<hr>
+<h1 id="end-of-document">End of Document</h1>

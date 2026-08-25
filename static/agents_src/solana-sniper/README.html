@@ -1,0 +1,408 @@
+<hr>
+<h3 id="-license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.<br>Redistribution, resale, repackaging, or inclusion in any paid product or service is <strong>strictly prohibited</strong>.<br>See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+<h1 id="sniper-trade-agent">Sniper Trade Agent</h1>
+<p><em>A modular, safe, and extensible memecoin sniper framework with richness and structure.</em></p>
+<p>This enhanced README transforms the base template (fileciteturn2file0) into a <strong>production-grade developer + beginner guide</strong>, including diagrams, workflows, strategy modules, safety rules, and advanced extensions.</p>
+<hr>
+<h1 id="-0-introduction">0. Introduction</h1>
+<p>The <strong>Sniper Trade Agent</strong> is a configurable framework that lets you build:</p>
+<ul>
+<li>Early‑curve snipers  </li>
+<li>Volume-based trigger bots  </li>
+<li>Arbitrage watchers  </li>
+<li>On‑chain opportunity filters  </li>
+<li>Custom execution systems using DEX APIs (Jupiter/Raydium/etc.)  </li>
+</ul>
+<p>This template is intentionally <strong>safe by default</strong> — no real trades occur unless <em>you</em> add an execution call.</p>
+<p>It is perfect for:</p>
+<ul>
+<li>Traders building automated tooling  </li>
+<li>Developers experimenting with strategy logic  </li>
+<li>Backtesting simulations  </li>
+<li>High-speed token discovery  </li>
+<li>Filter pipelines for Pump.fun/DEX-based launches  </li>
+</ul>
+<hr>
+<h1 id="-1-quick-start-guide-beginner-mode-">1. Quick Start Guide (Beginner Mode)</h1>
+<h3 id="-step-1-install-python-"><strong>Step 1 — Install Python</strong></h3>
+<p><a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p>
+<p>Check installation:</p>
+<pre><code><span class="hljs-keyword">python</span> --<span class="hljs-keyword">version</span>
+</code></pre><hr>
+<h3 id="-step-2-install-dependencies-"><strong>Step 2 — Install dependencies</strong></h3>
+<pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre><hr>
+<h3 id="-step-3-fill-in-config-json-"><strong>Step 3 — Fill in config.json</strong></h3>
+<p>At minimum:</p>
+<pre><code class="lang-json"><span class="hljs-string">"rpc"</span>: {
+  <span class="hljs-string">"url"</span>: <span class="hljs-string">"YOUR_RPC_URL"</span>
+},
+<span class="hljs-string">"sniper"</span>: {
+  <span class="hljs-string">"auto_buy_enabled"</span>: false
+}
+</code></pre>
+<p>For beginners, leave <code>auto_buy_enabled</code> <strong>false</strong> to stay in simulation mode.</p>
+<hr>
+<h3 id="-step-4-run-the-agent-"><strong>Step 4 — Run the agent</strong></h3>
+<pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
+</code></pre><p>Example output:</p>
+<pre><code>[<span class="hljs-symbol">INFO</span>] <span class="hljs-symbol">Starting</span> <span class="hljs-symbol">Sniper</span> <span class="hljs-symbol">Trade</span> <span class="hljs-symbol">Agent</span>...
+[<span class="hljs-symbol">INFO</span>] <span class="hljs-symbol">Checking</span> for new tokens...
+[<span class="hljs-symbol">INFO</span>] <span class="hljs-symbol">MintABC</span>... passed all filters (auto-buy disabled).
+</code></pre><hr>
+<h1 id="-2-feature-overview">2. Feature Overview</h1>
+<h3 id="-liquidity-market-cap-early-curve-filters">✔ Liquidity, market cap &amp; early-curve filters</h3>
+<h3 id="-blacklist-checks-creators-program-ids-mints-">✔ Blacklist checks (creators, program IDs, mints)</h3>
+<h3 id="-trading-activity-thresholds">✔ Trading activity thresholds</h3>
+<h3 id="-full-safety-module-max-spend-slippage-open-positions-">✔ Full safety module (max spend, slippage, open positions)</h3>
+<h3 id="-strategy-driven-execution-trigger">✔ Strategy-driven execution trigger</h3>
+<h3 id="-webhooks-for-alerting">✔ Webhooks for alerting</h3>
+<h3 id="-rpc-based-real-time-discovery">✔ RPC-based real‑time discovery</h3>
+<h3 id="-simulation-mode-for-beginners">✔ Simulation mode for beginners</h3>
+<hr>
+<h1 id="-3-architecture-diagram">3. Architecture Diagram</h1>
+<pre><code>                         ┌─────────────────────────┐
+                         │       RPC Endpoint       │
+                         └───────────┬─────────────┘
+                                     ▼
+                          ┌────────────────────────┐
+                          │        rpc<span class="hljs-selector-class">.py</span>          │
+                          │ Token discovery logic  │
+                          └──────────┬────────────┘
+                                     ▼
+                          ┌────────────────────────┐
+                          │      helpers<span class="hljs-selector-class">.py</span>        │
+                          │ Filtering, safety,     │
+                          │ blacklist, logging     │
+                          └──────────┬────────────┘
+                                     ▼
+                          ┌────────────────────────┐
+                          │        main<span class="hljs-selector-class">.py</span>         │
+                          │ Trading loop +         │
+                          │ execution hook         │
+                          └────────────────────────┘
+</code></pre><hr>
+<h1 id="-4-folder-structure">4. Folder Structure</h1>
+<pre><code>solana-sniper/
+ ├── main.py               <span class="hljs-meta"># Trading loop &amp; execution logic</span>
+ ├── config.json           <span class="hljs-meta"># Full configuration</span>
+ ├── requirements.txt      <span class="hljs-meta"># Dependencies</span>
+ ├── README.md             <span class="hljs-meta"># Enhanced documentation</span>
+ └── utils/
+      ├── rpc.py           <span class="hljs-meta"># Token discovery</span>
+      ├── helpers.py       <span class="hljs-meta"># Filters, logging, safety, blacklist</span>
+      └── __init__.py
+</code></pre><hr>
+<h1 id="-5-configuration-guide-every-parameter-explained-">5. Configuration Guide (Every Parameter Explained)</h1>
+<p>Below is a <strong>deep dive</strong> into every config value.</p>
+<hr>
+<h2 id="-rpc">rpc</h2>
+<pre><code class="lang-json"><span class="hljs-string">"rpc"</span>: {
+  <span class="hljs-string">"url"</span>: <span class="hljs-string">"https://api.mainnet-beta.solana.com"</span>,
+  <span class="hljs-string">"timeout_seconds"</span>: <span class="hljs-number">10</span>,
+  <span class="hljs-string">"poll_interval_seconds"</span>: <span class="hljs-number">5</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>url</td>
+<td>Solana RPC endpoint</td>
+</tr>
+<tr>
+<td>timeout_seconds</td>
+<td>Maximum RPC wait time</td>
+</tr>
+<tr>
+<td>poll_interval_seconds</td>
+<td>How frequently new tokens are scanned</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommended:</strong></p>
+<ul>
+<li>Fast sniping: <code>2–4 sec</code>  </li>
+<li>Balanced: <code>5–7 sec</code>  </li>
+<li>Low-resource mode: <code>8–12 sec</code></li>
+</ul>
+<hr>
+<h2 id="-wallet">wallet</h2>
+<pre><code class="lang-json"><span class="hljs-string">"wallet"</span>: {
+  <span class="hljs-string">"private_key"</span>: <span class="hljs-string">""</span>,
+  <span class="hljs-string">"max_spend_sol"</span>: <span class="hljs-number">0</span>.<span class="hljs-number">1</span>,
+  <span class="hljs-string">"max_open_positions"</span>: <span class="hljs-number">2</span>
+}
+</code></pre>
+<p>Designed for <strong>safety</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>private_key</td>
+<td>Only required if you add real trading</td>
+</tr>
+<tr>
+<td>max_spend_sol</td>
+<td>Maximum SOL per trade</td>
+</tr>
+<tr>
+<td>max_open_positions</td>
+<td>Limits exposure</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="-sniper">sniper</h2>
+<pre><code class="lang-json"><span class="hljs-string">"sniper"</span>: {
+  <span class="hljs-string">"auto_buy_enabled"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"min_liquidity_sol"</span>: <span class="hljs-number">3</span>,
+  <span class="hljs-string">"max_market_cap_usd"</span>: <span class="hljs-number">300000</span>,
+  <span class="hljs-string">"min_initial_liquidity_ratio"</span>: <span class="hljs-number">0.4</span>,
+  <span class="hljs-string">"slippage_bps"</span>: <span class="hljs-number">300</span>,
+  <span class="hljs-string">"take_profit_x"</span>: <span class="hljs-number">2.0</span>,
+  <span class="hljs-string">"stop_loss_x"</span>: <span class="hljs-number">0.5</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>auto_buy_enabled</td>
+<td>Enables real execution hook</td>
+</tr>
+<tr>
+<td>min_liquidity_sol</td>
+<td>Minimum liquidity to allow buy</td>
+</tr>
+<tr>
+<td>max_market_cap_usd</td>
+<td>Avoids overextended tokens</td>
+</tr>
+<tr>
+<td>min_initial_liquidity_ratio</td>
+<td>Ensures curve is healthy</td>
+</tr>
+<tr>
+<td>slippage_bps</td>
+<td>300bps = 3%</td>
+</tr>
+<tr>
+<td>take_profit_x</td>
+<td>2.0 = 2× target</td>
+</tr>
+<tr>
+<td>stop_loss_x</td>
+<td>0.5 = 50% loss cap</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="-filters">filters</h2>
+<pre><code class="lang-json"><span class="hljs-string">"filters"</span>: {
+  <span class="hljs-string">"require_renounced"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"require_locked_liquidity"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"block_mint_authority"</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-string">"min_trades_1m"</span>: <span class="hljs-number">3</span>
+}
+</code></pre>
+<p>Filter glossary:</p>
+<table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>require_renounced</td>
+<td>Helps avoid mint-control rugs</td>
+</tr>
+<tr>
+<td>require_locked_liquidity</td>
+<td>Helps avoid liquidity rugs</td>
+</tr>
+<tr>
+<td>block_mint_authority</td>
+<td>Essential rug filter</td>
+</tr>
+<tr>
+<td>min_trades_1m</td>
+<td>Confirms real activity</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="-blacklist">blacklist</h2>
+<pre><code class="lang-json"><span class="hljs-string">"blacklist"</span>: {
+  <span class="hljs-string">"creator_addresses"</span>: <span class="hljs-string">[]</span>,
+  <span class="hljs-string">"token_mints"</span>: <span class="hljs-string">[]</span>,
+  <span class="hljs-string">"program_ids"</span>: <span class="hljs-string">[]</span>
+}
+</code></pre>
+<p>Supports:</p>
+<ul>
+<li>Scam creators  </li>
+<li>Bad mints  </li>
+<li>Malicious program IDs  </li>
+</ul>
+<hr>
+<h1 id="-6-execution-loop-internal-workflow-">6. Execution Loop (Internal Workflow)</h1>
+<pre><code>main.<span class="hljs-keyword">py</span> Trading Loop
+ ├─ discover tokens (rpc.<span class="hljs-keyword">py</span>)
+ ├─ normalize metadata
+ ├─ apply filters (helpers.<span class="hljs-keyword">py</span>)
+ ├─ evaluate safety rules
+ ├─ <span class="hljs-keyword">if</span> passed:
+ │     └─ trigger execution hook
+ └─ <span class="hljs-keyword">sleep</span> poll_interval_seconds
+</code></pre><hr>
+<h1 id="-7-strategy-examples-trading-logic-templates-">7. Strategy Examples (Trading Logic Templates)</h1>
+<p>These presets help users configure the sniper for different goals.</p>
+<hr>
+<h2 id="-strategy-a-early-curve-sniping-high-risk-">Strategy A — Early Curve Sniping (High Risk)</h2>
+<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>–<span class="hljs-number">2</span>  
+<span class="hljs-symbol">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.25</span>  
+<span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">1</span>
+</code></pre><p>Useful for adrenaline seekers and experimenters.</p>
+<hr>
+<h2 id="-strategy-b-safer-curve-entry">Strategy B — Safer Curve Entry</h2>
+<pre><code><span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>–<span class="hljs-number">5</span>  
+<span class="hljs-string">require_locked_liquidity:</span> <span class="hljs-literal">true</span>  
+<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>  
+<span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.35</span>–<span class="hljs-number">0.45</span>
+</code></pre><p>Avoids most instant rugs.</p>
+<hr>
+<h2 id="-strategy-c-volume-confirmation">Strategy C — Volume Confirmation</h2>
+<pre><code><span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">8</span>–<span class="hljs-number">15</span>
+<span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">4</span>+
+</code></pre><p>Focuses on momentum.</p>
+<hr>
+<h2 id="-strategy-d-strict-maker-filtering">Strategy D — Strict Maker Filtering</h2>
+<pre><code>creator_addresses blacklist enabled
+<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>
+<span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.50</span>
+</code></pre><p>Prioritizes trustworthy projects.</p>
+<hr>
+<h1 id="-8-execution-hook-add-real-trading-here-">8. Execution Hook (Add Real Trading Here)</h1>
+<p>Inside <code>main.py</code>:</p>
+<pre><code class="lang-python"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">execute_buy</span><span class="hljs-params">(<span class="hljs-keyword">self</span>, token)</span></span>:
+    <span class="hljs-comment"># place your DEX call here</span>
+    <span class="hljs-keyword">self</span>.logger.info(f<span class="hljs-string">"Would execute trade for {token['mint']}"</span>)
+</code></pre>
+<h3 id="jupiter-example-template">Jupiter Example Template</h3>
+<pre><code class="lang-python"><span class="hljs-meta"># payload = requests.get(</span>
+<span class="hljs-meta">#     "https://quote-api.jup.ag/v6/quote",</span>
+<span class="hljs-meta">#     params={</span>
+<span class="hljs-meta">#         "inputMint": "So11111111111111111111111111111111111111112",</span>
+<span class="hljs-meta">#         "outputMint": token["mint"],</span>
+<span class="hljs-meta">#         "amount": int(0.1 * 1_000_000_000),</span>
+<span class="hljs-meta">#         "slippageBps": self.config.sniper.slippage_bps</span>
+<span class="hljs-meta">#     }</span>
+<span class="hljs-meta"># ).json()</span>
+</code></pre>
+<hr>
+<h1 id="-9-webhook-payload-examples">9. Webhook Payload Examples</h1>
+<h3 id="discord">Discord</h3>
+<pre><code class="lang-json">{
+  <span class="hljs-attr">"content"</span>: <span class="hljs-string">"**New Sniper Opportunity Detected**"</span>,
+  <span class="hljs-attr">"embeds"</span>: [{
+    <span class="hljs-attr">"title"</span>: <span class="hljs-string">"Token Passed Filters"</span>,
+    <span class="hljs-attr">"description"</span>: <span class="hljs-string">"Liquidity: 4.3 SOL — MC: $120k"</span>,
+    <span class="hljs-attr">"color"</span>: <span class="hljs-number">65280</span>
+  }]
+}
+</code></pre>
+<hr>
+<h1 id="-10-troubleshooting-flowchart-">10. Troubleshooting (Flowchart)</h1>
+<pre><code><span class="hljs-keyword">START</span>
+  │
+  ├─ <span class="hljs-keyword">No</span> tokens showing?
+  │      ├─ RPC slow?
+  │      ├─ Poll <span class="hljs-built_in">interval</span> too <span class="hljs-keyword">high</span>?
+  │      ├─ Filters too <span class="hljs-keyword">strict</span>?
+  │      └─ Discovery <span class="hljs-keyword">source</span> <span class="hljs-keyword">empty</span>?
+  │
+  ├─ <span class="hljs-keyword">Auto</span>-buy <span class="hljs-keyword">not</span> triggering?
+  │      ├─ auto_buy_enabled = <span class="hljs-literal">true</span>?
+  │      ├─ <span class="hljs-keyword">Failed</span> filter?
+  │      ├─ Safety rule triggered?
+  │      └─ Execution hook implemented?
+  │
+  ├─ Too many <span class="hljs-keyword">logs</span>?
+  │      ├─ Increase poll <span class="hljs-built_in">interval</span>
+  │      ├─ <span class="hljs-keyword">Set</span> <span class="hljs-keyword">logging</span> <span class="hljs-keyword">to</span> <span class="hljs-keyword">WARNING</span>
+  │      └─ <span class="hljs-keyword">Disable</span> DEBUG prints
+  │
+  └─ RPC <span class="hljs-keyword">errors</span>?
+         ├─ <span class="hljs-keyword">Switch</span> RPC provider
+         └─ Increase timeout_seconds
+</code></pre><hr>
+<h1 id="-11-recommended-settings">11. Recommended Settings</h1>
+<h3 id="beginner-mode-simulation-">Beginner Mode (Simulation)</h3>
+<pre><code><span class="hljs-string">auto_buy_enabled:</span> <span class="hljs-literal">false</span>  
+<span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>  
+<span class="hljs-string">min_trades_1m:</span> <span class="hljs-number">2</span>
+</code></pre><h3 id="safe-mode">Safe Mode</h3>
+<pre><code><span class="hljs-string">require_locked_liquidity:</span> <span class="hljs-literal">true</span>  
+<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>  
+<span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.40</span>
+</code></pre><h3 id="aggressive-mode">Aggressive Mode</h3>
+<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>–<span class="hljs-number">2</span>  
+<span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">1</span>  
+<span class="hljs-symbol">max_market_cap_usd:</span> <span class="hljs-number">500</span>k
+</code></pre><hr>
+<h1 id="-12-glossary">12. Glossary</h1>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Slippage</td>
+<td>% allowed price movement</td>
+</tr>
+<tr>
+<td>Liquidity</td>
+<td>Token/SOL backing</td>
+</tr>
+<tr>
+<td>Market Cap</td>
+<td>Curve valuation</td>
+</tr>
+<tr>
+<td>Renounced</td>
+<td>Creator cannot change mint</td>
+</tr>
+<tr>
+<td>Locked Liquidity</td>
+<td>Prevents rug pulls</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="-13-disclaimer">13. Disclaimer</h1>
+<p>This is a <strong>non-trading template</strong>.<br>You must add real execution manually.<br>Crypto trading is risky — test carefully.</p>
+<hr>
+<h1 id="-end-of-document">End of Document</h1>

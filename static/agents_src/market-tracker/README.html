@@ -1,0 +1,329 @@
+<h3 id="-license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.
+Redistribution, resale, repackaging, or inclusion in any paid product or service is <strong>strictly prohibited</strong>.
+See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+<h1 id="market-tracker-agent-template-">Market Tracker Agent (Template)</h1>
+<h3 id="aetheron-agent-series-market-environment-interpretation-engine">Aetheron Agent Series — Market Environment Interpretation Engine</h3>
+<hr>
+<h2 id="-read-this-first">Read This First</h2>
+<p>This is <strong>not</strong> a trading bot.<br>This is <strong>not</strong> a signal generator.<br>This is <strong>not</strong> a prediction engine.</p>
+<p>This is a <strong>market environment interpreter</strong> — a system designed to help you understand <em>how the market is behaving</em> so you can decide <strong>how aggressive or defensive to be</strong> before taking action.</p>
+<p>If you are looking for buy/sell signals, this is not the right tool.</p>
+<p>If you are building systems, strategies, research workflows, or discretionary processes and want <strong>macro context</strong>, this agent is built exactly for that role.</p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li>Scope &amp; Intended Audience  </li>
+<li>Introduction &amp; Motivation  </li>
+<li>What Problem This Agent Solves  </li>
+<li>What This Agent Is / Is Not  </li>
+<li>Core Concepts &amp; Mental Model  </li>
+<li>Market Regimes Explained  </li>
+<li>High-Level Architecture  </li>
+<li>Installation (Absolute Beginner → Advanced)  </li>
+<li>Running the Agent (Continuous Mode)  </li>
+<li>Understanding the Output (Detailed Walkthrough)  </li>
+<li>Confidence Explained (Critical Concept)  </li>
+<li>Configuration Deep Dive (<code>config.json</code>)  </li>
+<li>Module-by-Module Logic Breakdown  </li>
+<li>Folder Structure Explained  </li>
+<li>Data Layer: How Information Enters the System  </li>
+<li>Making the Agent “Real” with Live Data  </li>
+<li>Normalization &amp; Scoring Rules  </li>
+<li>Smoothing, Stability &amp; Regime Transitions  </li>
+<li>API Keys, Environment Variables &amp; Security  </li>
+<li>Extending the Agent (Beginner → Advanced)  </li>
+<li>Error Handling, Safety &amp; Guardrails  </li>
+<li>Performance, Operations &amp; Deployment  </li>
+<li>Common Customization Patterns  </li>
+<li>Design Philosophy &amp; Tradeoffs  </li>
+<li>FAQ  </li>
+<li>Final Notes  </li>
+</ol>
+<hr>
+<h2 id="0-scope-intended-audience">0. Scope &amp; Intended Audience</h2>
+<p>This template is designed for:</p>
+<ul>
+<li>discretionary traders</li>
+<li>system builders</li>
+<li>macro analysts</li>
+<li>researchers</li>
+<li>developers building higher-level agents</li>
+<li>users who want <strong>context before execution</strong></li>
+</ul>
+<p>It is <strong>not</strong> designed for:</p>
+<ul>
+<li>signal-only users</li>
+<li>“one-click” trading bots</li>
+<li>prediction-based systems</li>
+<li>black-box strategies</li>
+</ul>
+<hr>
+<h2 id="1-introduction-motivation">1. Introduction &amp; Motivation</h2>
+<p>Most trading failures do not come from poor entries.</p>
+<p>They come from <strong>operating in the wrong environment</strong>.</p>
+<p>Markets behave fundamentally differently depending on:</p>
+<ul>
+<li>liquidity expansion vs contraction</li>
+<li>volatility compression vs expansion</li>
+<li>coordinated risk appetite vs fragmented behavior</li>
+<li>fear-driven vs complacent sentiment</li>
+</ul>
+<p>Ignoring these conditions leads to:</p>
+<ul>
+<li>overtrading</li>
+<li>false signals</li>
+<li>excessive drawdowns</li>
+<li>regime mismatch</li>
+</ul>
+<p>This agent exists to <strong>formalize market environment awareness</strong>.</p>
+<hr>
+<h2 id="2-what-problem-this-agent-solves">2. What Problem This Agent Solves</h2>
+<p>Most systems focus on <em>what</em> to trade.</p>
+<p>Very few ask:</p>
+<ul>
+<li><em>Should I be trading aggressively at all?</em></li>
+<li><em>Is this a clean regime or a transition?</em></li>
+<li><em>Are signals likely to persist or decay quickly?</em></li>
+</ul>
+<p>This agent filters <strong>environment</strong>, not trades.</p>
+<p>It sits <strong>above</strong> strategies and execution logic.</p>
+<hr>
+<h2 id="3-what-this-agent-is-is-not">3. What This Agent Is / Is Not</h2>
+<h3 id="-what-it-is">✅ What it IS</h3>
+<ul>
+<li>a macro regime interpreter</li>
+<li>a continuous environment monitor</li>
+<li>a modular analysis engine</li>
+<li>a configurable template</li>
+<li>transparent and explainable</li>
+</ul>
+<h3 id="-what-it-is-not">❌ What it is NOT</h3>
+<ul>
+<li>a trading bot</li>
+<li>a signal generator</li>
+<li>a forecasting model</li>
+<li>an execution engine</li>
+<li>financial advice</li>
+</ul>
+<hr>
+<h2 id="4-core-concepts-mental-model">4. Core Concepts &amp; Mental Model</h2>
+<p>Markets are an interaction of <strong>independent forces</strong>.</p>
+<p>These forces can:</p>
+<ul>
+<li>reinforce each other</li>
+<li>neutralize each other</li>
+<li>conflict during transitions</li>
+</ul>
+<p>When forces align → regimes form<br>When forces diverge → noise dominates  </p>
+<p>The agent measures <strong>alignment</strong>, not outcomes.</p>
+<hr>
+<h2 id="5-market-regimes-explained">5. Market Regimes Explained</h2>
+<p>The agent classifies environments into:</p>
+<ul>
+<li><strong>risk_on</strong></li>
+<li><strong>neutral</strong></li>
+<li><strong>risk_off</strong></li>
+</ul>
+<p>These regimes describe <strong>conditions</strong>, not direction.</p>
+<p>A risk_on regime does not guarantee upside.<br>A risk_off regime does not guarantee downside.</p>
+<p>They describe <strong>how markets behave</strong>, not what they will do.</p>
+<hr>
+<h2 id="6-high-level-architecture">6. High-Level Architecture</h2>
+<p>The system is divided into three layers:</p>
+<h3 id="data-layer">Data Layer</h3>
+<ul>
+<li>APIs</li>
+<li>databases</li>
+<li>files</li>
+<li>on-chain metrics</li>
+</ul>
+<p>This is the <strong>only layer users modify</strong> to connect live data.</p>
+<h3 id="interpretation-layer">Interpretation Layer</h3>
+<ul>
+<li>independent macro modules</li>
+<li>normalization</li>
+<li>state &amp; trend detection</li>
+</ul>
+<h3 id="aggregation-layer">Aggregation Layer</h3>
+<ul>
+<li>weighting</li>
+<li>confidence calculation</li>
+<li>regime classification</li>
+</ul>
+<hr>
+<h2 id="7-installation-absolute-beginner-advanced-">7. Installation (Absolute Beginner → Advanced)</h2>
+<h3 id="step-1-install-python">Step 1 — Install Python</h3>
+<p>Python <strong>3.10+</strong> is required.</p>
+<pre><code class="lang-bash"><span class="hljs-keyword">python</span> --<span class="hljs-keyword">version</span>
+</code></pre>
+<p>Download:
+<a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p>
+<hr>
+<h3 id="step-2-create-virtual-environment">Step 2 — Create Virtual Environment</h3>
+<pre><code class="lang-bash">python -m venv venv
+source venv/bin/<span class="hljs-built_in">activate</span>      <span class="hljs-comment"># macOS / Linux</span>
+venv\Scripts\<span class="hljs-built_in">activate</span>       <span class="hljs-comment"># Windows</span>
+</code></pre>
+<hr>
+<h3 id="step-3-install-dependencies">Step 3 — Install Dependencies</h3>
+<pre><code class="lang-bash">pip <span class="hljs-keyword">install</span> -r requirements.txt
+</code></pre>
+<hr>
+<h2 id="8-running-the-agent">8. Running the Agent</h2>
+<pre><code class="lang-bash"><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
+</code></pre>
+<p>The agent:</p>
+<ul>
+<li>runs continuously</li>
+<li>evaluates environment on an interval</li>
+<li>prints structured JSON</li>
+<li>shuts down cleanly</li>
+</ul>
+<hr>
+<h2 id="9-understanding-the-output">9. Understanding the Output</h2>
+<p>Example:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-attr">"environment"</span>: <span class="hljs-string">"neutral"</span>,
+  <span class="hljs-attr">"confidence"</span>: <span class="hljs-number">0.64</span>
+}
+</code></pre>
+<h3 id="environment-meaning">Environment Meaning</h3>
+<ul>
+<li>risk_on → supportive</li>
+<li>neutral → mixed / transitional</li>
+<li>risk_off → defensive</li>
+</ul>
+<p>Neutral environments are <strong>normal</strong>.</p>
+<hr>
+<h2 id="10-confidence-explained">10. Confidence Explained</h2>
+<p>Confidence is not probability.</p>
+<p>It measures:</p>
+<blockquote>
+<p>Signal agreement across macro dimensions</p>
+</blockquote>
+<p>High confidence:</p>
+<ul>
+<li>aligned signals</li>
+<li>stable regime</li>
+</ul>
+<p>Low confidence:</p>
+<ul>
+<li>conflicting signals</li>
+<li>transition or noise</li>
+</ul>
+<hr>
+<h2 id="11-configuration-deep-dive">11. Configuration Deep Dive</h2>
+<p>The <code>config.json</code> file controls behavior.</p>
+<p>Includes:</p>
+<ul>
+<li>run interval</li>
+<li>weights</li>
+<li>thresholds</li>
+<li>smoothing</li>
+</ul>
+<p>No code changes required.</p>
+<hr>
+<h2 id="12-module-by-module-logic-breakdown">12. Module-by-Module Logic Breakdown</h2>
+<h3 id="risk">Risk</h3>
+<p>Measures broad risk appetite.</p>
+<h3 id="volatility">Volatility</h3>
+<p>Measures market stability vs stress.</p>
+<h3 id="liquidity">Liquidity</h3>
+<p>Measures capital availability.</p>
+<h3 id="correlation">Correlation</h3>
+<p>Measures regime coherence.</p>
+<h3 id="psychology">Psychology</h3>
+<p>Measures sentiment extremes.</p>
+<hr>
+<h2 id="13-folder-structure-explained">13. Folder Structure Explained</h2>
+<pre><code>market-tracker-agent/
+├── main<span class="hljs-selector-class">.py</span>
+├── config<span class="hljs-selector-class">.json</span>
+├── requirements<span class="hljs-selector-class">.txt</span>
+├── schemas<span class="hljs-selector-class">.py</span>
+├── core/
+├── modules/
+└── utils/
+</code></pre><hr>
+<h2 id="14-data-layer">14. Data Layer</h2>
+<p>All data enters via <code>utils/data.py</code>.</p>
+<p>Defaults are placeholders.</p>
+<hr>
+<h2 id="15-making-the-agent-real">15. Making the Agent Real</h2>
+<p>Replace placeholder values with real data:</p>
+<ul>
+<li>REST APIs</li>
+<li>on-chain feeds</li>
+<li>internal databases</li>
+</ul>
+<p>Normalize to <code>-1 → +1</code>.</p>
+<hr>
+<h2 id="16-normalization-scoring">16. Normalization &amp; Scoring</h2>
+<p>All inputs must be normalized.</p>
+<p>This ensures:</p>
+<ul>
+<li>consistency</li>
+<li>comparability</li>
+<li>safe aggregation</li>
+</ul>
+<hr>
+<h2 id="17-smoothing-stability">17. Smoothing &amp; Stability</h2>
+<p>Optional smoothing prevents:</p>
+<ul>
+<li>regime whiplash</li>
+<li>overreaction</li>
+<li>noisy flips</li>
+</ul>
+<hr>
+<h2 id="18-api-keys-security">18. API Keys &amp; Security</h2>
+<p>Use <code>.env</code> files.</p>
+<p>Never hardcode secrets.</p>
+<hr>
+<h2 id="19-extending-the-agent">19. Extending the Agent</h2>
+<ul>
+<li>add modules</li>
+<li>change logic</li>
+<li>persist state</li>
+<li>trigger alerts</li>
+</ul>
+<hr>
+<h2 id="20-error-handling-safety">20. Error Handling &amp; Safety</h2>
+<ul>
+<li>no execution</li>
+<li>no capital usage</li>
+<li>interpretive only</li>
+</ul>
+<hr>
+<h2 id="21-performance-operations">21. Performance &amp; Operations</h2>
+<ul>
+<li>lightweight</li>
+<li>stateless</li>
+<li>container-friendly</li>
+</ul>
+<hr>
+<h2 id="22-customization-patterns">22. Customization Patterns</h2>
+<ul>
+<li>macro-only</li>
+<li>crypto-only</li>
+<li>hybrid</li>
+<li>research-focused</li>
+</ul>
+<hr>
+<h2 id="23-design-philosophy">23. Design Philosophy</h2>
+<ul>
+<li>honesty over hype</li>
+<li>context over signals</li>
+<li>structure over noise</li>
+</ul>
+<hr>
+<h2 id="24-faq">24. FAQ</h2>
+<p><strong>Does this predict markets?</strong><br>No.</p>
+<p><strong>Can I plug real data?</strong><br>Yes.</p>
+<hr>
+<h2 id="25-final-notes">25. Final Notes</h2>
+<p>This agent will not trade for you.</p>
+<p>It helps you avoid trading in the wrong environment — which is often more valuable.</p>
+<hr>
+<p>© 2025 Aetheron. All rights reserved.</p>

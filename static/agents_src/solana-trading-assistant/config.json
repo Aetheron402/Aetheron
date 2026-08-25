@@ -1,0 +1,45 @@
+{
+  "rpc": {
+    "url": "https://api.mainnet-beta.solana.com",
+    "timeout_seconds": 10
+  },
+
+  "birdeye": {
+    "api_key": "YOUR_BIRDEYE_API_KEY",
+    "base_url": "https://public-api.birdeye.so",
+    "timeout_seconds": 10
+  },
+
+  "analysis": {
+    "tokens_to_watch": [
+      "So11111111111111111111111111111111111111112"
+    ],
+    "poll_interval_seconds": 30,
+
+    "timeframes": ["5m", "15m", "1h"],
+
+    "thresholds": {
+      "min_liquidity_usd": 20000,
+      "min_24h_volume_usd": 50000,
+      "max_volatility_percent": 35
+    },
+
+    "scores": {
+      "weight_price_trend": 0.35,
+      "weight_volume_trend": 0.35,
+      "weight_liquidity_stability": 0.20,
+      "weight_volatility": 0.10
+    }
+  },
+
+  "notifications": {
+    "enabled": false,
+    "webhook_url": ""
+  },
+
+  "logging": {
+    "level": "INFO",
+    "to_file": false,
+    "file_name": "trading_assistant.log"
+  }
+}

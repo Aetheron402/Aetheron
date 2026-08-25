@@ -1,0 +1,17 @@
+{
+  "discord": {
+    "bot_token": "YOUR_DISCORD_BOT_TOKEN",
+    "prefix": "!"
+  },
+  "ai": {
+    "enabled": false,
+    "provider": "openai",
+    "openai_api_key": "",
+    "model": "gpt-4o-mini"
+  },
+  "logging": {
+    "level": "INFO",
+    "to_file": false,
+    "file_name": "discord_agent.log"
+  }
+}

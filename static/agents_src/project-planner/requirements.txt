@@ -1,0 +1,14 @@
+# Testing
+pytest>=7.4
+
+# Configuration validation
+jsonschema>=4.21
+
+# Date utilities (optional but commonly used)
+python-dateutil>=2.8
+
+# CLI utilities (optional if you later add CLI commands)
+click>=8.1
+
+# Logging utilities (optional)
+rich>=13.7
