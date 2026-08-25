@@ -10,10 +10,10 @@
 <div class="page-fade">
 
     <section class="max-w-5xl mx-auto mt-10 text-center">
-      <h2 class="text-3xl font-semibold mb-3 text-cyan-300">Browse Components</h2>
-      <p class="text-gray-400 mb-6">Premium AI & automation modules powered by the X402 protocol.</p>
+      <h2 class="text-3xl font-semibold mb-3 text-white">Browse Components</h2>
+      <p class="text-[rgba(250,250,250,0.56)] mb-6">Premium AI & automation modules powered by the X402 protocol.</p>
       <div class="max-w-xl mx-auto mb-6">
-        <input id="search" placeholder="Search components..." class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-4 py-3 outline-none"/>
+        <input id="search" placeholder="Search components..." class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-4 py-3 outline-none"/>
       </div>
       <div class="filter-bar mb-8">
         <button class="filter-chip active" data-filter-btn data-category="All">all</button>
@@ -33,13 +33,13 @@
       >
         <div>
           <div class="mb-2"><span class="pill">{{ c.type }}</span></div>
-          <h2 class="text-xl font-semibold text-cyan-400">{{ c.name }}</h2>
-          <p class="text-gray-400 text-sm mt-2">{{ c.description }}</p>
+          <h2 class="text-xl font-semibold text-white">{{ c.name }}</h2>
+          <p class="text-[rgba(250,250,250,0.56)] text-sm mt-2">{{ c.description }}</p>
         </div>
 
         <div class="mt-6 flex justify-between items-center">
 
-          <span class="text-cyan-300 font-semibold">{{ c.price }}</span>
+          <span class="text-white font-semibold">{{ c.price }}</span>
 
           {% if c.slug == "prompt-optimizer" %}
             <button class="btn" onclick="
@@ -90,7 +90,7 @@
             <a class="btn" href="/agents">Open Store</a>
 
           {% elif c.coming_soon %}
-            <button class="btn bg-gray-700 text-gray-400 cursor-not-allowed">Coming Soon</button>
+            <button class="btn bg-gray-700 text-[rgba(250,250,250,0.56)] cursor-not-allowed">Coming Soon</button>
 
           {% else %}
             <a class="btn" href="/buy/{{ c.id }}">Buy</a>
@@ -101,30 +101,30 @@
         </main>
 
     <section id="my-assets-section" class="max-w-5xl mx-auto mt-20 hidden">
-      <h2 class="text-2xl font-semibold text-cyan-300 mb-4 text-center">My Recent Assets</h2>
-      <div id="my-assets-list" class="bg-gray-900/40 border border-cyan-400/20 rounded-xl p-6 text-gray-300">
-        <p class="text-gray-500 text-center">Connect your wallet to view your assets.</p>
+      <h2 class="text-2xl font-semibold text-white mb-4 text-center">My Recent Assets</h2>
+      <div id="my-assets-list" class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-6 text-gray-300">
+        <p class="text-[rgba(250,250,250,0.38)] text-center">Connect your wallet to view your assets.</p>
       </div>
     </section>
 
     <section class="max-w-5xl mx-auto mt-28 mb-24 text-center relative z-10">
-      <h2 class="text-3xl font-semibold mb-4 text-cyan-300">The Aetheron Roadmap</h2>
-      <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
+      <h2 class="text-3xl font-semibold mb-4 text-white">The Aetheron Roadmap</h2>
+      <p class="text-[rgba(250,250,250,0.56)] mb-8 max-w-2xl mx-auto">
         Aetheron evolves from a component marketplace into a decentralized AI ecosystem. 
         Introducing new tools, SDKs, and verified on-chain intelligence through 2026.
       </p>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-left text-gray-300">
-        <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
-          <h3 class="text-cyan-300 font-semibold mb-2">Q4 2025</h3>
+        <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-6 hover: transition">
+          <h3 class="text-white font-semibold mb-2">Q4 2025</h3>
           <p class="text-sm">Launch <em>Contract Intelligence Analyzer</em> and <em>Prebuilt Agent Store</em> + token release on Pump.fun.</p>
         </div>
-        <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
-          <h3 class="text-cyan-300 font-semibold mb-2">Q1-Q2 2026</h3>
+        <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-6 hover: transition">
+          <h3 class="text-white font-semibold mb-2">Q1-Q2 2026</h3>
           <p class="text-sm">Release Aetheron SDK and X402-Linker for chained, composable AI workflows.</p>
         </div>
-        <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
-          <h3 class="text-cyan-300 font-semibold mb-2">Q3-Q4 2026</h3>
+        <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-6 hover: transition">
+          <h3 class="text-white font-semibold mb-2">Q3-Q4 2026</h3>
           <p class="text-sm">Deploy Aetheron Trust Ledger + open community marketplace and CoinGecko listings.</p>
         </div>
       </div>
@@ -133,26 +133,26 @@
     </section>
 
     <div id="modal-bg" class="modal-bg">
-      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+      <div class="modal bg-[#111113] backdrop-blur border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-xl p-6 w-[520px]">
         <div class="flex justify-between items-start mb-4">
           <div>
-            <h3 class="text-cyan-300 text-xl font-semibold mb-1">AI Prompt Optimizer</h3>
-            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.25 USDC</span> per request.</span>
+            <h3 class="text-white text-xl font-semibold mb-1">AI Prompt Optimizer</h3>
+            <p class="text-sm text-[rgba(250,250,250,0.56)]">Price: <span class="text-white font-semibold">0.25 USDC</span> per request.</span>
           </div>
-          <button onclick="closeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeModal()" class="text-[rgba(250,250,250,0.56)] hover:text-white text-lg">✕</button>
         </div>
 
-        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
-          Enter your raw idea or messy text, and Aetheron will refine it into a <span class="text-cyan-300">production-grade prompt</span>.
+        <p class="text-[rgba(250,250,250,0.56)] text-sm mb-4 leading-relaxed">
+          Enter your raw idea or messy text, and Aetheron will refine it into a <span class="text-white">production-grade prompt</span>.
           Your optimized result will be generated as a downloadable PDF or text file.
         </p>
 
-        <label class="block text-sm text-gray-400 mb-2">Your text</label>
-        <textarea id="user-text" rows="4" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-2">Your text</label>
+        <textarea id="user-text" rows="4" class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
           placeholder="e.g., write a short product description for a futuristic AI marketplace"></textarea>
 
-        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
-        <select id="prompt-output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-4">Output format</label>
+        <select id="prompt-output-format" class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 outline-none text-gray-200">
           <option value="pdf" selected>Premium PDF (.pdf)</option>
           <option value="txt">Plain Text (.txt)</option>
           <option value="docx">Word Document (.docx)</option>
@@ -160,7 +160,7 @@
           <option value="md">Markdown (.md)</option>
         </select>
 
-        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mt-4 mb-2">Payment method</label>
         <div class="flex gap-4">
             <label class="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="pay_method_prompt" value="USDC" checked>
@@ -174,19 +174,19 @@
         </div>
 
         <div id="prompt-pay-info"
-             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+             class="mt-4 bg-black/30 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 hidden">
 
-          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
-          <div class="text-cyan-300 font-mono text-sm break-all">
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mb-1">Send to wallet</div>
+          <div class="text-white font-mono text-sm break-all">
             {{ payment_wallet }}
           </div>
 
-          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mt-3 mb-1">Send this amount</div>
           <div id="prompt-pay-amount"
                class="text-gray-200 text-sm font-semibold">-</div>
 
           <div id="prompt-aeth-note"
-               class="text-xs text-gray-400 mt-2 hidden">
+               class="text-xs text-[rgba(250,250,250,0.56)] mt-2 hidden">
             AETH amount is calculated automatically.
           </div>
         </div>
@@ -195,33 +195,33 @@
           <button class="btn px-8 py-2.5 text-base" onclick="submitPromptOptimizer()">Execute</button>
         </div>
 
-        <div id="result" class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+        <div id="result" class="mt-5 text-sm bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
       </div>
     </div>
 
     <div id="modal-code-bg" class="modal-bg">
-      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+      <div class="modal bg-[#111113] backdrop-blur border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-xl p-6 w-[520px]">
         <div class="flex justify-between items-start mb-4">
           <div>
-            <h3 class="text-cyan-300 text-xl font-semibold mb-1">LLM-Powered Code Explainer</h3>
-            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.50 USDC</span> per request.</p>
+            <h3 class="text-white text-xl font-semibold mb-1">LLM-Powered Code Explainer</h3>
+            <p class="text-sm text-[rgba(250,250,250,0.56)]">Price: <span class="text-white font-semibold">0.50 USDC</span> per request.</p>
           </div>
-          <button onclick="closeCodeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeCodeModal()" class="text-[rgba(250,250,250,0.56)] hover:text-white text-lg">✕</button>
         </div>
 
-        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
+        <p class="text-[rgba(250,250,250,0.56)] text-sm mb-4 leading-relaxed">
           Paste your code snippet below, and Aetheron will generate a detailed report explaining its structure, logic, and complexity.
-          Including <span class="text-cyan-300">readability, performance, and security insights</span>.
+          Including <span class="text-white">readability, performance, and security insights</span>.
           Supports backend code, JavaScript, and JSX.
           Export as PDF, TXT, DOCX, HTML, or MD.
         </p>
 
-        <label class="block text-sm text-gray-400 mb-2">Your code</label>
-        <textarea id="user-code" rows="6" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-2">Your code</label>
+        <textarea id="user-code" rows="6" class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
           placeholder="Paste your code here…"></textarea>
 
-        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
-        <select id="output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-4">Output format</label>
+        <select id="output-format" class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 outline-none text-gray-200">
           <option value="pdf" selected>Premium PDF (.pdf)</option>
           <option value="txt">Plain Text (.txt)</option>
           <option value="docx">Word Document (.docx)</option>
@@ -229,7 +229,7 @@
           <option value="md">Markdown (.md)</option>
         </select>
 
-        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mt-4 mb-2">Payment method</label>
         <div class="flex gap-4">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="pay_method_code" value="USDC" checked>
@@ -243,18 +243,18 @@
         </div>
 
         <div id="code-pay-info"
-             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+             class="mt-4 bg-black/30 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 hidden">
 
-          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
-          <div class="text-cyan-300 font-mono text-sm break-all">
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mb-1">Send to wallet</div>
+          <div class="text-white font-mono text-sm break-all">
             {{ payment_wallet }}
           </div>
 
-          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mt-3 mb-1">Send this amount</div>
           <div id="code-pay-amount" class="text-gray-200 text-sm font-semibold">-</div>
 
           <div id="code-aeth-note"
-               class="text-xs text-gray-400 mt-2 hidden">
+               class="text-xs text-[rgba(250,250,250,0.56)] mt-2 hidden">
             AETH amount is calculated automatically.
           </div>
         </div>
@@ -263,33 +263,33 @@
           <button class="btn px-8 py-2.5 text-base" onclick="submitCodeExplainer()">Execute</button>
         </div>
 
-        <div id="code-result" class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+        <div id="code-result" class="mt-5 text-sm bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
       </div>
     </div>
 
     <div id="modal-tester-bg" class="modal-bg">
-      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+      <div class="modal bg-[#111113] backdrop-blur border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-xl p-6 w-[520px]">
         <div class="flex justify-between items-start mb-4">
           <div>
-            <h3 class="text-cyan-300 text-xl font-semibold mb-1">Smart Prompt Tester (PersonaSim)</h3>
-            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.50 USDC</span> per run.</p>
+            <h3 class="text-white text-xl font-semibold mb-1">Smart Prompt Tester (PersonaSim)</h3>
+            <p class="text-sm text-[rgba(250,250,250,0.56)]">Price: <span class="text-white font-semibold">0.50 USDC</span> per run.</p>
           </div>
-          <button onclick="closeTesterModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeTesterModal()" class="text-[rgba(250,250,250,0.56)] hover:text-white text-lg">✕</button>
         </div>
 
-        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
-          Evaluate your prompt through multiple AI perspectives. Including <span class="text-cyan-300">Developer</span>, 
-          <span class="text-cyan-300">Skeptic</span>, and <span class="text-cyan-300">Hacker</span> personas.  
+        <p class="text-[rgba(250,250,250,0.56)] text-sm mb-4 leading-relaxed">
+          Evaluate your prompt through multiple AI perspectives. Including <span class="text-white">Developer</span>, 
+          <span class="text-white">Skeptic</span>, and <span class="text-white">Hacker</span> personas.  
           Aetheron will analyze responses, highlight strengths, and generate a hardened prompt blueprint for you.
         </p>
 
-        <label class="block text-sm text-gray-400 mb-2">Your prompt</label>
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-2">Your prompt</label>
         <textarea id="tester-text" rows="5"
-          class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
+          class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
           placeholder="Paste the prompt you want to test across personas..."></textarea>
 
-        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
-        <select id="tester-output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-4">Output format</label>
+        <select id="tester-output-format" class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 outline-none text-gray-200">
           <option value="pdf" selected>Premium PDF (.pdf)</option>
           <option value="txt">Plain Text (.txt)</option>
           <option value="docx">Word Document (.docx)</option>
@@ -297,7 +297,7 @@
           <option value="md">Markdown (.md)</option>
         </select>
 
-        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mt-4 mb-2">Payment method</label>
         <div class="flex gap-4">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="pay_method_tester" value="USDC" checked>
@@ -311,18 +311,18 @@
         </div>
 
         <div id="tester-pay-info"
-             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+             class="mt-4 bg-black/30 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 hidden">
 
-          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
-          <div class="text-cyan-300 font-mono text-sm break-all">
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mb-1">Send to wallet</div>
+          <div class="text-white font-mono text-sm break-all">
             {{ payment_wallet }}
           </div>
 
-          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mt-3 mb-1">Send this amount</div>
           <div id="tester-pay-amount" class="text-gray-200 text-sm font-semibold">-</div>
 
           <div id="tester-aeth-note"
-               class="text-xs text-gray-400 mt-2 hidden">
+               class="text-xs text-[rgba(250,250,250,0.56)] mt-2 hidden">
             AETH amount is calculated automatically.
           </div>
         </div>
@@ -332,41 +332,41 @@
         </div>
 
         <div id="tester-result"
-          class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+          class="mt-5 text-sm bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
       </div>
     </div>
 
     <div id="modal-contract-bg" class="modal-bg">
-      <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
+      <div class="modal bg-[#111113] backdrop-blur border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-xl p-6 w-[520px]">
 
         <div class="flex justify-between items-start mb-4">
           <div>
-            <h3 class="text-cyan-300 text-xl font-semibold mb-1">Contract Intelligence Analyzer</h3>
-            <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">1.00 USDC</span> per request.</p>
+            <h3 class="text-white text-xl font-semibold mb-1">Contract Intelligence Analyzer</h3>
+            <p class="text-sm text-[rgba(250,250,250,0.56)]">Price: <span class="text-white font-semibold">1.00 USDC</span> per request.</p>
           </div>
 
-          <button onclick="closeContractModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeContractModal()" class="text-[rgba(250,250,250,0.56)] hover:text-white text-lg">✕</button>
         </div>
 
-        <p class="text-gray-400 text-sm mb-4 leading-relaxed">
+        <p class="text-[rgba(250,250,250,0.56)] text-sm mb-4 leading-relaxed">
           Enter an Ethereum or Solana contract address.  
           Aetheron will extract metadata, functions, risks, and known issues.
         </p>
 
-        <label class="block text-sm text-gray-400 mb-2">Contract Address</label>
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-2">Contract Address</label>
         <input id="contract-address"
-          class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 text-gray-200 outline-none"
+          class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-gray-200 outline-none"
           placeholder="0x.... or Solana address" />
 
-        <label class="block text-sm text-gray-400 mb-1 mt-4">Network</label>
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-4">Network</label>
         <select id="contract-network"
-          class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 text-gray-200">
+          class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-gray-200">
           <option value="ethereum">Ethereum</option>
           <option value="solana">Solana</option>
         </select>
 
-        <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
-        <select id="contract-output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-4">Output format</label>
+        <select id="contract-output-format" class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 outline-none text-gray-200">
           <option value="pdf" selected>Premium PDF (.pdf)</option>
           <option value="txt">Plain Text (.txt)</option>
           <option value="docx">Word Document (.docx)</option>
@@ -374,7 +374,7 @@
           <option value="md">Markdown (.md)</option>
         </select>
 
-        <label class="block text-sm text-gray-400 mt-4 mb-2">Payment method</label>
+        <label class="block text-sm text-[rgba(250,250,250,0.56)] mt-4 mb-2">Payment method</label>
         <div class="flex gap-4">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="pay_method_contract" value="USDC" checked>
@@ -388,19 +388,19 @@
         </div>
 
         <div id="contract-pay-info"
-             class="mt-4 bg-black/30 border border-cyan-400/20 rounded-lg p-3 hidden">
+             class="mt-4 bg-black/30 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 hidden">
 
-          <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
-          <div class="text-cyan-300 font-mono text-sm break-all">
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mb-1">Send to wallet</div>
+          <div class="text-white font-mono text-sm break-all">
             {{ payment_wallet }}
           </div>
 
-          <div class="text-xs text-gray-400 mt-3 mb-1">Send this amount</div>
+          <div class="text-xs text-[rgba(250,250,250,0.56)] mt-3 mb-1">Send this amount</div>
           <div id="contract-pay-amount"
                class="text-gray-200 text-sm font-semibold">-</div>
 
           <div id="contract-aeth-note"
-               class="text-xs text-gray-400 mt-2 hidden">
+               class="text-xs text-[rgba(250,250,250,0.56)] mt-2 hidden">
              AETH amount is calculated automatically.
           </div>
         </div>
@@ -410,57 +410,56 @@
         </div>
  
         <div id="contract-result"
-          class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
+          class="mt-5 text-sm bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
 
       </div>
     </div>
 
   <div id="modal-risk-bg" class="modal-bg">
-    <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl
-                p-4 w-[440px] max-h-[80vh] overflow-y-auto">
+    <div class="modal bg-[#111113] backdrop-blur border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-xl p-4 w-[440px] max-h-[80vh] overflow-y-auto">
 
       <div class="flex justify-between items-start mb-3">
         <div>
-          <h3 class="text-cyan-300 text-lg font-semibold mb-1">Agent Risk & Simulation Engine</h3>
-          <p class="text-sm text-gray-400">
-            Price: <span class="text-cyan-300 font-semibold">0.75 USDC</span> per request.
+          <h3 class="text-white text-lg font-semibold mb-1">Agent Risk & Simulation Engine</h3>
+          <p class="text-sm text-[rgba(250,250,250,0.56)]">
+            Price: <span class="text-white font-semibold">0.75 USDC</span> per request.
           </p>
         </div>
-        <button onclick="closeRiskModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+        <button onclick="closeRiskModal()" class="text-[rgba(250,250,250,0.56)] hover:text-white text-lg">✕</button>
       </div>
 
-      <p class="text-gray-400 text-sm mb-3 leading-relaxed">
+      <p class="text-[rgba(250,250,250,0.56)] text-sm mb-3 leading-relaxed">
         Run a Monte Carlo GBM simulation using configurable runs, steps, drift, volatility, and start price.
         Output is exported through the same asset pipeline.
       </p>
 
-      <label class="block text-sm text-gray-400 mb-1">Runs</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1">Runs</label>
       <input id="risk-runs" type="number" min="1" value="2000"
-        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+        class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
 
-      <label class="block text-sm text-gray-400 mb-1 mt-2">Steps</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-2">Steps</label>
       <input id="risk-steps" type="number" min="1" value="252"
-        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+        class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
 
-      <label class="block text-sm text-gray-400 mb-1 mt-2">Mu (drift)</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-2">Mu (drift)</label>
       <input id="risk-mu" type="number" step="0.0001" value="0.08"
-        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+        class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
 
-      <label class="block text-sm text-gray-400 mb-1 mt-2">Sigma (volatility)</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-2">Sigma (volatility)</label>
       <input id="risk-sigma" type="number" step="0.0001" value="0.25"
-        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+        class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
 
-      <label class="block text-sm text-gray-400 mb-1 mt-2">Start Price</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-2">Start Price</label>
       <input id="risk-start-price" type="number" step="0.0001" value="1.0"
-        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+        class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
 
-      <label class="block text-sm text-gray-400 mb-1 mt-2">Seed (optional)</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-2">Seed (optional)</label>
       <input id="risk-seed" type="number" placeholder="Leave empty for random"
-        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
+        class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 text-gray-200 outline-none"/>
 
-      <label class="block text-sm text-gray-400 mb-1 mt-3">Output format</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mb-1 mt-3">Output format</label>
       <select id="risk-output-format"
-        class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-1.5 outline-none text-gray-200">
+        class="w-full bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 outline-none text-gray-200">
         <option value="pdf" selected>Premium PDF (.pdf)</option>
         <option value="txt">Plain Text (.txt)</option>
         <option value="docx">Word Document (.docx)</option>
@@ -468,7 +467,7 @@
         <option value="md">Markdown (.md)</option>
       </select>
 
-      <label class="block text-sm text-gray-400 mt-3 mb-1">Payment method</label>
+      <label class="block text-sm text-[rgba(250,250,250,0.56)] mt-3 mb-1">Payment method</label>
       <div class="flex gap-4">
         <label class="flex items-center gap-2 cursor-pointer">
           <input type="radio" name="pay_method_risk" value="USDC" checked>
@@ -481,16 +480,16 @@
       </div>
 
       <div id="risk-pay-info"
-           class="mt-3 bg-black/30 border border-cyan-400/20 rounded-lg p-2 hidden">
-        <div class="text-xs text-gray-400 mb-1">Send to wallet</div>
-        <div class="text-cyan-300 font-mono text-xs break-all">
+           class="mt-3 bg-black/30 border border-[rgba(255,255,255,0.08)] rounded-lg p-2 hidden">
+        <div class="text-xs text-[rgba(250,250,250,0.56)] mb-1">Send to wallet</div>
+        <div class="text-white font-mono text-xs break-all">
           {{ payment_wallet }}
         </div>
 
-        <div class="text-xs text-gray-400 mt-2 mb-1">Send this amount</div>
+        <div class="text-xs text-[rgba(250,250,250,0.56)] mt-2 mb-1">Send this amount</div>
         <div id="risk-pay-amount" class="text-gray-200 text-sm font-semibold">-</div>
 
-        <div id="risk-aeth-note" class="text-xs text-gray-400 mt-1 hidden">
+        <div id="risk-aeth-note" class="text-xs text-[rgba(250,250,250,0.56)] mt-1 hidden">
           AETH amount is calculated automatically.
         </div>
       </div>
@@ -500,7 +499,7 @@
       </div>
 
       <div id="risk-result"
-           class="mt-4 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-56 hidden text-gray-300"></div>
+           class="mt-4 text-sm bg-white/5 border border-[rgba(255,255,255,0.08)] rounded-lg p-3 overflow-auto max-h-56 hidden text-gray-300"></div>
 
     </div>
   </div>
@@ -942,7 +941,7 @@ async function loadMyAssets(page = 1) {
   if (!window.currentWallet) return;
 
   section.classList.remove("hidden");
-  list.innerHTML = "<p class='text-gray-400 text-center'>Loading your assets...</p>";
+  list.innerHTML = "<p class='text-[rgba(250,250,250,0.56)] text-center'>Loading your assets...</p>";
 
   try {
     const res = await fetch(`/api/my-assets/${window.currentWallet}?page=${page}`);
@@ -950,21 +949,21 @@ async function loadMyAssets(page = 1) {
     const entries = data.entries || [];
 
     if (entries.length === 0) {
-      list.innerHTML = "<p class='text-gray-500 text-center'>No assets yet. Run a component!</p>";
+      list.innerHTML = "<p class='text-[rgba(250,250,250,0.38)] text-center'>No assets yet. Run a component!</p>";
       return;
     }
 
     list.innerHTML = entries.map(e => `
-      <div class="flex justify-between items-center border-b border-cyan-400/10 py-2">
+      <div class="flex justify-between items-center border-b border-[rgba(255,255,255,0.08)] py-2">
         <div>
-          <div class="text-cyan-300 font-semibold">${e.component}</div>
-          <div class="text-xs text-gray-400">${new Date(e.timestamp * 1000).toLocaleString()}</div>
+          <div class="text-white font-semibold">${e.component}</div>
+          <div class="text-xs text-[rgba(250,250,250,0.56)]">${new Date(e.timestamp * 1000).toLocaleString()}</div>
         </div>
         <div class="flex items-center gap-4">
-          <span class="text-cyan-400 font-mono text-sm">
+          <span class="text-white font-mono text-sm">
               ${e.price.toFixed(2)} ${e.currency}
           </span>
-          <a href="/download/${e.filename}" class="text-cyan-300 hover:text-cyan-200 text-sm">Download</a>
+          <a href="/download/${e.filename}" class="text-white hover:text-white text-sm">Download</a>
         </div>
       </div>
     `).join("");
@@ -973,19 +972,19 @@ async function loadMyAssets(page = 1) {
       <div class="flex justify-center items-center gap-6 mt-6">
         ${data.page > 1 ? `
           <button onclick="loadMyAssets(${data.page - 1})"
-            class="px-4 py-2 bg-gray-800 text-cyan-300 rounded-lg hover:bg-gray-700">
+            class="btn btn-ghost">
             ← Previous
           </button>
         ` : ""}
 
-        <span class="text-gray-400">
-          Page <span class="text-cyan-300">${data.page}</span> of 
-          <span class="text-cyan-300">${data.total_pages}</span>
+        <span class="text-[rgba(250,250,250,0.56)]">
+          Page <span class="text-white">${data.page}</span> of 
+          <span class="text-white">${data.total_pages}</span>
         </span>
 
         ${data.page < data.total_pages ? `
           <button onclick="loadMyAssets(${data.page + 1})"
-            class="px-4 py-2 bg-gray-800 text-cyan-300 rounded-lg hover:bg-gray-700">
+            class="btn btn-ghost">
             Next →
           </button>
         ` : ""}
@@ -1022,7 +1021,7 @@ async function pollJobStatus(taskId, resultDiv, userFormat = "pdf") {
 
       resultDiv.innerHTML = `
         <b>Completed!</b><br>
-        <a href="${url}" target="_blank" class="text-cyan-400 underline">
+        <a href="${url}" target="_blank" class="text-white underline">
           Download ${label}
         </a>
       `;
