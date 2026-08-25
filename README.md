@@ -1,65 +1,87 @@
 <div align="center">
 
-<img src="docs/banner.svg" alt="Aetheron" width="100%" />
-
-<br/>
-
-### $AETH
-
-**Not yet launched.**
-
-When it is, the address will be published here and on
-[aetheron402.com](https://www.aetheron402.com), and nowhere else. This repository is
-the only place, besides the site itself, where that address is published by the
-project. Any token presenting itself as Aetheron before then, or with a different
-address after, is not ours.
-
-<br/>
-
-<a href="https://readme-typing-svg.demolab.com">
-  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=21&duration=2600&pause=900&color=22D3EE&center=true&vCenter=true&width=820&height=44&lines=Ask+for+the+work.+Get+402+back.;Pay+on+chain.+Ask+again.;The+server+checks+the+transfer%2C+not+your+word.;No+key+ever+leaves+your+wallet." alt="Aetheron" />
-</a>
+<img src="docs/banner.png" alt="Aetheron" width="100%" />
 
 <br/><br/>
 
-[![SDK](https://img.shields.io/badge/SDK-0.3.0-22d3ee?style=flat-square)](#sdk)
-[![Components](https://img.shields.io/badge/components-5-22d3ee?style=flat-square)](#the-components)
-[![Agents](https://img.shields.io/badge/agent%20templates-9-22d3ee?style=flat-square)](#the-agents)
-![Tests](https://img.shields.io/badge/tests-29%20passing-22d3ee?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-22d3ee?style=flat-square)
-![Python](https://img.shields.io/badge/Python-3.11-3776ab?style=flat-square&logo=python&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-SDK-3178c6?style=flat-square&logo=typescript&logoColor=white)
-![Self-hostable](https://img.shields.io/badge/self--hostable-yes-22d3ee?style=flat-square)
+[![License](https://img.shields.io/badge/license-MIT-3b82f6?style=for-the-badge)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-29_passing-3b82f6?style=for-the-badge)](tests/)
+[![SDK](https://img.shields.io/badge/SDK-TypeScript_0.3.0-3b82f6?style=for-the-badge)](sdk/)
+[![Python](https://img.shields.io/badge/Python-3.11-3b82f6?style=for-the-badge)](requirements.txt)
 
-<br/>
-
-<img src="https://skillicons.dev/icons?i=py,fastapi,ts,tailwind,redis,postgres,sqlite,nodejs" alt="stack" />
+**[Website](https://www.aetheron402.com)** · **[X](https://x.com/Aetheron402)** · **[SDK](sdk/)** · **[Agents](static/agents_src/)**
 
 </div>
 
 <br/>
 
-**Paid AI components, priced per call, settled on Solana.** Ask an endpoint to do
-the work and it answers `402 Payment Required` with the amount, the currency and the
-wallet. Send the transfer yourself, from your own wallet, and ask again with the
-signature. The server reads the transaction off the chain, checks that its own
-balance actually went up, and only then does the work.
+Aetheron is a shop for AI work you pay for one call at a time.
 
-No account. No card. No key ever leaves your wallet — this codebase cannot sign a
-transaction, because it never holds anything to sign with.
+There is no signup, no subscription and no card. You ask an endpoint to do something,
+it quotes you a price, you send the money from your own wallet, and you ask again.
+The whole exchange is four HTTP messages and one Solana transfer.
+
+<br/>
+
+<div align="center">
+
+| | |
+|:--|:--|
+| 🧩 &nbsp; **5 components** | prompts, code, personas, token risk, Monte Carlo |
+| 🤖 &nbsp; **9 agent templates** | full Python projects, yours to keep |
+| 💵 &nbsp; **$0.25 – $4.99** | per call, in USDC |
+| 🔑 &nbsp; **Non-custodial** | this code cannot sign anything |
+| 🏠 &nbsp; **Self-hostable** | clone, add a key, run |
+
+</div>
 
 ---
 
-## How it works
+## What's in the shop
 
-### The 402 carries everything you need to pay it
+Every component returns a written report — PDF, DOCX, HTML, Markdown or plain text.
 
-An unpaid request is not an error page. It is the terms:
+| | Component | Price | What you get |
+|---|---|---:|---|
+| 🧠 | **Prompt Optimizer** | `$0.25` | Loose text rewritten into a structured, agent-ready prompt |
+| 🔍 | **Code Explainer** | `$0.50` | A file explained, rated for complexity, with refactors proposed |
+| 🎭 | **Prompt Tester** | `$0.50` | One prompt run past several personas, with each reaction reported |
+| 📊 | **Risk Engine** | `$0.75` | Monte Carlo GBM simulation, charted paths and outcome distribution |
+| 🛡️ | **Contract Intelligence** | `$1.00` | Holder concentration, LP lock, admin powers and honeypot checks |
+
+The first three need only an OpenAI key. The last two read Solana and Ethereum, and
+fall back to whatever sources remain when a provider is missing.
+
+### Agent templates — `$4.99`
+
+Nine complete Python projects. You download the source, and it is yours: they run on
+your machine and depend on nothing here to keep working.
+
+<div align="center">
+
+| | | |
+|:--|:--|:--|
+| `alpha-scanner` | `discord-helper` | `market-tracker` |
+| `prediction-market` | `project-planner` | `pumpfun-launcher` |
+| `solana-sniper` | `solana-trading-assistant` | `wallet-watcher` |
+
+</div>
+
+Each ships with a README, a `config.json`, its requirements and a licence.
+
+---
+
+## The exchange
+
+**1. Ask.** No payment attached.
 
 ```console
-$ curl -s -X POST localhost:8000/api/prompt-optimizer \
+$ curl -sX POST localhost:8000/api/prompt-optimizer \
        -H 'Content-Type: application/json' -d '{"text":"..."}'
 ```
+
+**2. Get quoted.** The refusal carries the terms — you never need telling out-of-band
+what a call costs.
 
 ```json
 {
@@ -68,99 +90,123 @@ $ curl -s -X POST localhost:8000/api/prompt-optimizer \
   "required": 0.25,
   "currency": "USDC",
   "network": "Solana",
-  "wallet": "<the receiving address>",
+  "wallet": "<receiving address>",
   "accepted_methods": ["USDC"]
 }
 ```
 
-Amount, denomination, chain and destination, in the response that refused you. A
-client never has to be told out-of-band what a call costs, and the page you are
-looking at never has to restate the address — it reads the same value the verifier
-checks against, so the address you are shown and the address that is accepted cannot
-drift apart.
+**3. Pay.** From your wallet, signed by you. Aetheron never builds, signs or submits
+the transaction, and holds no key that could.
 
-### Payment means *our* balance went up
+**4. Ask again**, with `X-TX-SIG` set to the signature. The server reads the
+transaction off-chain, confirms the money arrived, and queues the work.
 
-The verifier does not ask whether tokens moved. It asks whether they moved **to us**:
+That is the entire protocol. It is plain HTTP, so `curl` is a complete client.
+
+---
+
+## What the verifier refuses
+
+Checking that "a transfer happened" is not the same as checking that **you were paid**.
+Aetheron only counts the increase in its own token account:
 
 ```python
 received = extract_received_amount(tx, target_mint, PAYMENT_WALLET)
 ```
 
-It walks the transaction's post balances, keeps only accounts owned by the payment
-wallet holding the expected mint, matches each against its own prior balance by
-account index, and sums the increase. A transfer between two wallets you control
-credits nothing. Buying the token on a DEX credits nothing. Paying somebody else
-credits nothing. The signer must also be the wallet claiming the purchase.
+It keeps only post-balances owned by the payment wallet holding the expected mint,
+matches each to its own prior balance by account index, and sums the rise. So:
 
-This is exercised directly, with the transaction shapes that would abuse it:
+| Transaction | Credited |
+|---|---:|
+| Moving tokens between two wallets you control | `0` |
+| Buying the token on a DEX | `0` |
+| Paying somebody else | `0` |
+| Reusing a signature that already bought something | `409` |
+| An actual transfer to the payment wallet | ✅ |
+
+The signer must also be the wallet claiming the purchase, and claiming a payment is
+an `INSERT` keyed on the signature — the write *is* the check, so two requests racing
+with the same signature cannot both succeed.
+
+Underpay and the shortfall is recorded against your wallet and that component, so a
+later transfer completes it. The signature that paid it is already spent.
+
+Each of these has a test standing over it:
 
 ```console
 $ pytest -q
 29 passed
 ```
 
-### A signature buys one thing, once
+---
 
-Claiming a payment is an insert whose primary key is the transaction signature:
+## Quick start
 
-```sql
-INSERT INTO consumed_signatures (tx_signature, wallet, component, amount, ...)
+You need Python 3.11 and Redis. Nothing else — no database to provision, no cloud
+account to open.
+
+```bash
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+cp .env.example .env        # set PAYMENT_WALLET and OPENAI_API_KEY
+redis-server --daemonize yes
+
+.venv/bin/uvicorn Aetheron:app --reload
+.venv/bin/celery -A celery_worker.celery worker --loglevel=info
 ```
 
-The write *is* the check. Two requests racing with the same signature cannot both
-be credited, because the second insert fails rather than the second read coming back
-empty. Underpay and the shortfall is recorded against your wallet and that component,
-so a later transfer tops it up — but the signature that paid it is already spent and
-cannot be presented again.
+Open `http://127.0.0.1:8000`.
 
-### It runs without us
+Leaving `DB_HOST` empty puts the ledger in a local SQLite file; set it and the same
+code runs on Postgres. Generated reports go to Cloudflare R2 in production, and the
+token price comes from DexScreener with a pump.fun fallback — neither needs a key.
 
-Postgres, Cloudflare R2 and the market-data keys are what production uses, not what
-the code requires. Leave `DB_HOST` unset and the ledger is a local SQLite file. The
-token price comes from DexScreener with a pump.fun bonding-curve fallback, neither of
-which needs an API key. Clone it, add an OpenAI key and a wallet address, and the
-whole marketplace runs on your machine.
+`.env.example` documents every setting. Exactly three are required: the receiving
+wallet, an OpenAI key, and Redis.
+
+```bash
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest -q          # 29 tests, no network
+```
 
 ---
 
-## The components
+## Layout
 
-Five, each priced per call. Every one returns a report as PDF, DOCX, HTML, Markdown
-or plain text.
+One FastAPI app serves both the site and the API. Celery does everything slow.
+Payment is verified synchronously, before any job is queued.
 
-| Component | Price | What it does |
-|---|---|---|
-| **Prompt Optimizer** | $0.25 | Rewrites loose text into a structured, agent-ready prompt |
-| **Code Explainer** | $0.50 | Explains a file, rates its complexity, proposes refactors |
-| **Prompt Tester** | $0.50 | Runs one prompt past several personas and reports how each reacts |
-| **Risk Engine** | $0.75 | Monte Carlo GBM simulation with charted paths and a distribution |
-| **Contract Intelligence** | $1.00 | Holder concentration, LP lock, admin powers and honeypot checks on a Solana or Ethereum token |
+```
+Aetheron.py          routes, the 402 exchange, payment verification
+celery_worker.py     component execution, LLM calls, on-chain intel
+ledger_utils.py      ledger, replay protection, partial payments
+aeth_price.py        AETH priced via DexScreener, pump.fun fallback
+asset_naming.py      unguessable names for generated reports
+pdf_utils.py         report typesetting
+export_utils.py      DOCX, HTML, Markdown, text
+r2_client.py         object storage
 
-The first three need nothing but an OpenAI key. Contract Intelligence and the Risk
-Engine read the chain, and degrade to what they can still source when a given data
-provider is absent.
+templates/           the site
+static/agents_src/   the nine agent templates
+sdk/                 TypeScript client
+tests/               payment and validation tests
+```
 
-## The agents
+Money is integers everywhere. Prices are read as decimal strings and converted to
+base units once, at the point of comparison — nothing here holds a balance in a float.
 
-Nine downloadable Python projects, $4.99 each, licensed for you to run and modify.
-They are yours after purchase and depend on nothing here to keep working.
-
-| | | |
-|---|---|---|
-| `alpha-scanner` | `discord-helper` | `market-tracker` |
-| `prediction-market` | `project-planner` | `pumpfun-launcher` |
-| `solana-sniper` | `solana-trading-assistant` | `wallet-watcher` |
-
-Each ships with its own README, `config.json`, requirements and licence.
+Reports are served from a public bucket, so their filenames are cryptographically
+random rather than derived from a timestamp: the name is the only thing standing
+between a report and everyone else.
 
 ---
 
 ## SDK
 
-`sdk/` is the TypeScript client, browser-first and framework-agnostic. It implements
-the 402 exchange without hiding it: nothing is auto-paid, and no transaction is
-built, signed or submitted on your behalf.
+`sdk/` is the TypeScript client. Browser-first, framework-agnostic, and it does not
+hide the payment step — nothing is auto-paid, and no transaction is signed for you.
 
 ```ts
 import { AetheronSDK } from "aetheron-sdk";
@@ -170,90 +216,51 @@ const aetheron = new AetheronSDK(wallet, connection);
 try {
   await aetheron.promptOptimizer({ text: "turn this into a real prompt" });
 } catch (err) {
-  const terms = aetheron.getPaymentInfo(err);   // null if it was a real error
-  if (terms) {
-    terms.required;   // 0.25
-    terms.currency;   // "USDC"
-    terms.wallet;     // where to send it
-  }
+  const terms = aetheron.getPaymentInfo(err);   // null if it was a genuine error
+  terms?.required;   // 0.25
+  terms?.wallet;     // where to send it
 }
 
-// The user signs and sends the transfer. Then ask again, with the signature.
+// user signs and sends, then:
 const report = await aetheron.promptOptimizer(
   { text: "turn this into a real prompt", format: "pdf" },
   { txSig }
 );
 ```
 
-`promptOptimizer`, `codeExplainer`, `promptTester`, `contractIntel` and
-`downloadAgent` each wrap `callPaidComponent`, which takes any endpoint — so the
-Risk Engine, and anything added later, is reachable before a named method exists for
-it. `isPaymentRequired` and `getPaymentInfo` exist so a 402 can be told apart from a
-genuine failure without inspecting status codes by hand.
+`promptOptimizer`, `codeExplainer`, `promptTester`, `contractIntel` and `downloadAgent`
+all wrap `callPaidComponent`, which accepts any endpoint — so the Risk Engine, and
+anything added later, is reachable before a named method exists for it.
 
-The endpoint defaults to the origin serving the page, so a UI hosted by Aetheron
-needs no configuration; anything else passes `{ endpoint }` explicitly rather than
-having requests sent to a host it merely assumed.
+The endpoint defaults to the origin serving the page, so a UI hosted by Aetheron needs
+no configuration. Anything else passes `{ endpoint }` explicitly rather than firing
+requests at a host it merely assumed.
 
-An MCP server is planned, so an agent can buy and run a component the same way — the
-402 exchange is already the whole interface, and nothing about it is browser-specific.
+An MCP server is planned. The 402 exchange is already the whole interface, and nothing
+about it is specific to a browser.
 
 ---
 
-## Architecture
+## $AETH
 
-One FastAPI application serving both the site and the API, with Celery workers doing
-everything slow. Payment verification is synchronous and happens before a job is ever
-queued.
+**Not yet launched.**
 
-| Module | Responsibility | Reaches out |
-|---|---|---|
-| `Aetheron.py` | Routes, the 402 exchange, payment verification | network |
-| `celery_worker.py` | Component execution, LLM calls, on-chain intel | network |
-| `ledger_utils.py` | Ledger, replay protection, partial payments | database |
-| `aeth_price.py` | AETH priced via DexScreener, pump.fun fallback | network |
-| `asset_naming.py` | Unguessable, collision-free names for generated files | |
-| `pdf_utils.py` | Report typesetting | |
-| `export_utils.py` | DOCX, HTML, Markdown and text output | |
-| `r2_client.py` | Object storage | network |
+When it launches, the mint address will appear here and on
+[aetheron402.com](https://www.aetheron402.com). Treat any Aetheron token announced
+anywhere else, or before that, as fake.
 
-Amounts are integers everywhere. Prices are read as decimal strings and converted to
-base units once, at the point of comparison; nothing in this repository holds money
-in a float.
-
-Generated reports are served from a public bucket, so their filenames are
-cryptographically random rather than derived from a timestamp — the name is the only
-thing standing between a report and anyone else.
-
----
-
-## Run your own
-
-Requires Python 3.11 and Redis.
-
-```bash
-python -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env          # set PAYMENT_WALLET and OPENAI_API_KEY
-redis-server --daemonize yes
-
-.venv/bin/uvicorn Aetheron:app --reload
-.venv/bin/celery -A celery_worker.celery worker --loglevel=info
-```
-
-That is the whole setup. `DB_HOST` left empty gives you a SQLite ledger, so there is
-no database to provision.
-
-```bash
-pip install -r requirements-dev.txt
-pytest -q                     # 29 tests, no network
-```
-
-`.env.example` documents every setting and marks which are genuinely required. Only
-three are: the receiving wallet, an OpenAI key, and Redis.
+Components can be priced in AETH as well as USDC. That path is already built and sits
+dormant: setting `AETH_MINT_ADDRESS` turns it on everywhere at once — the shop, the
+SDK and the `accepted_methods` in every 402 — with no redeploy and no code change.
 
 ---
 
 ## Licence
 
-[MIT](LICENSE). Fork it, run it, sell it. The components are the product; the code
-that charges for them is not a secret worth keeping.
+[MIT](LICENSE). Fork it, run it, charge for it. The components are the product; the
+code that takes payment for them was never the secret.
+
+<div align="center">
+<br/>
+<sub>Built by <a href="https://github.com/Aetheron402">Aetheron</a> · execution powered by X402</sub>
+</div>
