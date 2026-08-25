@@ -30,50 +30,54 @@
           class="w-16 h-16 transition-transform duration-200
                 group-hover:scale-105" />
 
-    <span class="hidden sm:inline text-base font-semibold text-white tracking-tight">
+    <span class="hidden sm:inline text-base font-bold text-cyan-300 tracking-wider">
       X402
     </span>
   </h1>
 
     <!-- DESKTOP NAV -->
     <nav class="desktop-nav hidden md:flex gap-6 text-sm items-center">
-      <a href="https://github.com/Aetheron402" target="_blank" class="text-[rgba(250,250,250,0.56)] hover:text-white transition-colors">GitHub</a>
-      <a href="https://x.com/Aetheron402" target="_blank" class="text-[rgba(250,250,250,0.56)] hover:text-white transition-colors">X</a>
-      <a href="/learn" class="text-[rgba(250,250,250,0.56)] hover:text-white transition-colors">Learn</a>
-      <a href="/sdk" class="text-[rgba(250,250,250,0.56)] hover:text-white transition-colors">SDK</a>
-      <a href="/roadmap" class="text-[rgba(250,250,250,0.56)] hover:text-white transition-colors">Roadmap</a>
-      <a href="/legal" class="text-[rgba(250,250,250,0.56)] hover:text-white transition-colors">Legal</a>
+      <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">GitHub</a>
+      <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">X</a>
+      <a href="/learn" class="text-gray-400 hover:text-cyan-300 transition">Learn</a>
+      <a href="/sdk" class="text-gray-400 hover:text-cyan-300 transition">SDK</a>
+      <a href="/roadmap" class="text-gray-400 hover:text-cyan-300 transition">Roadmap</a>
+      <a href="/legal" class="text-gray-400 hover:text-cyan-300 transition">Legal</a>
 
-      <span id="system-status" class="pill hidden sm:inline-flex select-none">
+      <span id="system-status"
+            class="hidden sm:flex items-center gap-2 text-xs text-emerald-400 select-none">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         Network operational
       </span>
 
       <button id="connect-wallet"
-        class="btn btn-ghost text-xs px-3 py-1.5">
+        class="wallet-btn text-white px-3 py-1 rounded text-xs transition">
         Connect Wallet
       </button>
     </nav>
 
     <!-- MOBILE MENU BUTTON -->
-    <button class="mobile-menu-btn md:hidden text-[rgba(250,250,250,0.72)] hover:text-white text-2xl transition-colors" onclick="toggleMobileMenu()">☰</button>
+    <button class="mobile-menu-btn md:hidden text-cyan-300 text-3xl" onclick="toggleMobileMenu()">☰</button>
 
     <!-- MOBILE NAV -->
     <nav id="mobile-nav"
-        class="hidden flex-col gap-4 bg-[#0a0a0a]/95 backdrop-blur border-t border-[rgba(255,255,255,0.08)] p-5 absolute left-0 right-0 top-full z-50 md:hidden">
+        class="hidden flex-col gap-4 bg-[#030712]/95 border-t border-cyan-400/30 p-4 absolute left-0 right-0 top-full z-50 md:hidden">
 
-      <a href="https://github.com/Aetheron402" target="_blank" class="text-[rgba(250,250,250,0.72)] hover:text-white transition-colors">GitHub</a>
-      <a href="https://x.com/Aetheron402" target="_blank" class="text-[rgba(250,250,250,0.72)] hover:text-white transition-colors">X</a>
-      <a href="/learn" class="text-[rgba(250,250,250,0.72)] hover:text-white transition-colors">Learn</a>
-      <a href="/sdk" class="text-[rgba(250,250,250,0.72)] hover:text-white transition-colors">SDK</a>
-      <a href="/roadmap" class="text-[rgba(250,250,250,0.72)] hover:text-white transition-colors">Roadmap</a>
-      <a href="/legal" class="text-[rgba(250,250,250,0.72)] hover:text-white transition-colors">Legal</a>
+      <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-300">GitHub</a>
+      <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-300">X</a>
+      <a href="/learn" class="text-gray-300">Learn</a>
+      <a href="/sdk" class="text-gray-300">SDK</a>
+      <a href="/roadmap" class="text-gray-300">Roadmap</a>
+      <a href="/legal" class="text-gray-300">Legal</a>
 
-      <span id="system-status-mobile" class="pill select-none">
+      <span id="system-status-mobile"
+            class="flex items-center gap-2 text-xs text-emerald-400 select-none">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         Network operational
       </span>
 
       <button id="mobile-connect-wallet"
-        class="btn w-full">
+        class="bg-cyan-700 text-white px-3 py-2 rounded">
         Connect Wallet
       </button>
     </nav>
@@ -81,34 +85,15 @@
 
   <style>
     :root{
-      /* Neutral near-black rather than blue-black, so the accent is the only
-         colour on the page and therefore actually reads as one. */
-      --bg: #0a0a0a;
-      --surface: #111113;
-      --surface-2: #16161a;
-      --panel: #111113;
-      --panel-strong: #0d0d0f;
-
-      /* Borders are white at low alpha. A tinted border on every edge is what
-         made the old layout look busy. */
-      --border: rgba(255,255,255,0.08);
-      --border-strong: rgba(255,255,255,0.16);
-
-      --text: #fafafa;
-      --muted: rgba(250,250,250,0.56);
-      --muted-2: rgba(250,250,250,0.38);
-
-      /* The logo blue, kept for state and emphasis only. */
-      --accent: #3b82f6;
-      --accent-soft: rgba(59,130,246,0.13);
-      --ok: #10b981;
-
-      --radius: 10px;
-      --radius-lg: 16px;
-
-      /* Retained so any rule still referencing them stays valid. */
-      --cyan: #3b82f6;
-      --cyan-2: #60a5fa;
+      --bg: #030712;
+      --panel: rgba(15, 23, 42, 0.78);
+      --panel-strong: rgba(11, 18, 32, 0.90);
+      --border: rgba(56, 189, 248, 0.22);
+      --border-strong: rgba(56, 189, 248, 0.34);
+      --text: #e5e7eb;
+      --muted: rgba(229,231,235,0.70);
+      --cyan: #22d3ee;
+      --cyan-2: #67e8f9;
     }
 
     body {
@@ -134,27 +119,24 @@
       z-index: 2;
     }
 
-    /* One faint wash near the top instead of three saturated blooms. The page
-       should read as near-black with content on it, not as a lit backdrop. */
     .bg-gradient {
       position: absolute;
-      inset: 0;
+      inset: -25%;
       background:
-        radial-gradient(70% 45% at 50% -8%, rgba(59,130,246,0.10), transparent 70%);
+        radial-gradient(75% 45% at 50% -6%, rgba(34,211,238,0.13), transparent 70%);
       opacity: 1;
     }
 
-    /* Scanlines and the vignette were the loudest part of the old treatment.
-       Kept as no-ops so existing markup does not need touching. */
     .scanlines { display: none; }
-    .vignette  { display: none; }
+
+    .vignette { display: none; }
 
     .particle {
       position: absolute;
-      background: rgba(255,255,255,0.16);
+      background: rgba(34, 211, 238, 0.28);
       border-radius: 50%;
-      width: 1px;
-      height: 1px;
+      width: 2px;
+      height: 2px;
       animation: floatUp linear infinite;
       will-change: transform, opacity;
     }
@@ -195,97 +177,89 @@
       transition: none !important;
     }
 
-    /* Primary action: solid, high contrast, no glow. A button should look
-       pressable because of its contrast, not because it is emitting light. */
+    /* Same cyan, calmer geometry. The gradient, the inset highlight and the
+       coloured drop shadow were doing three jobs at once, which is what made
+       these read as cheap. Flat fill, tighter radius, lighter weight. */
     .btn{
       position: relative;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: .5rem;
-      background: #fafafa;
-      color: #0a0a0a;
-      font-weight: 500;
+      background: var(--cyan);
+      color: #001018;
+      font-weight: 600;
       font-size: .875rem;
       line-height: 1.25rem;
-      padding: .625rem 1.1rem;
+      padding: .6rem 1.1rem;
       border: 1px solid transparent;
-      border-radius: var(--radius);
-      transition: background .16s ease, border-color .16s ease, color .16s ease, opacity .16s ease;
+      border-radius: .625rem;
+      transition: background .16s ease, opacity .16s ease;
       cursor: pointer;
     }
-    .btn:hover{ background: #e4e4e7; }
-    .btn:active{ background: #d4d4d8; }
+    .btn:hover{ background: var(--cyan-2); }
+    .btn:active{ background: #22b8cf; }
     .btn:disabled, .btn[disabled]{ opacity: .45; cursor: not-allowed; }
 
-    /* Secondary action: outline only. */
+    /* Secondary action: cyan outline, no fill. */
     .btn-ghost{
       background: transparent;
-      color: var(--text);
+      color: var(--cyan-2);
       border: 1px solid var(--border-strong);
     }
-    .btn-ghost:hover{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.28); }
-    .btn-ghost:active{ background: rgba(255,255,255,0.10); }
-
-    .btn-accent{ background: var(--accent); color: #fff; }
-    .btn-accent:hover{ background: #2f6fe0; }
+    .btn-ghost:hover{
+      background: rgba(34,211,238,0.08);
+      border-color: rgba(34,211,238,0.45);
+      color: var(--cyan-2);
+    }
 
     .modal-bg{
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,.72);
+      background: rgba(0,0,0,.68);
       display:none;
       align-items:center;
       justify-content:center;
       z-index: 70;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
     .modal{
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, rgba(11,18,32,0.92), rgba(2,6,23,0.92));
+      border: 1px solid var(--border-strong);
+      border-radius: 1rem;
       width: min(520px, 92vw);
       padding: 1.5rem;
       box-shadow: 0 24px 70px rgba(0,0,0,0.6);
     }
 
-    /* Flat surface, one hairline border. Lift on hover comes from the border
-       brightening, not from a drop shadow and a translate. */
+    /* Flat surface. Hover lifts by brightening the border rather than by
+       translating the card under a coloured glow. */
     .card{
-      background: var(--surface);
+      background: rgba(15,23,42,0.55);
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      border-radius: 1rem;
       padding: 1.5rem;
       transition: border-color .18s ease, background .18s ease;
     }
     .card:hover{
-      border-color: var(--border-strong);
-      background: var(--surface-2);
+      border-color: rgba(34,211,238,0.42);
+      background: rgba(15,23,42,0.75);
     }
 
     .pill{
       display: inline-flex;
       align-items: center;
-      gap: .45rem;
-      padding: 0.25rem 0.7rem;
+      padding: 0.35rem 0.9rem;
       border-radius: 9999px;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      color: #7dd3fc;
       font-size: .75rem;
-      letter-spacing: 0;
-      text-transform: none;
+      letter-spacing: .04em;
+      text-transform: lowercase;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
     }
-    /* Status dot, the way Axon marks live state. */
-    .pill::before{
-      content: "";
-      width: 6px; height: 6px;
-      border-radius: 9999px;
-      background: var(--ok);
-      flex: none;
-    }
-    .pill.pill-plain::before{ display: none; }
 
     .filter-bar{
       display:flex;
@@ -295,45 +269,30 @@
     }
 
     .filter-chip{
-      padding: 0.4rem 0.85rem;
-      font-size: 0.8125rem;
-      letter-spacing: 0;
-      text-transform: none;
-      color: var(--muted);
-      background: transparent;
-      border: 1px solid var(--border);
+      padding: 0.48rem 0.95rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(229,231,235,0.75);
+      background: rgba(15,23,42,0.65);
+      border: 1px solid rgba(255,255,255,0.10);
       border-radius: 9999px;
-      transition: background .16s ease, border-color .16s ease, color .16s ease;
+      transition: transform .16s ease, background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
       cursor: pointer;
       user-select: none;
     }
 
     .filter-chip:hover{
-      color: var(--text);
-      background: rgba(255,255,255,0.05);
-      border-color: var(--border-strong);
+      color: rgba(229,231,235,0.95);
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(34,211,238,0.36);
     }
 
     .filter-chip.active{
-      color: #0a0a0a;
-      background: #fafafa;
-      border-color: #fafafa;
-      font-weight: 500;
+      color: #001018;
+      background: var(--cyan);
+      border-color: var(--cyan);
     }
-
-    /* Headings, matching Axon's fade from full white into a softer tail. */
-    .h-display{
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
-      background: linear-gradient(180deg, var(--text), rgba(250,250,250,0.62));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    .divider{ border-top: 1px solid var(--border); }
-    .muted{ color: var(--muted); }
 
     input, textarea, select {
       color-scheme: dark;
@@ -408,19 +367,19 @@
   <div class="app-shell">
 
     <!-- PAGE CONTENT -->
-    <main class="px-6 py-16 md:py-20 max-w-6xl mx-auto w-full">
+    <main class="px-6 py-14 md:py-16 max-w-6xl mx-auto w-full">
       {% block content %}{% endblock %}
     </main>
 
     <!-- FOOTER -->
-    <footer class="divider mt-20 text-center text-sm text-[rgba(250,250,250,0.38)] px-6 py-10">
+    <footer class="border-t border-cyan-900/30 mt-12 text-center text-sm text-gray-500 p-6">
       © 2025 Aetheron · Powered by the X402 protocol.
       <div class="space-x-4 mt-2">
-        <a href="https://github.com/Aetheron402" target="_blank" class="hover:text-white transition-colors">GitHub</a>
-        <a href="https://x.com/Aetheron402" target="_blank" class="text-[rgba(250,250,250,0.56)] hover:text-white transition-colors">X</a>
-        <a href="/learn" class="hover:text-white transition-colors">Learn</a>
-        <a href="/roadmap" class="hover:text-white transition-colors">Roadmap</a>
-        <a href="/legal" class="hover:text-white transition-colors">Legal</a>
+        <a href="https://github.com/Aetheron402" target="_blank" class="hover:text-cyan-300 transition">GitHub</a>
+        <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">X</a>
+        <a href="/learn" class="hover:text-cyan-300 transition">Learn</a>
+        <a href="/roadmap" class="hover:text-cyan-300 transition">Roadmap</a>
+        <a href="/legal" class="hover:text-cyan-300 transition">Legal</a>
       </div>
     </footer>
   </div>
@@ -428,13 +387,13 @@
   <!-- Wallet Selection Modal -->
   <div id="wallet-select-modal" class="modal-bg" style="display:none;">
     <div class="modal text-center">
-      <h3 class="text-white text-base font-semibold mb-4 tracking-tight">Choose Wallet</h3>
+      <h3 class="text-cyan-300 text-lg font-semibold mb-4">Choose Wallet</h3>
 
       <button id="phantom-btn" class="btn mb-3 w-full flex items-center justify-center gap-2">
         Phantom Wallet
       </button>
 
-      <button class="btn btn-ghost w-full flex flex-col items-center justify-center gap-0.5 cursor-not-allowed opacity-45"
+      <button class="btn w-full flex flex-col items-center justify-center gap-0.5 bg-gray-800 cursor-not-allowed opacity-60"
               disabled>
         <span>MetaMask</span>
         <span class="text-xs text-gray-400">Coming Q1 2026</span>

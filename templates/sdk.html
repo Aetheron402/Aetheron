@@ -10,16 +10,16 @@
 
 <section class="max-w-4xl mx-auto">
 
-  <p class="text-xs text-[rgba(250,250,250,0.38)] uppercase tracking-widest mb-4">
+  <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">
     / Aetheron / SDK
   </p>
 
   <a href="/shop"
-     class="inline-flex items-center text-white hover:text-white text-sm mb-6 transition">
+     class="inline-flex items-center text-cyan-300 hover:text-cyan-200 text-sm mb-6 transition">
     ← Back to Shop
   </a>
 
-  <h1 class="h-display text-4xl md:text-5xl mb-4">
+  <h1 class="text-4xl font-bold text-cyan-400 mb-4">
     Aetheron SDK
   </h1>
 
@@ -32,18 +32,24 @@
   
   <section class="mb-14">
 
-    <h2 class="text-2xl font-bold text-white mb-4">
+    <h2 class="text-2xl font-bold text-cyan-400 mb-4">
       SDK walkthrough
     </h2>
 
-    <p class="text-[rgba(250,250,250,0.56)] mb-6">
+    <p class="text-gray-400 mb-6">
       This walkthrough covers the SDK structure, core concepts, and how it is intended to be used
       inside browser-based applications.
     </p>
 
-    <div class="relative w-full aspect-video rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#111113] overflow-hidden">
+    <div class="relative w-full aspect-video rounded-xl
+                border border-cyan-400/30
+                bg-gray-900
+                overflow-hidden
+                shadow-[0_0_40px_rgba(34,211,238,0.25)]">
 
-      <div class="absolute inset-0 rounded-xl pointer-events-none">
+      <div class="absolute inset-0 rounded-xl
+                  pointer-events-none
+                  shadow-[0_0_80px_rgba(34,211,238,0.35)]">
       </div>
 
       <iframe
@@ -61,8 +67,8 @@
 
   <div class="space-y-8 text-gray-300">
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         What the SDK does
       </h2>
 
@@ -73,8 +79,8 @@
       </p>
     </div>
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         Who this SDK is for
       </h2>
 
@@ -85,8 +91,8 @@
       </ul>
     </div>
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         Where it runs
       </h2>
 
@@ -95,13 +101,13 @@
         Solana wallet (Phantom, Backpack, Solflare, or wallet-adapter setups).
       </p>
 
-      <p class="mt-2 text-[rgba(250,250,250,0.56)] text-sm">
+      <p class="mt-2 text-gray-400 text-sm">
         Node.js is used only for bundling and development. Execution happens in the browser.
       </p>
     </div>
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         How payments work (X402 flow)
       </h2>
 
@@ -114,8 +120,8 @@
       </ol>
     </div>
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         Handling payment-required responses
       </h2>
 
@@ -137,8 +143,8 @@ try {
       </pre>
     </div>
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         Design principles
       </h2>
 
@@ -149,13 +155,13 @@ try {
         <li>Explicit, user-controlled payments</li>
       </ul>
 
-      <p class="mt-3 text-[rgba(250,250,250,0.56)] text-sm">
+      <p class="mt-3 text-gray-400 text-sm">
         The wallet always remains fully in the user’s control.
       </p>
     </div>
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         What the SDK does not do
       </h2>
 
@@ -167,8 +173,8 @@ try {
       </ul>
     </div>
 
-    <div class="bg-[#111113] border border-[rgba(255,255,255,0.08)] rounded-xl p-5">
-      <h2 class="text-lg font-semibold text-white tracking-tight mb-2">
+    <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-5">
+      <h2 class="text-xl text-cyan-300 font-semibold mb-2">
         Developer resources
       </h2>
 
@@ -176,7 +182,7 @@ try {
         <li>
           <a href="https://github.com/Aetheron402/aetheron-sdk"
              target="_blank"
-             class="text-white hover:text-white transition">
+             class="text-cyan-400 hover:text-cyan-300 transition">
             → Aetheron SDK on GitHub
           </a>
         </li>
@@ -186,7 +192,7 @@ try {
   </div>
 
   <p class="text-center mt-12">
-    <a href="#" class="text-white hover:text-white text-sm">↑ Back to top</a>
+    <a href="#" class="text-cyan-400 hover:text-cyan-300 text-sm">↑ Back to top</a>
   </p>
 
 </section>
