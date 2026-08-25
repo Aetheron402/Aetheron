@@ -7,7 +7,9 @@ from reportlab.lib.styles import StyleSheet1, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen.canvas import Canvas
-import io, re, os, time
+import io, re, os
+
+from asset_naming import asset_filename
 
 PAGE_BG        = colors.HexColor("#FFFFFF")
 ACCENT         = colors.HexColor("#6366F1")
@@ -356,7 +358,7 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
 
     buffer.seek(0)
 
-    filename = f"aetheron_asset_{int(time.time())}.pdf"
+    filename = asset_filename(asset_id, "pdf")
     os.makedirs("generated", exist_ok=True)
     with open(os.path.join("generated", filename), "wb") as f:
         f.write(buffer.getvalue())

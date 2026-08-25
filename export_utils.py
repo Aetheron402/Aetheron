@@ -1,6 +1,8 @@
 import io
 from docx import Document
 
+from asset_naming import asset_filename
+
 # TXT EXPORT
 def export_txt(content: str):
     buffer = io.BytesIO()
@@ -49,17 +51,26 @@ def export_docx(content: str):
 
 
 # GENERIC SELECTOR (for Celery workers)
-def export_generic(format: str, content: str):
+_EXPORTERS = {
+    "txt": export_txt,
+    "md": export_md,
+    "html": export_html,
+    "docx": export_docx,
+}
+
+
+def export_generic(format: str, content: str, asset_id: str = "asset"):
+    """
+    Export `content` and give it a unique, unguessable filename.
+
+    The per-format helpers above return a fixed name, which meant every user's
+    export was written to the same object in a public bucket — downloading it
+    returned whichever job wrote last. The name is assigned here instead.
+    """
     fmt = (format or "").lower()
+    exporter = _EXPORTERS.get(fmt, export_txt)
 
-    if fmt == "txt":
-        return export_txt(content)
-    if fmt == "md":
-        return export_md(content)
-    if fmt == "html":
-        return export_html(content)
-    if fmt == "docx":
-        return export_docx(content)
+    buffer, default_name = exporter(content)
+    extension = default_name.rsplit(".", 1)[-1]
 
-    # fallback = txt
-    return export_txt(content)
+    return buffer, asset_filename(asset_id, extension)

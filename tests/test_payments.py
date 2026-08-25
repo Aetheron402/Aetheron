@@ -184,3 +184,124 @@ def test_aeth_is_rejected_while_no_mint_is_configured():
 def test_malformed_signature_is_rejected_not_raised():
     for bad in ("DEMO_OK", "!!!!", "x" * 200):
         assert Aetheron.verify_payment(bad, "W", 0.25) is False
+
+
+# ── asset naming: unguessable and collision-free ────────────────────────────
+
+from asset_naming import asset_filename  # noqa: E402
+from export_utils import export_generic  # noqa: E402
+
+
+def test_two_assets_never_share_a_filename():
+    """Regression: names were a UNIX timestamp, so same-second jobs collided
+    and one customer's report overwrote another's in a shared bucket."""
+    names = {asset_filename("X402-PROMPT-AB12", "pdf") for _ in range(500)}
+    assert len(names) == 500
+
+
+def test_every_export_format_gets_a_unique_name():
+    """Regression: exports were named aetheron_output.<ext> — one object in a
+    public bucket shared by every user."""
+    for fmt in ("txt", "md", "html", "docx"):
+        _, a = export_generic(fmt, "x", "X402-CODE-1")
+        _, b = export_generic(fmt, "x", "X402-CODE-1")
+        assert a != b and a.endswith(fmt)
+
+
+def test_asset_id_is_sanitised_into_the_filename():
+    for hostile in ("../../etc/passwd", 'x"; rm -rf /', "a/b/c", ""):
+        name = asset_filename(hostile, "pdf")
+        assert "/" not in name and '"' not in name and ".." not in name
+
+
+def test_generated_names_pass_the_download_filter():
+    from Aetheron import ASSET_FILENAME_RE
+    for fmt in ("pdf", "txt", "md", "html", "docx"):
+        assert ASSET_FILENAME_RE.match(asset_filename("X402-RISK-9", fmt))
+
+
+# ── /download filename filter ───────────────────────────────────────────────
+
+def test_download_rejects_traversal_and_header_injection():
+    from Aetheron import ASSET_FILENAME_RE
+    for hostile in (
+        "../../secret",
+        "..%2F..%2Fsecret",
+        "a/b",
+        'x"; attachment; filename="evil',
+        "x\r\nSet-Cookie: a=b",
+        "x" * 200,
+        "",
+    ):
+        assert not ASSET_FILENAME_RE.match(hostile), hostile
+
+
+# ── input bounds ────────────────────────────────────────────────────────────
+
+def test_risk_engine_rejects_resource_exhaustion():
+    """Regression: runs x steps was unbounded, so one paid request could ask
+    for roughly 75 GB and take both workers down."""
+    from Aetheron import RiskEngineInput
+    import pydantic
+
+    with pytest.raises(pydantic.ValidationError):
+        RiskEngineInput(runs=1_000_000, steps=10_000, start_price=1, mu=0.1, sigma=0.2)
+    with pytest.raises(pydantic.ValidationError):
+        RiskEngineInput(runs=10_000, steps=2_000, start_price=1, mu=0.1, sigma=0.2)  # cells cap
+
+    ok = RiskEngineInput(runs=2000, steps=252, start_price=1, mu=0.08, sigma=0.2)
+    assert ok.runs == 2000
+
+
+def test_text_inputs_are_bounded():
+    from Aetheron import PromptIn, MAX_PROMPT_CHARS
+    import pydantic
+
+    assert PromptIn(text="hello").text == "hello"
+    with pytest.raises(pydantic.ValidationError):
+        PromptIn(text="x" * (MAX_PROMPT_CHARS + 1))
+    with pytest.raises(pydantic.ValidationError):
+        PromptIn(text="")
+
+
+def test_contract_address_must_match_its_chain():
+    from Aetheron import ContractIntelInput
+    import pydantic
+
+    ok = ContractIntelInput(
+        contract_address="0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        network="ethereum",
+    )
+    assert ok.network == "ethereum"
+
+    ok = ContractIntelInput(
+        contract_address="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        network="solana",
+    )
+    assert ok.network == "solana"
+
+    # Wrong shape for the chain, traversal input, and characters outside the
+    # base58 alphabet are all refused.
+    for addr, net in (
+        ("0xdAC17F958D2ee523a2206206994597C13D831ec7", "solana"),
+        ("../../../admin", "ethereum"),
+        ("../../../admin" + "A" * 30, "solana"),
+        ("0" * 40, "solana"),                        # 0 is not base58
+        ("0xZZZZ17F958D2ee523a2206206994597C13D831e", "ethereum"),
+    ):
+        with pytest.raises(pydantic.ValidationError):
+            ContractIntelInput(contract_address=addr, network=net)
+
+
+def test_unknown_network_is_refused():
+    from Aetheron import ContractIntelInput
+    import pydantic
+    with pytest.raises(pydantic.ValidationError):
+        ContractIntelInput(contract_address="1" * 40, network="bitcoin")
+
+
+def test_export_format_is_constrained():
+    from Aetheron import PromptIn
+    import pydantic
+    with pytest.raises(pydantic.ValidationError):
+        PromptIn(text="hi", format="exe")

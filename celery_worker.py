@@ -1,4 +1,4 @@
-import os, re, time, sys
+import os, re, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import requests
@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 
 from pdf_utils import build_aetheron_pdf
 from export_utils import export_generic
+from asset_naming import asset_filename
 from ledger_utils import finalize_asset
 
 load_dotenv()
@@ -145,11 +146,11 @@ def generate_pdf(asset_id, wallet, title, subtitle, md_text, chart_path=None):
 
     return fname, r2_url
 
-def generate_txt(md_text):
+def generate_txt(md_text, asset_id="asset"):
     """
     Generates TXT as bytes, uploads to R2, returns (filename, public_url)
     """
-    fname = f"aetheron_asset_{int(time.time())}.txt"
+    fname = asset_filename(asset_id, "txt")
     data = "\ufeff" + md_text
     data = data.encode("utf-8")
 
@@ -283,7 +284,7 @@ def process_prompt(asset_id, user_text, out_format, wallet):
             md_text=final_md,
         )
     else:
-        buffer, fname = export_generic(fmt, final_md)
+        buffer, fname = export_generic(fmt, final_md, asset_id)
         url = r2_upload_bytes(buffer.getvalue(), fname)
         filename = fname
 
@@ -437,7 +438,7 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
             md_text=final_md,
         )
     else:
-        buffer, fname = export_generic(fmt, final_md)
+        buffer, fname = export_generic(fmt, final_md, asset_id)
         url = r2_upload_bytes(buffer.getvalue(), fname)
         filename = fname
 
@@ -589,7 +590,7 @@ def process_tester(asset_id, prompt, out_format, wallet):
             md_text=final_md,
         )
     else:
-        buffer, fname = export_generic(fmt, final_md)
+        buffer, fname = export_generic(fmt, final_md, asset_id)
         url = r2_upload_bytes(buffer.getvalue(), fname)
         filename = fname
 
@@ -2514,7 +2515,7 @@ Interpretation:
                 chart_path=chart_path,
             )
         else:
-            buffer, fname = export_generic(fmt, summary_md)
+            buffer, fname = export_generic(fmt, summary_md, asset_id)
             url = r2_upload_bytes(buffer.getvalue(), fname)
             filename = fname
     finally:
@@ -3304,7 +3305,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
             md_text=final_md,
         )
     else:
-        buffer, fname = export_generic(fmt, final_md)
+        buffer, fname = export_generic(fmt, final_md, asset_id)
         url = r2_upload_bytes(buffer.getvalue(), fname)
         filename = fname
 

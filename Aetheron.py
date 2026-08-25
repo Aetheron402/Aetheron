@@ -10,7 +10,8 @@ from fastapi.staticfiles import StaticFiles
 
 import requests
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
+from typing import Literal
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -37,7 +38,7 @@ from celery.result import AsyncResult
 from solders.signature import Signature
 
 import json
-import random
+import secrets
 import string
 import os
 import time
@@ -390,23 +391,78 @@ def verify_payment(
         "currency": payment_method,
     }
 
+# Output formats the workers actually produce. Anything else fell through to a
+# silent TXT fallback, so a caller could not tell a typo from a real result.
+ExportFormat = Literal["pdf", "txt", "md", "html", "docx"]
+
+# Every text field was previously unbounded. A single request could carry an
+# arbitrarily large body straight into an LLM call, which is both a memory
+# problem and an uncapped spend.
+MAX_PROMPT_CHARS = 20_000
+MAX_CODE_CHARS = 100_000
+
+# Monte Carlo allocates runs × steps floats. Unbounded, a request for
+# runs=1_000_000 steps=10_000 asks for roughly 75 GB and takes the workers with
+# it — a denial of service costing the price of one component.
+MAX_RISK_RUNS = 10_000
+MAX_RISK_STEPS = 2_000
+# Deliberately below MAX_RISK_RUNS * MAX_RISK_STEPS, so the combined limit
+# actually binds: either dimension may be taken to its maximum, but not both.
+MAX_RISK_CELLS = 5_000_000
+
+SOLANA_ADDRESS_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
+ASSET_FILENAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+ETHEREUM_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+
+
 class PromptIn(BaseModel):
-    text: str
-    format: str | None = "pdf"
+    text: str = Field(..., min_length=1, max_length=MAX_PROMPT_CHARS)
+    format: ExportFormat | None = "pdf"
+
 
 class ContractIntelInput(BaseModel):
-    contract_address: str
-    network: str
-    format: str | None = "pdf"
+    contract_address: str = Field(..., min_length=32, max_length=64)
+    network: Literal["solana", "ethereum"]
+    format: ExportFormat | None = "pdf"
+
+    @model_validator(mode="after")
+    def _check_address(self):
+        """
+        Addresses are interpolated into third-party URLs downstream, so they
+        are validated against the shape their chain actually uses rather than
+        passed through as free text.
+
+        This runs as a model validator rather than a field validator because a
+        field validator only sees fields declared before it, and network is
+        declared after contract_address — so the check silently did nothing.
+        """
+        self.contract_address = self.contract_address.strip()
+
+        pattern = (
+            ETHEREUM_ADDRESS_RE if self.network == "ethereum" else SOLANA_ADDRESS_RE
+        )
+        if not pattern.match(self.contract_address):
+            raise ValueError(f"Not a valid {self.network} address")
+        return self
+
 
 class RiskEngineInput(BaseModel):
-    runs: int
-    steps: int
-    start_price: float
-    mu: float
-    sigma: float
-    seed: int | None = None
-    format: str | None = "pdf"
+    runs: int = Field(..., ge=1, le=MAX_RISK_RUNS)
+    steps: int = Field(..., ge=1, le=MAX_RISK_STEPS)
+    start_price: float = Field(..., gt=0, le=1e12)
+    mu: float = Field(..., ge=-10, le=10)
+    sigma: float = Field(..., ge=0, le=10)
+    seed: int | None = Field(default=None, ge=0, le=2**32 - 1)
+    format: ExportFormat | None = "pdf"
+
+    @model_validator(mode="after")
+    def _cap_total_work(self):
+        if self.runs * self.steps > MAX_RISK_CELLS:
+            raise ValueError(
+                f"runs × steps must not exceed {MAX_RISK_CELLS:,} "
+                f"(got {self.runs * self.steps:,})"
+            )
+        return self
 
 @app.post("/api/risk-engine")
 def risk_engine_api(
@@ -450,7 +506,7 @@ def risk_engine_api(
     if payload.sigma < 0:
         raise HTTPException(status_code=400, detail="sigma must be >= 0")
 
-    asset_id = "X402-RISK-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    asset_id = "X402-RISK-" + ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
     try:
         from celery_worker import process_risk_engine
@@ -665,10 +721,10 @@ def api_price_aeth(usdc_price: float, refresh: bool = False):
             "usdc_price": usdc_price,
             "required_aeth": required
         }
-    except AethPricingError as e:
-        raise HTTPException(status_code=502, detail=f"AETH pricing error: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+    except AethPricingError:
+        raise HTTPException(status_code=502, detail="AETH pricing temporarily unavailable")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unexpected error")
 
 @app.get("/api/ledger")
 def ledger_api():
@@ -733,13 +789,11 @@ def download_agent(
         if not os.path.exists(src_folder):
             raise HTTPException(status_code=404, detail="Agent source folder not found")
 
-        zip_base = f"/tmp/{agent_id}"
-        zip_path = f"{zip_base}.zip"
-
-        if os.path.exists(zip_path):
-            os.remove(zip_path)
-
+        # A fixed path per agent meant two concurrent downloads raced: one
+        # deleted the archive while the other was still streaming it.
+        zip_base = f"/tmp/{agent_id}-{secrets.token_hex(8)}"
         shutil.make_archive(zip_base, "zip", src_folder)
+        zip_path = f"{zip_base}.zip"
 
         return FileResponse(
             zip_path,
@@ -874,7 +928,7 @@ def contract_intel_api(
     if network not in ["solana", "ethereum"]:
         return JSONResponse(status_code=400, content={"error": "Invalid network"})
 
-    asset_id = "X402-CONTRACT-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    asset_id = "X402-CONTRACT-" + ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
     try:
         from celery_worker import process_contract_intel
@@ -1006,7 +1060,7 @@ def prompt_optimizer(
     if not user_text:
         return JSONResponse(status_code=400, content={"error": "Empty prompt"})
 
-    asset_id = "X402-PROMPT-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    asset_id = "X402-PROMPT-" + ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
     try:
         from celery_worker import process_prompt
@@ -1047,10 +1101,10 @@ def prompt_optimizer(
     )
     
 class CodeInput(BaseModel):
-    text: str
-    wallet: str | None = None
-    chain: str | None = None
-    format: str | None = "pdf"
+    text: str = Field(..., min_length=1, max_length=MAX_CODE_CHARS)
+    wallet: str | None = Field(default=None, max_length=64)
+    chain: str | None = Field(default=None, max_length=32)
+    format: ExportFormat | None = "pdf"
 
 @app.post("/api/code-explainer")
 def code_explainer(
@@ -1090,7 +1144,7 @@ def code_explainer(
     if not code_text:
         return JSONResponse(status_code=400, content={"error": "Empty code input"})
 
-    asset_id = "X402-CODE-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    asset_id = "X402-CODE-" + ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
     try:
         from celery_worker import process_code
@@ -1134,8 +1188,8 @@ def code_explainer(
     )
     
 class PromptTestIn(BaseModel):
-    text: str
-    format: str | None = "pdf"
+    text: str = Field(..., min_length=1, max_length=MAX_PROMPT_CHARS)
+    format: ExportFormat | None = "pdf"
 
 @app.post("/api/prompt-tester")
 def prompt_tester(
@@ -1175,7 +1229,7 @@ def prompt_tester(
     if not user_prompt:
         return JSONResponse(status_code=400, content={"error": "Empty prompt"})
 
-    asset_id = "X402-TESTER-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    asset_id = "X402-TESTER-" + ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
     try:
         from celery_worker import process_tester
@@ -1218,7 +1272,11 @@ def prompt_tester(
 @app.get("/download/{filename}")
 def download_file(filename: str):
 
-    if not filename or filename.lower() in ("null", "none", "undefined"):
+    # The filename is appended to a public bucket URL and echoed into a
+    # Content-Disposition header, so it is constrained to the shape our own
+    # generator produces. Without this, "..%2F..%2F" walked outside the bucket
+    # prefix and a quote in the name broke out of the header value.
+    if not filename or not ASSET_FILENAME_RE.match(filename):
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     public_base = os.getenv("R2_PUBLIC_BASE")
