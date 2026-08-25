@@ -25,16 +25,18 @@ from ledger_utils import (
     get_by_wallet,
     get_by_wallet_paginated,
     get_wallet_entry_count,
-    get_by_tx_sig,
     row_to_dict,
+    consume_signature,
+    add_partial,
+    get_partial,
+    clear_partial,
 )
 from aeth_price import calculate_required_aeth, AethPricingError
-
-from payment_state import add_partial, get_partial, clear_partial
 
 from celery.result import AsyncResult
 from solders.signature import Signature
 
+import json
 import random
 import string
 import os
@@ -228,6 +230,72 @@ def detect_code_features(code: str) -> dict:
         )
     }
 
+def extract_received_amount(tx: dict, target_mint: str, recipient: str) -> int:
+    """
+    How much of `target_mint` actually landed in `recipient`'s token accounts,
+    in base units.
+
+    This asks the only question that matters for a payment: did *our* balance
+    go up, and by how much. The previous implementation summed every positive
+    balance delta for the mint regardless of owner, so a transfer between two
+    wallets an attacker controlled — or simply buying the token on a DEX —
+    registered as a payment to us while we received nothing.
+    """
+    meta = tx.get("meta") or {}
+    post_balances = meta.get("postTokenBalances") or []
+    pre_balances = meta.get("preTokenBalances") or []
+
+    def _amount(entry) -> int:
+        try:
+            return int(entry["uiTokenAmount"]["amount"])
+        except (KeyError, TypeError, ValueError):
+            return 0
+
+    # Only the recipient's own prior balances are eligible as a baseline.
+    pre_by_index = {
+        pre.get("accountIndex"): pre
+        for pre in pre_balances
+        if pre.get("mint") == target_mint and pre.get("owner") == recipient
+    }
+
+    received = 0
+    for post in post_balances:
+        if post.get("mint") != target_mint:
+            continue
+        if post.get("owner") != recipient:
+            continue
+
+        pre = pre_by_index.get(post.get("accountIndex"))
+        # No baseline means the token account was created by this transaction,
+        # so the whole post balance is newly received.
+        delta = _amount(post) - (_amount(pre) if pre else 0)
+        if delta > 0:
+            received += delta
+
+    return received
+
+
+def _fetch_transaction(sig, attempts: int = 15, delay: float = 0.4):
+    """Poll until the transaction is visible on-chain; return it as a dict."""
+    for _ in range(attempts):
+        resp = solana_client.get_transaction(
+            sig,
+            encoding="jsonParsed",
+            commitment="confirmed",
+        )
+        value = getattr(resp, "value", None)
+        if value:
+            raw = value.to_json() if hasattr(value, "to_json") else None
+            return json.loads(raw) if raw else value
+        time.sleep(delay)
+    return None
+
+
+# AETH is priced from a live quote, so a small drift between quoting and
+# settlement is expected. USDC is exact and gets no tolerance.
+AETH_TOLERANCE = 0.01
+
+
 def verify_payment(
     tx_sig: str | None,
     user_wallet: str | None,
@@ -236,202 +304,91 @@ def verify_payment(
     component: str = "generic",
 ) -> bool | dict:
     """
-    Verifies Solana USDC payment by checking for an SPL transfer into a token account
-    owned by PAYMENT_WALLET with mint == USDC_MINT and amount >= required.
-    Also includes replay protection using your ledger.
+    Verify that `tx_sig` moved enough of the expected token into PAYMENT_WALLET.
+
+    Returns True when the component is fully paid, a dict describing the
+    shortfall when it is only partly paid, and False when the transaction is
+    not a payment to us at all.
     """
-
-    AETH_TOLERANCE = 0.01  # 1%
-
     if not tx_sig or not user_wallet:
         return False
 
-    payment_method = payment_method.upper()
-
-    if payment_method == "USDC":
-        pass
-    elif payment_method == "AETH":
-        pass
-    else:
+    payment_method = (payment_method or "USDC").upper()
+    if payment_method not in ("USDC", "AETH"):
         return False
 
-    resp = None
+    # AETH only becomes a payment method once a mint is configured. Without
+    # this, the client-controlled X-PAYMENT-METHOD header reached
+    # get_mint_decimals(None) and surfaced as a 500 on demand.
+    if payment_method == "AETH" and not AETH_MINT:
+        return False
 
-    # Anything that is not a real base58 signature is a failed payment, not a
-    # server error. Without this guard a malformed X-TX-SIG raised out of the
-    # handler and surfaced as a 500 instead of the 402 the client expects.
     try:
         sig = Signature.from_string(tx_sig)
     except (ValueError, TypeError):
         print(f"Rejected malformed transaction signature: {tx_sig[:32]!r}")
         return False
 
-    for _ in range(15):
-        resp = solana_client.get_transaction(
-            sig,
-            encoding="jsonParsed",
-            commitment = "confirmed",
-        )
-        if resp and resp.value:
-            break
-        time.sleep(0.4)
-    
-    if not resp or not resp.value:
+    tx = _fetch_transaction(sig)
+    if tx is None:
         return False
-
-    tx = resp.value
-
-    txd = tx.to_json() if hasattr(tx, "to_json") else None
-    if txd:
-        import json
-        tx = json.loads(txd)
 
     meta = tx.get("meta")
     if not meta or meta.get("err") is not None:
         return False
 
-    if get_by_tx_sig(tx_sig):
-        raise HTTPException(status_code=409, detail="Transaction signature already used")
-
     message = (tx.get("transaction") or {}).get("message") or {}
 
-    keys = message.get("accountKeys", []) or []
+    # The payer must be the wallet claiming the purchase. This ran only when
+    # accountKeys came back as dicts; with the string form the check was
+    # skipped entirely, so anyone could submit a stranger's signature.
     signers = _extract_signers(message)
-
-    if keys and isinstance(keys[0], dict):
-        if user_wallet not in signers:
-            return False
-
-    if payment_method == "USDC":
-        expected_amount = int(float(price_usdc) * (10 ** USDC_DECIMALS))
-        target_mint = USDC_MINT
-
-    elif payment_method == "AETH":
-        required_aeth = calculate_required_aeth(price_usdc)
-
-        aeth_decimals = get_mint_decimals(AETH_MINT)
-
-        expected_amount = int(required_aeth * (10 ** aeth_decimals))
-        target_mint = AETH_MINT
-
-    else:
+    if not signers or user_wallet not in signers:
         return False
 
-    def extract_paid_amount(tx):
-        meta = tx.get("meta") or {}
-        post_balances = meta.get("postTokenBalances") or []
-        pre_balances = meta.get("preTokenBalances") or []
+    if payment_method == "USDC":
+        decimals = USDC_DECIMALS
+        target_mint = USDC_MINT
+        expected_amount = int(round(float(price_usdc) * (10 ** decimals)))
+    else:
+        decimals = get_mint_decimals(AETH_MINT)
+        target_mint = AETH_MINT
+        expected_amount = int(round(calculate_required_aeth(price_usdc) * (10 ** decimals)))
 
-        paid = 0
+    if expected_amount <= 0:
+        return False
 
-        for post in post_balances:
-            if post.get("mint") != target_mint:
-                continue
+    received = extract_received_amount(tx, target_mint, PAYMENT_WALLET)
+    if received <= 0:
+        return False
 
-            post_amt = int(post["uiTokenAmount"]["amount"])
-            pre_amt = 0
+    # Claim the signature before crediting it. The insert is the replay check,
+    # so concurrent requests cannot both be credited, and a partial payment can
+    # no longer be resubmitted until it accumulates past the price.
+    if not consume_signature(tx_sig, user_wallet, component, received, payment_method):
+        raise HTTPException(status_code=409, detail="Transaction signature already used")
 
-            for pre in pre_balances:
-                if pre.get("mint") != target_mint:
-                    continue
+    existing = get_partial(user_wallet, component, payment_method)
+    total = received + (existing["paid"] if existing else 0)
 
-                if payment_method == "USDC":
-                    if pre.get("owner") != PAYMENT_WALLET:
-                        continue
+    threshold = expected_amount
+    if payment_method == "AETH":
+        threshold = int(expected_amount * (1 - AETH_TOLERANCE))
 
-                if pre.get("accountIndex") == post.get("accountIndex"):
-                    pre_amt = int(pre["uiTokenAmount"]["amount"])
-                    break
-
-            delta = post_amt - pre_amt
-            if delta > 0:
-                paid += delta
-
-        return paid
-
-    paid_amount = 0
-
-    max_retries = 6 if payment_method == "AETH" else 1
-
-    for _ in range(max_retries):
-        resp = solana_client.get_transaction(
-            sig,
-            encoding="jsonParsed",
-            commitment = "confirmed",
-        )
-
-        if not resp or not resp.value:
-            time.sleep(1.2)
-            continue
-
-        tx = resp.value
-
-        txd = tx.to_json() if hasattr(tx, "to_json") else None
-        if txd:
-            import json
-            tx = json.loads(txd)
-
-        paid_amount = extract_paid_amount(tx)
-
-        if paid_amount >= expected_amount:
-            break
-
-        time.sleep(1.2)
-
-    if payment_method == "USDC" and paid_amount < expected_amount:
-        existing = get_partial(user_wallet, component, "USDC")
-        if existing:
-            paid_amount += existing["amount"]
-
-        if paid_amount < expected_amount:
-            add_partial(
-                wallet=user_wallet,
-                component=component,
-                currency="USDC",
-                amount=paid_amount,
-                required=expected_amount,
-            )
-
-            return {
-                "status": "partial",
-                "paid": paid_amount / (10 ** USDC_DECIMALS),
-                "required": expected_amount / (10 ** USDC_DECIMALS),
-                "remaining": (expected_amount - paid_amount) / (10 ** USDC_DECIMALS),
-            }
-
-        clear_partial(user_wallet, component, "USDC")
+    if total >= threshold:
+        clear_partial(user_wallet, component, payment_method)
         return True
 
-    if payment_method == "AETH":
-        existing = get_partial(user_wallet, component, "AETH")
-        if existing:
-             paid_amount += existing["amount"]
+    add_partial(user_wallet, component, payment_method, received, expected_amount)
 
-    if payment_method == "AETH":
-        tolerance_min = expected_amount * (1 - AETH_TOLERANCE)
-
-        if paid_amount >= tolerance_min:
-            clear_partial(user_wallet, component, "AETH")
-            return True
-
-        add_partial(
-            wallet=user_wallet,
-            component=component,
-            currency="AETH",
-            amount=paid_amount,
-            required=expected_amount,
-        )
-
-        decimals = get_mint_decimals(AETH_MINT)
-
-        return {
-            "status": "partial",
-            "paid": paid_amount / (10 ** decimals),
-            "required": expected_amount / (10 ** decimals),
-            "remaining": (expected_amount - paid_amount) / (10 ** decimals),
-        }
-    
-    return True
+    scale = 10 ** decimals
+    return {
+        "status": "partial",
+        "paid": total / scale,
+        "required": expected_amount / scale,
+        "remaining": (expected_amount - total) / scale,
+        "currency": payment_method,
+    }
 
 class PromptIn(BaseModel):
     text: str

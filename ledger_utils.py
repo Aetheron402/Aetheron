@@ -15,8 +15,15 @@ SQLITE_PATH = os.getenv("LEDGER_DB_PATH", "ledger.db")
 
 if USE_POSTGRES:
     import psycopg2
+    import psycopg2.errors
+
+    INTEGRITY_ERRORS = (psycopg2.errors.UniqueViolation, psycopg2.IntegrityError)
+    BIGINT = "BIGINT"
 else:
     import sqlite3
+
+    INTEGRITY_ERRORS = (sqlite3.IntegrityError,)
+    BIGINT = "INTEGER"
 
 
 def _conn():
@@ -125,6 +132,41 @@ def init_ledger():
         )
         conn.commit()
 
+        # Every transaction signature ever credited, partial payments included.
+        # The primary key IS the replay check: claiming a signature is an
+        # INSERT that fails if it was already claimed, so two concurrent
+        # requests cannot both be credited for the same transfer.
+        cur.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS consumed_signatures (
+                tx_signature TEXT PRIMARY KEY,
+                wallet TEXT,
+                component TEXT,
+                amount {BIGINT} NOT NULL,
+                currency TEXT,
+                consumed_at REAL NOT NULL
+            );
+            """
+        )
+
+        # Partial payments live here rather than in process memory, so they
+        # survive a deploy and are shared by every web and worker process.
+        # Amounts are integer base units — never floats, which lose precision.
+        cur.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS partial_payments (
+                wallet TEXT NOT NULL,
+                component TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                paid {BIGINT} NOT NULL,
+                required {BIGINT} NOT NULL,
+                updated_at REAL NOT NULL,
+                PRIMARY KEY (wallet, component, currency)
+            );
+            """
+        )
+        conn.commit()
+
         # Replay protection: one successful charge per transaction signature.
         # Both engines support partial unique indexes and IF NOT EXISTS here.
         # Committed separately because a failed DDL statement aborts the whole
@@ -143,6 +185,122 @@ def init_ledger():
             conn.rollback()
     finally:
         conn.close()
+
+
+def consume_signature(tx_sig, wallet, component, amount, currency) -> bool:
+    """
+    Atomically claim a transaction signature, returning False if it was already
+    claimed.
+
+    The INSERT is the check. Reading first and writing later left a window in
+    which two concurrent requests both saw an unused signature, and partial
+    payments were never recorded at all — so the same small transfer could be
+    replayed until it accumulated past the price.
+    """
+    try:
+        with _cursor(commit=True) as cur:
+            cur.execute(
+                _q(
+                    """
+                    INSERT INTO consumed_signatures
+                        (tx_signature, wallet, component, amount, currency, consumed_at)
+                    VALUES (%s, %s, %s, %s, %s, %s);
+                    """
+                ),
+                (tx_sig, wallet, component, int(amount), currency, time.time()),
+            )
+        return True
+    except INTEGRITY_ERRORS:
+        return False
+
+
+def signature_already_used(tx_sig) -> bool:
+    """Read-only companion to consume_signature, for reporting."""
+    with _cursor() as cur:
+        cur.execute(
+            _q("SELECT 1 FROM consumed_signatures WHERE tx_signature = %s LIMIT 1;"),
+            (tx_sig,),
+        )
+        return cur.fetchone() is not None
+
+
+def get_partial(wallet, component, currency):
+    """Return the accumulated partial payment, or None."""
+    with _cursor() as cur:
+        cur.execute(
+            _q(
+                """
+                SELECT wallet, component, currency, paid, required, updated_at
+                FROM partial_payments
+                WHERE wallet = %s AND component = %s AND currency = %s;
+                """
+            ),
+            (wallet, component, currency),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return None
+    return {
+        "wallet": row[0],
+        "component": row[1],
+        "currency": row[2],
+        "paid": int(row[3]),
+        "required": int(row[4]),
+        "updated_at": row[5],
+    }
+
+
+def add_partial(wallet, component, currency, amount, required):
+    """Add to a wallet's running total for one component, and return it."""
+    existing = get_partial(wallet, component, currency)
+    total = (existing["paid"] if existing else 0) + int(amount)
+
+    with _cursor(commit=True) as cur:
+        if existing:
+            cur.execute(
+                _q(
+                    """
+                    UPDATE partial_payments
+                    SET paid = %s, required = %s, updated_at = %s
+                    WHERE wallet = %s AND component = %s AND currency = %s;
+                    """
+                ),
+                (total, int(required), time.time(), wallet, component, currency),
+            )
+        else:
+            cur.execute(
+                _q(
+                    """
+                    INSERT INTO partial_payments
+                        (wallet, component, currency, paid, required, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s);
+                    """
+                ),
+                (wallet, component, currency, total, int(required), time.time()),
+            )
+
+    return {
+        "wallet": wallet,
+        "component": component,
+        "currency": currency,
+        "paid": total,
+        "required": int(required),
+    }
+
+
+def clear_partial(wallet, component, currency):
+    """Drop a wallet's partial balance once the component is fully paid."""
+    with _cursor(commit=True) as cur:
+        cur.execute(
+            _q(
+                """
+                DELETE FROM partial_payments
+                WHERE wallet = %s AND component = %s AND currency = %s;
+                """
+            ),
+            (wallet, component, currency),
+        )
 
 
 def add_entry(*, asset_id, wallet, tx_sig, component, price, currency, status, filename):
