@@ -1,14 +1,50 @@
+"""
+AETH price oracle.
+
+Prices AETH in USDC so a component with a USDC price can be paid for in AETH.
+This decides how many tokens a user must send, so a wrong number here either
+overcharges customers or lets them underpay.
+
+Sources, in order:
+
+1. DexScreener — the deepest-liquidity pair where AETH is the base token.
+   Free, keyless, and already used elsewhere in this codebase.
+2. The pump.fun bonding curve, converted through SOL/USD. This is the path a
+   freshly launched token needs, before any DEX pool exists for it.
+
+Both the primary source and the fallback previously called Birdeye, so a
+Birdeye outage took out both at once — a single point of failure presented as
+two. Neither path depends on an API key now.
+"""
+
 import logging
 import os
 import time
+
 import requests
 
 logger = logging.getLogger(__name__)
 
 AETH_MINT = os.getenv("AETH_MINT_ADDRESS")
-BIRDEYE_API_KEY = os.getenv("BIRDEYE_API_KEY")
 
+DEXSCREENER_API = "https://api.dexscreener.com/latest/dex"
 PUMP_FUN_API = "https://frontend-api-v3.pump.fun/coins"
+
+WRAPPED_SOL_MINT = "So11111111111111111111111111111111111111112"
+
+# A price taken from a shallow pool can be moved cheaply, and moving it upward
+# reduces the number of tokens a payment requires. Pools thinner than this are
+# ignored rather than trusted.
+MIN_LIQUIDITY_USD = float(os.getenv("AETH_MIN_POOL_LIQUIDITY_USD", "5000"))
+
+# Guards against a malformed or manipulated quote producing an absurd number of
+# tokens. These are deliberately wide; they catch nonsense, not volatility.
+MIN_PLAUSIBLE_PRICE_USD = 1e-12
+MAX_PLAUSIBLE_PRICE_USD = 1e6
+
+# pump.fun reports reserves in lamports and, for its own launches, six decimals.
+LAMPORTS_PER_SOL = 1_000_000_000
+PUMPFUN_DEFAULT_DECIMALS = 6
 
 CACHE_TTL = 20
 _last_ts = 0
@@ -19,78 +55,118 @@ class AethPricingError(Exception):
     pass
 
 
-def _birdeye_price_usdc(token_address: str) -> float:
-    """
-    Birdeye price endpoint (works for SOL + SPL tokens).
-    Docs: /defi/price?address=<mint>  (x-api-key required)
-    """
-    if not BIRDEYE_API_KEY:
-        raise AethPricingError("Missing BIRDEYE_API_KEY env var")
-
-    url = f"https://public-api.birdeye.so/defi/price?address={token_address}"
-    headers = {"accept": "application/json", "x-api-key": BIRDEYE_API_KEY}
-
-    r = requests.get(url, headers=headers, timeout=10)
-    if r.status_code != 200:
-        raise AethPricingError(f"Birdeye API error: {r.status_code} -> {r.text}")
-
-    data = r.json()
-    try:
-        price = float(data["data"]["value"])
-    except Exception:
-        raise AethPricingError(f"Unexpected Birdeye response: {data}")
-
-    if price <= 0:
-        raise AethPricingError("Invalid price from Birdeye")
-
+def _sanity_check(price: float, source: str) -> float:
+    if not price or price <= 0:
+        raise AethPricingError(f"{source} returned a non-positive price: {price!r}")
+    if not (MIN_PLAUSIBLE_PRICE_USD < price < MAX_PLAUSIBLE_PRICE_USD):
+        raise AethPricingError(f"{source} returned an implausible price: {price}")
     return price
 
 
-def _pumpfun_price_usdc_via_sol() -> float:
+def _dexscreener_price_usd(mint: str) -> float:
     """
-    Fallback: compute AETH price using pump.fun virtual reserves * SOL/USD.
-    WARNING: units/fields may vary; normalize cautiously.
+    USD price from the deepest pool in which `mint` is the base token.
+
+    DexScreener returns any pair the mint appears in, including ones where it
+    is the quote side and unrelated pairs that merely matched. Taking the first
+    result would price a payment off the wrong token entirely, so candidates
+    are filtered to base-token matches and the deepest pool wins.
     """
-    if not AETH_MINT:
-        raise AethPricingError("Missing AETH_MINT_ADDRESS env var")
+    if not mint:
+        raise AethPricingError("No mint address supplied")
 
-    # 1) fetch pump.fun coin
-    url = f"{PUMP_FUN_API}/{AETH_MINT}"
-    r = requests.get(url, timeout=10)
-    if r.status_code != 200:
-        raise AethPricingError(f"Pump.fun API error: {r.status_code} -> {r.text}")
-
-    coin = r.json()
-
-    # 2) read reserves
     try:
-        v_sol = float(coin["virtual_sol_reserves"])
-        v_tok = float(coin["virtual_token_reserves"])
-    except Exception:
-        raise AethPricingError(f"Missing pump.fun reserve fields in response: {coin}")
+        response = requests.get(f"{DEXSCREENER_API}/tokens/{mint}", timeout=10)
+    except requests.RequestException as exc:
+        raise AethPricingError(f"DexScreener request failed: {exc}") from exc
 
-    if v_sol <= 0 or v_tok <= 0:
-        raise AethPricingError("Invalid pump.fun reserves")
+    if response.status_code != 200:
+        raise AethPricingError(f"DexScreener HTTP {response.status_code}")
 
-    # 3) BEST GUESS normalization:
-    if v_sol > 1e6:  # heuristic threshold
-        v_sol = v_sol / 1e9  # lamports -> SOL
+    pairs = (response.json() or {}).get("pairs") or []
 
-    # token decimals (if present)
+    best_price = None
+    best_liquidity = 0.0
+    for pair in pairs:
+        if (pair.get("baseToken") or {}).get("address") != mint:
+            continue
+        try:
+            price = float(pair.get("priceUsd"))
+            liquidity = float((pair.get("liquidity") or {}).get("usd") or 0)
+        except (TypeError, ValueError):
+            continue
+        if price > 0 and liquidity > best_liquidity:
+            best_price, best_liquidity = price, liquidity
+
+    if best_price is None:
+        raise AethPricingError(f"No DexScreener pair prices {mint} as the base token")
+
+    if best_liquidity < MIN_LIQUIDITY_USD:
+        raise AethPricingError(
+            f"Deepest pool for {mint} holds only ${best_liquidity:,.0f}, "
+            f"below the ${MIN_LIQUIDITY_USD:,.0f} floor"
+        )
+
+    logger.info(
+        "Priced %s at $%s via DexScreener (pool liquidity $%.0f)",
+        mint,
+        best_price,
+        best_liquidity,
+    )
+    return _sanity_check(best_price, "DexScreener")
+
+
+def _sol_price_usd() -> float:
+    return _dexscreener_price_usd(WRAPPED_SOL_MINT)
+
+
+def _pumpfun_price_usd(mint: str) -> float:
+    """
+    Price from the pump.fun bonding curve, converted through SOL/USD.
+
+    Needed while a token is still on its bonding curve and has no DEX pool for
+    DexScreener to quote.
+    """
+    if not mint:
+        raise AethPricingError("No mint address supplied")
+
+    try:
+        response = requests.get(f"{PUMP_FUN_API}/{mint}", timeout=10)
+    except requests.RequestException as exc:
+        raise AethPricingError(f"pump.fun request failed: {exc}") from exc
+
+    if response.status_code != 200:
+        raise AethPricingError(f"pump.fun HTTP {response.status_code}")
+
+    coin = response.json() or {}
+
+    try:
+        sol_reserves = float(coin["virtual_sol_reserves"])
+        token_reserves = float(coin["virtual_token_reserves"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AethPricingError(f"pump.fun response missing reserve fields: {exc}") from exc
+
+    if sol_reserves <= 0 or token_reserves <= 0:
+        raise AethPricingError("pump.fun reported non-positive reserves")
+
+    # Reserves arrive in base units. The previous implementation guessed at this
+    # with a magnitude heuristic ("if v_sol > 1e6") and its own comment warned
+    # the units might vary; the conversion is fixed and explicit now.
     decimals = coin.get("decimals")
-    if isinstance(decimals, int) and decimals >= 0:
-        v_tok = v_tok / (10 ** decimals)
+    if not isinstance(decimals, int) or decimals < 0:
+        decimals = PUMPFUN_DEFAULT_DECIMALS
 
-    price_in_sol = v_sol / v_tok
-    if price_in_sol <= 0:
-        raise AethPricingError("Computed invalid price_in_sol")
+    sol_amount = sol_reserves / LAMPORTS_PER_SOL
+    token_amount = token_reserves / (10 ** decimals)
+    price_in_sol = sol_amount / token_amount
 
-    # 4) SOL price in USDC
-    sol_usdc = _birdeye_price_usdc("So11111111111111111111111111111111111111112")
-    return price_in_sol * sol_usdc
+    price_usd = price_in_sol * _sol_price_usd()
+    logger.info("AETH priced at $%s via the pump.fun bonding curve", price_usd)
+    return _sanity_check(price_usd, "pump.fun")
 
 
 def get_aeth_price_usdc(force_refresh: bool = False) -> float:
+    """AETH price in USDC, cached briefly to avoid hammering the sources."""
     global _last_ts, _cached_price_usdc
 
     now = time.time()
@@ -104,17 +180,21 @@ def get_aeth_price_usdc(force_refresh: bool = False) -> float:
     if not AETH_MINT:
         raise AethPricingError("Missing AETH_MINT_ADDRESS env var")
 
-    # Primary: Birdeye direct token price
-    try:
-        price_usdc = _birdeye_price_usdc(AETH_MINT)
-    except Exception as exc:
-        # Fallback: pump.fun math. Logged because a silent fallback here hid
-        # Birdeye outages behind a price that still looked plausible.
-        logger.warning("Birdeye price lookup failed (%s); falling back to pump.fun", exc)
-        price_usdc = _pumpfun_price_usdc_via_sol()
-
-    if price_usdc <= 0:
-        raise AethPricingError("Computed invalid AETH price in USDC")
+    errors = []
+    for source, fetch in (
+        ("DexScreener", lambda: _dexscreener_price_usd(AETH_MINT)),
+        ("pump.fun", lambda: _pumpfun_price_usd(AETH_MINT)),
+    ):
+        try:
+            price_usdc = fetch()
+            break
+        except Exception as exc:
+            # Logged rather than swallowed: a silent fallback previously hid an
+            # outage behind a price that still looked plausible.
+            logger.warning("AETH pricing via %s failed: %s", source, exc)
+            errors.append(f"{source}: {exc}")
+    else:
+        raise AethPricingError("All AETH price sources failed — " + "; ".join(errors))
 
     _cached_price_usdc = price_usdc
     _last_ts = now
@@ -122,8 +202,8 @@ def get_aeth_price_usdc(force_refresh: bool = False) -> float:
 
 
 def calculate_required_aeth(usdc_price: float, force_refresh: bool = False) -> float:
+    """How many AETH cover a component priced in USDC."""
     if usdc_price <= 0:
         raise ValueError("usdc_price must be > 0")
 
-    aeth_usdc = get_aeth_price_usdc(force_refresh=force_refresh)
-    return usdc_price / aeth_usdc
+    return usdc_price / get_aeth_price_usdc(force_refresh=force_refresh)

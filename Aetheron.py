@@ -575,26 +575,6 @@ def shop(request: Request):
     return templates.TemplateResponse("shop.html", {"request": request, "components": components})
 
 
-@app.get("/prompt-optimizer", response_class=HTMLResponse)
-def prompt_optimizer_page(request: Request):
-    return templates.TemplateResponse("prompt-optimizer.html", {"request": request})
-
-@app.get("/code-explainer", response_class=HTMLResponse)
-def code_explainer_page(request: Request):
-    return templates.TemplateResponse("code-explainer.html", {"request": request})
-
-@app.get("/prompt-tester", response_class=HTMLResponse)
-def prompt_tester_page(request: Request):
-    return templates.TemplateResponse("prompt-tester.html", {"request": request})
-
-@app.get("/contract-intel", response_class=HTMLResponse)
-def contract_intel_page(request: Request):
-    return templates.TemplateResponse("contract-intel.html", {"request": request})
-
-@app.get("/risk-engine", response_class=HTMLResponse)
-def risk_engine_page(request: Request):
-    return templates.TemplateResponse("risk-engine.html", {"request": request})
-
 @app.get("/agents", response_class=HTMLResponse)
 def agents_page(request: Request):
     return templates.TemplateResponse("agents.html", {"request": request})

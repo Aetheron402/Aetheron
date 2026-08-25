@@ -2,7 +2,34 @@ import { Connection } from "@solana/web3.js";
 import type { SignerWalletAdapter } from "@solana/wallet-adapter-base";
 
 export interface AetheronConfig {
+  /**
+   * Base URL of the Aetheron server, without a trailing slash.
+   *
+   * Optional only when the page is served by Aetheron itself, in which case
+   * the current origin is used. Any other app must pass this explicitly:
+   * guessing a hostname would send payment requests somewhere that may not
+   * exist, or may not be yours.
+   */
   endpoint?: string;
+}
+
+function resolveEndpoint(configured?: string): string {
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  // The server serves this UI and the API from a single origin, so a page
+  // hosted by Aetheron needs no configuration.
+  if (typeof window !== "undefined" && window.location && window.location.origin) {
+    return window.location.origin;
+  }
+
+  const err = new Error(
+    "No Aetheron endpoint configured. Pass { endpoint: 'https://your-aetheron-host' } " +
+      "when constructing the SDK outside a browser or from another origin."
+  );
+  (err as any).code = "ENDPOINT_REQUIRED";
+  throw err;
 }
 
 export type PaymentRequiredError = {
@@ -35,7 +62,7 @@ export class AetheronSDK {
 
     this.wallet = wallet;
     this.connection = connection;
-    this.api = config.endpoint ?? "https://api.aetheron402.com";
+    this.api = resolveEndpoint(config.endpoint);
   }
 
   private async post(
