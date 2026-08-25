@@ -56,7 +56,7 @@ Perfect for:
 
 # 1. Quick Start Guide (Beginner-Friendly)
 
-### Step 1 — Install requirements
+### Step 1, Install requirements
 
 ```bash
 pip install -r requirements.txt
@@ -64,12 +64,12 @@ pip install -r requirements.txt
 
 This installs:
 
-- `requests` — for HTTP/Birdeye/webhooks
-- `PyNaCl` — for Solana-related cryptography/extensions (if you expand RPC usage later)
+- `requests`: for HTTP/Birdeye/webhooks
+- `PyNaCl`: for Solana-related cryptography/extensions (if you expand RPC usage later)
 
 ---
 
-### Step 2 — Add your Birdeye API key
+### Step 2, Add your Birdeye API key
 
 Open `config.json` and set:
 
@@ -85,7 +85,7 @@ You can get a free API key at: https://birdeye.so
 
 ---
 
-### Step 3 — Add tokens to watch
+### Step 3, Add tokens to watch
 
 In `config.json`:
 
@@ -112,11 +112,11 @@ In `config.json`:
 }
 ```
 
-You can add multiple mints — the agent will loop through all of them.
+You can add multiple mints, the agent will loop through all of them.
 
 ---
 
-### Step 4 — Run the assistant
+### Step 4, Run the assistant
 
 ```bash
 python main.py
@@ -412,7 +412,7 @@ If unstable, contributes negatively.
 
 ### 4. Volatility
 
-Uses candle high–low range as basic volatility estimate:
+Uses candle high, low range as basic volatility estimate:
 
 ```text
 volatility = (high - low) / low * 100
@@ -488,21 +488,21 @@ You can customize the fields and structure in `send_webhook_notification()`.
 
 # 9. Use Case Examples
 
-### Use Case A — Trading Signal Assistant
+### Use Case A, Trading Signal Assistant
 Use the score and trend metrics to:
 
 - Flag tokens entering a strong uptrend
 - Watch for exhaustion or volatility spikes
 - Trigger alerts when conditions match your strategy
 
-### Use Case B — Dashboard Backend
+### Use Case B, Dashboard Backend
 Pipe the JSON analysis into:
 
 - A database (Postgres, MongoDB, etc.)
 - A time-series store (Influx, Timescale)
 - A custom UI or dashboard
 
-### Use Case C — Alerting Bot
+### Use Case C, Alerting Bot
 Combine this agent with:
 
 - Discord webhooks
@@ -511,7 +511,7 @@ Combine this agent with:
 
 To get structured notifications when a token’s score crosses a threshold.
 
-### Use Case D — Research / Backtesting
+### Use Case D, Research / Backtesting
 Log outputs over time and run:
 
 - Historical performance analysis
@@ -539,7 +539,7 @@ No webhook notifications?
  └ Any network/firewall restrictions?
 ```
 
-If something fails, check logs — the logger is configured to surface RPC and Birdeye errors clearly.
+If something fails, check logs, the logger is configured to surface RPC and Birdeye errors clearly.
 
 ---
 

@@ -58,7 +58,7 @@ class PumpFunShowcase:
         name = msg.get("name")
         symbol = msg.get("symbol", "")
 
-        self.logger.info(f"[NEW TOKEN] {name} ({symbol}) — Mint: {mint}")
+        self.logger.info(f"[NEW TOKEN] {name} ({symbol}), Mint: {mint}")
 
         # Map PumpPortal WebSocket fields → your filter structure
         token = {
@@ -82,7 +82,7 @@ class PumpFunShowcase:
         if not token_passes_filters(token, self.config, self.logger):
             return
 
-        self.logger.info("Token passed filters — executing trade...")
+        self.logger.info("Token passed filters, executing trade...")
 
         # Notify webhook (if enabled)
         if self.notifications["enabled"] and self.notifications["webhook_url"]:

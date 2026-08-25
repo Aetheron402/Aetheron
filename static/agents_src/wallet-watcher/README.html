@@ -4,7 +4,7 @@
 <hr>
 <h1 id="wallet-watcher-bot">Wallet Watcher Bot</h1>
 <p><em>A production‑grade wallet activity monitoring agent with real‑time event detection, webhook alerts, strategy modules, and an extensible architecture.</em></p>
-<p>This README is written with <strong>richness, clarity, and depth</strong> — including deep feature explanations, diagrams, workflows, advanced usage, onboarding guides, troubleshooting flows, and developer extension points.</p>
+<p>This README is written with <strong>richness, clarity, and depth</strong>: including deep feature explanations, diagrams, workflows, advanced usage, onboarding guides, troubleshooting flows, and developer extension points.</p>
 <hr>
 <h1 id="-0-introduction">0. Introduction</h1>
 <p>The <strong>Wallet Watcher Bot</strong> is a fast, lightweight, highly extendable wallet monitoring framework.<br>After adding <strong>your RPC</strong> and <strong>target wallet address</strong>, the bot tracks:</p>
@@ -26,15 +26,15 @@
 <p>This guide explains the bot <strong>from zero to full customization</strong>, friendly for beginners and powerful for developers.</p>
 <hr>
 <h1 id="-1-quick-start-guide-beginner-mode-">1. Quick Start Guide (Beginner Mode)</h1>
-<h3 id="-step-1-install-python">Step 1 — Install Python</h3>
+<h3 id="-step-1-install-python">Step 1, Install Python</h3>
 <p><a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p>
 <p>Check:</p>
 <pre><code><span class="hljs-keyword">python</span> --<span class="hljs-keyword">version</span>
 </code></pre><hr>
-<h3 id="-step-2-install-dependencies">Step 2 — Install dependencies</h3>
+<h3 id="-step-2-install-dependencies">Step 2, Install dependencies</h3>
 <pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
 </code></pre><hr>
-<h3 id="-step-3-edit-config-json">Step 3 — Edit config.json</h3>
+<h3 id="-step-3-edit-config-json">Step 3, Edit config.json</h3>
 <pre><code class="lang-json">{
   <span class="hljs-attr">"rpc"</span>: {
     <span class="hljs-attr">"url"</span>: <span class="hljs-string">"YOUR_RPC_URL"</span>,
@@ -48,7 +48,7 @@
 }
 </code></pre>
 <hr>
-<h3 id="-step-4-run-the-watcher">Step 4 — Run the watcher</h3>
+<h3 id="-step-4-run-the-watcher">Step 4, Run the watcher</h3>
 <pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
 </code></pre><p>You’ll now see live wallet events printed in your terminal.</p>
 <hr>
@@ -128,9 +128,9 @@
 </table>
 <p><strong>Recommended settings:</strong></p>
 <ul>
-<li><strong>Fast tracking:</strong> 2–4 seconds  </li>
-<li><strong>Balanced:</strong> 5–8 seconds  </li>
-<li><strong>CPU/RPC friendly:</strong> 10–15 seconds  </li>
+<li><strong>Fast tracking:</strong> 2-4 seconds  </li>
+<li><strong>Balanced:</strong> 5-8 seconds  </li>
+<li><strong>CPU/RPC friendly:</strong> 10-15 seconds  </li>
 </ul>
 <hr>
 <h2 id="-wallets_to_watch">wallets_to_watch</h2>
@@ -230,32 +230,32 @@
 <h1 id="-8-strategy-examples-user-guide-section-">8. Strategy Examples (User Guide Section)</h1>
 <p>These examples help beginners configure the watcher for different goals.</p>
 <hr>
-<h2 id="-strategy-a-whale-watching">Strategy A — Whale Watching</h2>
+<h2 id="-strategy-a-whale-watching">Strategy A, Whale Watching</h2>
 <p>Ideal config:</p>
 <ul>
-<li><code>poll_interval_seconds: 3–5</code>  </li>
+<li><code>poll_interval_seconds: 3-5</code>  </li>
 <li>Webhooks enabled  </li>
 <li>Track large token movements  </li>
 <li>Add filters for high‑value tokens  </li>
 </ul>
 <hr>
-<h2 id="-strategy-b-nft-wallet-tracker">Strategy B — NFT Wallet Tracker</h2>
+<h2 id="-strategy-b-nft-wallet-tracker">Strategy B, NFT Wallet Tracker</h2>
 <ul>
-<li>Lower frequency needed (8–12 sec)  </li>
+<li>Lower frequency needed (8-12 sec)  </li>
 <li>Focus on NFT‑style events  </li>
 <li>Use Discord for alerting  </li>
 </ul>
 <hr>
-<h2 id="-strategy-c-personal-trading-monitor">Strategy C — Personal Trading Monitor</h2>
+<h2 id="-strategy-c-personal-trading-monitor">Strategy C, Personal Trading Monitor</h2>
 <ul>
 <li>Watch your own wallet  </li>
 <li>Track swaps  </li>
 <li>Get pinged when trades settle  </li>
 </ul>
 <hr>
-<h2 id="-strategy-d-quiet-monitoring-rpc-friendly-">Strategy D — Quiet Monitoring (RPC Friendly)</h2>
+<h2 id="-strategy-d-quiet-monitoring-rpc-friendly-">Strategy D, Quiet Monitoring (RPC Friendly)</h2>
 <ul>
-<li><code>poll_interval_seconds: 12–18</code>  </li>
+<li><code>poll_interval_seconds: 12-18</code>  </li>
 <li>Logging level WARNING  </li>
 <li>No webhooks  </li>
 </ul>
@@ -322,7 +322,7 @@
 <span class="hljs-symbol">logging:</span> INFO
 <span class="hljs-symbol">notifications:</span> off
 </code></pre><h3 id="fast-mode-active-wallets-">Fast mode (active wallets):</h3>
-<pre><code>poll_interval_second<span class="hljs-variable">s:</span> <span class="hljs-number">3</span>–<span class="hljs-number">5</span>
+<pre><code>poll_interval_second<span class="hljs-variable">s:</span> <span class="hljs-number">3</span>, <span class="hljs-number">5</span>
 loggin<span class="hljs-variable">g:</span> INFO
 notification<span class="hljs-variable">s:</span> <span class="hljs-keyword">on</span>
 </code></pre><h3 id="low-noise-mode-">Low‑noise mode:</h3>

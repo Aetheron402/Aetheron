@@ -60,14 +60,14 @@ class SniperAgent:
 
         # Enforce max open positions
         if len(self.open_positions) >= self.max_positions:
-            self.logger.info("Max open positions reached — execution skipped.")
+            self.logger.info("Max open positions reached, execution skipped.")
             return
 
         # Auto-execution logic
         if self.auto_buy_enabled:
             self.execute_buy(token)
         else:
-            self.logger.info("Auto-buy disabled — logging opportunity only.")
+            self.logger.info("Auto-buy disabled, logging opportunity only.")
 
     def execute_buy(self, token):
         """

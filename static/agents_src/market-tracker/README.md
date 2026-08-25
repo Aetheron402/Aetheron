@@ -6,7 +6,7 @@ See `LICENSE.txt` for full terms.
 ---
 
 # Market Tracker Agent (Template)
-### Aetheron Agent Series — Market Environment Interpretation Engine
+### Aetheron Agent Series, Market Environment Interpretation Engine
 
 ---
 
@@ -16,7 +16,7 @@ This is **not** a trading bot.
 This is **not** a signal generator.  
 This is **not** a prediction engine.
 
-This is a **market environment interpreter** — a system designed to help you understand *how the market is behaving* so you can decide **how aggressive or defensive to be** before taking action.
+This is a **market environment interpreter**: a system designed to help you understand *how the market is behaving* so you can decide **how aggressive or defensive to be** before taking action.
 
 If you are looking for buy/sell signals, this is not the right tool.
 
@@ -188,7 +188,7 @@ This is the **only layer users modify** to connect live data.
 
 ## 7. Installation (Absolute Beginner → Advanced)
 
-### Step 1 — Install Python
+### Step 1, Install Python
 
 Python **3.10+** is required.
 
@@ -201,7 +201,7 @@ https://www.python.org/downloads/
 
 ---
 
-### Step 2 — Create Virtual Environment
+### Step 2, Create Virtual Environment
 
 ```bash
 python -m venv venv
@@ -211,7 +211,7 @@ venv\Scripts\activate       # Windows
 
 ---
 
-### Step 3 — Install Dependencies
+### Step 3, Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -421,7 +421,7 @@ Yes.
 
 This agent will not trade for you.
 
-It helps you avoid trading in the wrong environment — which is often more valuable.
+It helps you avoid trading in the wrong environment, which is often more valuable.
 
 ---
 

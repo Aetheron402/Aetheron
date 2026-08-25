@@ -92,6 +92,29 @@ def get_openai_client():
     return client
 
 # MARKDOWN CLEANER
+# Written as escapes, not literal characters, so a search-and-replace over this
+# file for long dashes cannot silently rewrite the pattern that removes them.
+_LONG_DASH = "—–"
+_DASH_BETWEEN_DIGITS = re.compile(rf"(?<=\d)\s*[{_LONG_DASH}]\s*(?=\d)")
+_DASH_ANYWHERE = re.compile(rf"\s*[{_LONG_DASH}]\s*")
+
+
+def strip_long_dashes(text: str) -> str:
+    """
+    Remove em and en dashes from generated copy.
+
+    run_llm instructs the model to avoid them, but models reach for them anyway,
+    so the guarantee is enforced here where it is deterministic. A dash between
+    digits is a range and keeps a hyphen: rewriting "2020-2024" as "2020, 2024"
+    would change what the report says.
+
+    Runs last in clean_markdown, so the certification and rule patterns above
+    still see the text in the form the model produced it.
+    """
+    text = _DASH_BETWEEN_DIGITS.sub("-", text)
+    return _DASH_ANYWHERE.sub(", ", text)
+
+
 def clean_markdown(md: str) -> str:
     """
     This cleanup function is intentionally synchronized with the
@@ -114,7 +137,7 @@ def clean_markdown(md: str) -> str:
     text = re.sub(r"■", "", text)
 
     text = re.sub(r"(?s)>\s*🧾\s*\*?Certified.*", "", text)
-    text = re.sub(r"(?s)Aetheron X402 — Certified Asset.*", "", text)
+    text = re.sub(r"(?s)Aetheron X402 [—-] Certified Asset.*", "", text)
     text = re.sub(r"(?s)Certified Aetheron Asset.*", "", text)
 
     text = re.sub(r"(\d+)\s*/\s*(\d+)", r"\1/\2", text)
@@ -122,6 +145,8 @@ def clean_markdown(md: str) -> str:
     text = text.replace("(/10)", "0/10")
 
     text = re.sub(r"(?m)^\s*\|[-\s]+\|\s*$", "", text)
+
+    text = strip_long_dashes(text)
 
     return text.strip()
 
@@ -159,9 +184,16 @@ def generate_txt(md_text, asset_id="asset"):
     return fname, r2_url
 
 
+HOUSE_STYLE = (
+    "Never use em dashes or en dashes. Use a comma, a colon, a full stop or "
+    "brackets instead. This applies to every line you write, including headings, "
+    "bullet points and table cells."
+)
+
+
 def run_llm(system_prompt, user_payload, style_note):
     """
-    Unified LLM invoker — consistent temperature, length, structure.
+    Unified LLM invoker, consistent temperature, length, structure.
     """
     client = get_openai_client()
 
@@ -170,6 +202,7 @@ def run_llm(system_prompt, user_payload, style_note):
         temperature=0.6,
         max_tokens=5000,
         messages=[
+            {"role": "system", "content": HOUSE_STYLE},
             {"role": "system", "content": style_note},
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_payload},
@@ -181,13 +214,13 @@ def run_llm(system_prompt, user_payload, style_note):
 @celery.task(name="process_prompt")
 def process_prompt(asset_id, user_text, out_format, wallet):
     SYSTEM_PROMPT = """
-    You are Aetheron — architect of the X402 lattice.
+    You are Aetheron, architect of the X402 lattice.
 
-    Produce a *mid-scale Prompt Intelligence Asset* (target 5–9 PDF pages) with deeper insight, more explanation, and expanded analysis. Use this exact structure:
+    Produce a *mid-scale Prompt Intelligence Asset* (target 5-9 PDF pages) with deeper insight, more explanation, and expanded analysis. Use this exact structure:
 
     1. Executive Summary
 
-       Provide 2–4 paragraphs explaining:
+       Provide 2-4 paragraphs explaining:
        • What the user’s prompt intends to achieve  
        • Key strengths of the prompt  
        • Weaknesses or unclear areas  
@@ -195,7 +228,7 @@ def process_prompt(asset_id, user_text, out_format, wallet):
 
     2. Prompt Breakdown
 
-       Write 2–4 paragraphs describing:
+       Write 2-4 paragraphs describing:
        • The intent behind the prompt  
        • How the structure affects clarity  
        • What information is implicit vs explicit  
@@ -203,12 +236,12 @@ def process_prompt(asset_id, user_text, out_format, wallet):
 
     3. Strength Analysis
 
-       Provide 5–8 bullet points.  
-       Each bullet must contain 2–3 sentences explaining the significance of the strength.
+       Provide 5-8 bullet points.  
+       Each bullet must contain 2-3 sentences explaining the significance of the strength.
 
     4. Weakness & Risk Analysis
 
-       Provide 5–8 bullets covering:
+       Provide 5-8 bullets covering:
        • Missing constraints  
        • Logical ambiguity  
        • Safety concerns  
@@ -217,11 +250,11 @@ def process_prompt(asset_id, user_text, out_format, wallet):
 
     5. Ambiguity Detection
 
-       Provide 4–7 bullets describing specific ambiguous words, phrases, or assumptions.
+       Provide 4-7 bullets describing specific ambiguous words, phrases, or assumptions.
 
     6. Failure Modes
 
-       Provide 4–7 bullets describing:
+       Provide 4-7 bullets describing:
        • Likely model misinterpretations  
        • Execution mistakes  
        • Edge-case failures  
@@ -229,7 +262,7 @@ def process_prompt(asset_id, user_text, out_format, wallet):
 
     7. Optimization Recommendations
 
-       Provide 5–8 bullets with detailed, multi-sentence improvements.
+       Provide 5-8 bullets with detailed, multi-sentence improvements.
 
     8. Improved Prompt (Final Optimized Version)
 
@@ -241,11 +274,11 @@ def process_prompt(asset_id, user_text, out_format, wallet):
 
     9. Variant Suggestions
 
-       Provide 2–3 optional variants with different angles or styles.
+       Provide 2-3 optional variants with different angles or styles.
 
     10. Implementation Notes
 
-        Provide 3–6 practical usage notes in bullet form.
+        Provide 3-6 practical usage notes in bullet form.
 
     RULES:
     • Never use markdown headings (#, ##, ###).  
@@ -253,7 +286,7 @@ def process_prompt(asset_id, user_text, out_format, wallet):
     • Inside sections, use bullet points only.  
     • Never put text on the same line as a section title.  
     • Always add a blank line below each section title.  
-    • Do not add certification text — the PDF engine handles that automatically.  
+    • Do not add certification text, the PDF engine handles that automatically.  
     """
     STYLE_NOTE = (
         "Use a clean, hierarchical, markdown-first format. "
@@ -299,13 +332,13 @@ def process_prompt(asset_id, user_text, out_format, wallet):
 @celery.task(name="process_code")
 def process_code(asset_id, code_text, out_format, wallet, features=None):
     SYSTEM_PROMPT = """
-    You are Aetheron — a senior AI code auditor.
+    You are Aetheron, a senior AI code auditor.
 
-    Produce a *deep Code Intelligence Report* (target 5–9 PDF pages) with expanded engineering detail. Use this structure:
+    Produce a *deep Code Intelligence Report* (target 5-9 PDF pages) with expanded engineering detail. Use this structure:
 
     1. Executive Summary
 
-       Provide 2–3 paragraphs summarizing:
+       Provide 2-3 paragraphs summarizing:
        • Code purpose  
        • High-level behavior  
        • Strengths  
@@ -314,7 +347,7 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 
     2. Code Purpose and Logic
 
-       Write 2–4 paragraphs explaining:
+       Write 2-4 paragraphs explaining:
        • The function of the code  
        • The flow of execution  
        • Major internal dependencies  
@@ -323,12 +356,12 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 
     3. Strengths
 
-       Provide 5–8 bullet points.  
-       Each bullet should contain 2–3 sentences explaining why the strength matters.
+       Provide 5-8 bullet points.  
+       Each bullet should contain 2-3 sentences explaining why the strength matters.
 
     4. Weaknesses
 
-       Provide 5–8 bullets identifying:
+       Provide 5-8 bullets identifying:
        • Logical issues  
        • Poor patterns  
        • Fragile structures  
@@ -337,7 +370,7 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 
     5. Efficiency & Complexity Overview
 
-       Provide 1–2 paragraphs explaining:
+       Provide 1-2 paragraphs explaining:
        • Time/space complexity  
        • Bottlenecks  
        • Data-structure behavior  
@@ -345,7 +378,7 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 
     6. Security Considerations
 
-       Provide 4–7 bullets describing:
+       Provide 4-7 bullets describing:
        • Vulnerabilities  
        • Risk factors  
        • Unsafe assumptions  
@@ -353,7 +386,7 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 
     7. Edge Cases & Failure Predictions
 
-       Provide 5–7 bullets identifying:
+       Provide 5-7 bullets identifying:
        • Edge cases  
        • Blind spots  
        • Failure patterns  
@@ -361,7 +394,7 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 
     8. Refactoring Suggestions
 
-       Provide 5–8 bullets with 2–3 sentences each explaining:
+       Provide 5-8 bullets with 2-3 sentences each explaining:
        • The suggested change  
        • Why it improves the code  
        • Expected impact  
@@ -373,12 +406,12 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 
     10. Final Recommendations
 
-        Provide 3–6 bullet points summarizing the most important changes.
+        Provide 3-6 bullet points summarizing the most important changes.
 
     RULES:
     • Never use markdown headings (#, ##, ###).  
     • Only the section titles may use numbers.  
-    • Use bullet lists inside sections — never numbered lists.  
+    • Use bullet lists inside sections, never numbered lists.  
     • Add a blank line after each section title.  
     • Keep content technical, structured, and high-value.  
     • Do not add certification text.  
@@ -453,31 +486,31 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
 @celery.task(name="process_tester")
 def process_tester(asset_id, prompt, out_format, wallet):
     SYSTEM_PROMPT = """
-    You are Aetheron — PersonaSim.
+    You are Aetheron, PersonaSim.
 
-    Produce a *persona-focused Prompt Intelligence Report* (target 5–9 PDF pages), following this exact structure:
+    Produce a *persona-focused Prompt Intelligence Report* (target 5-9 PDF pages), following this exact structure:
 
     1. Core Prompt Interpretation
 
-       Write 3–5 sentences explaining:
+       Write 3-5 sentences explaining:
        • What the prompt is truly asking for  
        • The intent and implied objective  
        • Any hidden assumptions or missing constraints  
        • Potential ambiguities that different personas may interpret differently  
 
-    2. PersonaBench Matrix (4–6 personas)
+    2. PersonaBench Matrix (4-6 personas)
 
        For each persona, use this strict format:
 
        Persona Name
 
-       • Interpretation: 2–3 sentences describing how this persona understands the prompt.  
-       • Strength: 1–2 sentences explaining what this persona handles well.  
-       • Weakness: 1–2 sentences identifying where this persona may misjudge, overfit, or misinterpret.
+       • Interpretation: 2-3 sentences describing how this persona understands the prompt.  
+       • Strength: 1-2 sentences explaining what this persona handles well.  
+       • Weakness: 1-2 sentences identifying where this persona may misjudge, overfit, or misinterpret.
 
     3. Persona-Level Deepening
 
-       Provide 1–3 additional bullets per persona, focusing on:
+       Provide 1-3 additional bullets per persona, focusing on:
        • Edge cases  
        • Risky behaviors  
        • Divergent reasoning paths  
@@ -485,7 +518,7 @@ def process_tester(asset_id, prompt, out_format, wallet):
 
     4. Cross-Persona Comparison
 
-       Write 4–7 sentences comparing:
+       Write 4-7 sentences comparing:
        • Overlaps in interpretation  
        • Points of strong disagreement  
        • How assumptions differ  
@@ -498,7 +531,7 @@ def process_tester(asset_id, prompt, out_format, wallet):
 
        Prompt Quality Score: X/10
 
-       Then provide 4–7 sentences explaining why:
+       Then provide 4-7 sentences explaining why:
        • What is good about the prompt  
        • What is unclear or risky  
        • Whether constraints are missing  
@@ -513,7 +546,7 @@ def process_tester(asset_id, prompt, out_format, wallet):
 
        Persona Divergence Score: Y/10
 
-       Then write 4–7 sentences describing:
+       Then write 4-7 sentences describing:
        • Why the personas differ in interpretation  
        • What aspects of the prompt cause divergence  
        • Which personas diverge the most  
@@ -524,8 +557,8 @@ def process_tester(asset_id, prompt, out_format, wallet):
 
     7. Improvement Suggestions
 
-       Provide 5–8 bullet points (•).  
-       Each bullet should be 1–3 sentences with clear, high-impact improvements that address:
+       Provide 5-8 bullet points (•).  
+       Each bullet should be 1-3 sentences with clear, high-impact improvements that address:
        • Prompt clarity  
        • Missing constraints  
        • Risk reduction  
@@ -542,12 +575,12 @@ def process_tester(asset_id, prompt, out_format, wallet):
     • Never use markdown headings (#, ##, ###).  
     • Section titles MUST appear only as numbered lines like “1. Title”.  
     • A heading MUST be followed by a blank line, then content.  
-    • Inside sections, never use numbered lists — use bullet points (•) only.  
+    • Inside sections, never use numbered lists, use bullet points (•) only.  
     • Persona formatting MUST follow the Persona Name + 3 bullet structure.  
     • Scores must always be X/10 and Y/10.  
     • Do not add extra text after the scores on the same line.  
     • Keep tone analytical, concise, and professional.  
-    • Finish ONLY with analytical content — never add certification or meta commentary.
+    • Finish ONLY with analytical content, never add certification or meta commentary.
     """
 
     STYLE_NOTE = (
@@ -752,7 +785,7 @@ def build_solana_risk_hints_from_onchain(base_intel, token_meta, helius_holders)
       - holder concentration
       - liquidity thinness
 
-    This does NOT guess — everything is derived from JSON.
+    This does NOT guess, everything is derived from JSON.
     """
     bi = base_intel or {}
     tm = token_meta or {}
@@ -1316,7 +1349,7 @@ def fetch_solana_top_holders(identifier: str, mint: str = None, limit: int = 20)
 
     html_fallback = fetch_solana_holders_html(mint)
     if html_fallback and html_fallback.get("holders"):
-        print("SolanaFM HTML fallback succeeded — holders recovered.")
+        print("SolanaFM HTML fallback succeeded, holders recovered.")
         return html_fallback
 
     print("No Solana holder data available from any provider. Returning empty list.")
@@ -2561,7 +2594,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
     }
 
     """
-    Contract Intelligence Analyzer — 5–7 page LLM report using on-chain + market data.
+    Contract Intelligence Analyzer, 5-7 page LLM report using on-chain + market data.
     Uses the same markdown → PDF pipeline as the other components.
     """
     net = (network or "solana").lower().strip()
@@ -2721,10 +2754,10 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
     store_contract_snapshot(ca, net, intel_blob)
 
     SYSTEM_PROMPT = """
-    You are Aetheron — an on-chain contract intelligence engine.
+    You are Aetheron, an on-chain contract intelligence engine.
 
     You receive STRICT JSON describing an on-chain contract or account on either Solana or Ethereum.
-    Your job is to turn this into a clear, mid-scale (target 5–7 PDF pages) Contract Intelligence Asset.
+    Your job is to turn this into a clear, mid-scale (target 5-7 PDF pages) Contract Intelligence Asset.
 
     The JSON always includes:
     • network                (e.g. "Solana" or "Ethereum")
@@ -2769,7 +2802,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
     1. High-Level Summary
 
-       • 2–3 short paragraphs.
+       • 2-3 short paragraphs.
        • Explain what this contract/account appears to be (token mint, token account,
          regular wallet, Solana program, Ethereum protocol contract, unknown).
        • Mention the network and address.
@@ -2784,7 +2817,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
        • presence or absence of honeypot_intel
        • holder concentration if available
 
-       At the end of Section 1, after the paragraphs, you MUST output 4–8 bullet points
+       At the end of Section 1, after the paragraphs, you MUST output 4-8 bullet points
        generated ONLY from:
 
        - signal_indicators.positives
@@ -2803,7 +2836,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
     2. Contract Identity & Role
 
-       • 2–4 paragraphs.
+       • 2-4 paragraphs.
        • For Solana:
          - Use fields like "kind", "parsed_type", "owner_program", "executable",
            "mint_authority", "freeze_authority".
@@ -2815,11 +2848,11 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
          (meme token, protocol token, core protocol contract, utility contract, wallet, etc.).
        • If classification is unclear, say it is unclassified / not clearly visible.
        • If project_extras contains website, social links, or brief roadmap/team extracts, you may reference them
-         as supplemental, off-chain context — but do not treat them as on-chain guarantees.
+         as supplemental, off-chain context, but do not treat them as on-chain guarantees.
 
     3. Technical Profile
 
-       • 2–4 paragraphs.
+       • 2-4 paragraphs.
        • Summarize the important technical aspects:
          - Solana: account kind, owner program, executable flag, authorities, decimals if present.
          - Ethereum: proxy/implementation flags, optimization usage, function count,
@@ -2834,14 +2867,14 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
        Provide the following threat vectors derived ONLY from exploit_surface.flags, admin_risk.signals, and risk_hints:
 
-       • Mint Vector — if any mint capability exists.
-       • Burn Vector — if burn function exists.
-       • Withdraw/Drain Vector — if withdraw/sweep/drain functions exist.
-       • Ownership Vector — if transferOwnership-like functions exist.
-       • Upgrade Vector — if proxy or implementation is present.
-       • Pause Vector — if pause/unpause/setPaused exists.
-       • Fee/Tax Vector — if setFee / setTax / updateFee exists.
-       • Blacklist/Freeze Vector — if blacklist or freeze authority exists.
+       • Mint Vector, if any mint capability exists.
+       • Burn Vector, if burn function exists.
+       • Withdraw/Drain Vector, if withdraw/sweep/drain functions exist.
+       • Ownership Vector, if transferOwnership-like functions exist.
+       • Upgrade Vector, if proxy or implementation is present.
+       • Pause Vector, if pause/unpause/setPaused exists.
+       • Fee/Tax Vector, if setFee / setTax / updateFee exists.
+       • Blacklist/Freeze Vector, if blacklist or freeze authority exists.
 
        Do not invent new vectors.
 
@@ -2883,12 +2916,12 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
        IMPORTANT STYLE RULE FOR MISSING DATA:
        • If many fields are missing, do NOT list “not available” line-by-line.
-         Instead, summarise missing data in 1–2 sentences such as:
+         Instead, summarise missing data in 1-2 sentences such as:
            “Price, liquidity, and volume data were not available from the connected indexers in this scan.”
        • Only use the exact words “not available” or “not visible in this scan” a small number of times.
        • Focus most of the discussion on the data that IS present.
 
-       • Write 1–3 short paragraphs explaining:
+       • Write 1-3 short paragraphs explaining:
          - Whether there is enough data to understand the token’s market presence.
          - Whether liquidity and market cap appear visible or are missing.
          - Any major gaps in the market data and how that limits interpretation, 
@@ -3039,7 +3072,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
          - Comment on owner-like functions, mint, pause, blacklist, withdraw, fee setters,
            proxy/implementation, verification status, admin_control_level, dangerous_functions,
            and any strong capabilities indicated by exploit_surface and admin_risk.signals.
-       • Provide 5–8 bullet points describing:
+       • Provide 5-8 bullet points describing:
          - Which powers exist.
          - How centralized those powers are.
          - Whether this looks renounced or still under active admin control.
@@ -3095,7 +3128,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
         SCORING RULES (MANDATORY):
         YOU MUST APPLY THE FOLLOWING SCORING RULES EXACTLY.
-        Scores must be integers (1–10) and derived ONLY from JSON. Never invent values.
+        Scores must be integers (1-10) and derived ONLY from JSON. Never invent values.
 
         OVERALL RISK SCORE (X):
 
@@ -3164,7 +3197,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
         • Explicitly mention this limitation in Section 4 AND Section 6
         • Do NOT fabricate holder counts
 
-        After producing the four metric lines, you MUST write 5–10 bullet points covering:
+        After producing the four metric lines, you MUST write 5-10 bullet points covering:
         
         When generating bullet points, do NOT produce bullets that merely restate missing 
         or unavailable ABI/admin/exploit data unless that absence is itself a clear risk 
@@ -3205,7 +3238,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
     7. Operational Recommendations
 
-       • Provide 5–8 bullet points with practical guidance for a non-expert:
+       • Provide 5-8 bullet points with practical guidance for a non-expert:
          - Extra scanners or tools to use.
          - On-chain behaviors to monitor (owner wallet, upgrades, mint events, high-tax wallets).
          - How to interpret missing data safely.
@@ -3213,7 +3246,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
     8. What This Means For Users
 
-       Provide 5–8 bullets explaining the practical meaning of:
+       Provide 5-8 bullets explaining the practical meaning of:
        • LP lock or unlock status
        • Mint or freeze authorities
        • Proxy upgradeability
@@ -3238,7 +3271,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
 
     10. Final Verdict Summary
 
-       • 1–3 short paragraphs.
+       • 1-3 short paragraphs.
        • Summarize:
          - What this asset appears to be.
          - The overall risk posture.

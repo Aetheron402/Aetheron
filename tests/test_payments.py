@@ -200,7 +200,7 @@ def test_two_assets_never_share_a_filename():
 
 
 def test_every_export_format_gets_a_unique_name():
-    """Regression: exports were named aetheron_output.<ext> — one object in a
+    """Regression: exports were named aetheron_output.<ext>, one object in a
     public bucket shared by every user."""
     for fmt in ("txt", "md", "html", "docx"):
         _, a = export_generic(fmt, "x", "X402-CODE-1")

@@ -1,7 +1,7 @@
 # ============================================================
 # Market Tracker Agent (Template)
 #
-# Aetheron Components – License Agreement
+# Aetheron Components | License Agreement
 #
 # You are granted a personal, non-transferable,
 # non-commercial license to use this software.

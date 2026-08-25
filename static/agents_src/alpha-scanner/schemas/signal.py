@@ -14,8 +14,8 @@ class SignalSource(str, Enum):
 class Signal:
     source: SignalSource
     key: str                 # token, narrative keyword, wallet cluster id, etc.
-    value: float             # normalized signal strength (0–1 or z-score)
-    confidence: float        # how reliable this signal is (0–1)
+    value: float             # normalized signal strength (0-1 or z-score)
+    confidence: float        # how reliable this signal is (0-1)
     timestamp: datetime
 
     metadata: Optional[Dict] = None

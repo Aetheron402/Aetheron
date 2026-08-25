@@ -18,7 +18,7 @@ def setup_logger(logging_cfg: dict) -> logging.Logger:
     logger.setLevel(logging_cfg.get("level", "INFO"))
 
     formatter = logging.Formatter(
-        "[%(levelname)s] %(asctime)s — %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        "[%(levelname)s] %(asctime)s, %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
     # Console handler

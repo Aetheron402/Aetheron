@@ -13,7 +13,7 @@ See `LICENSE.txt` for full terms.
 
 # 0. Introduction
 
-Crypto markets are driven less by single data points and more by **emerging narratives** — themes that form when social attention, on-chain behavior, and market structure begin to align.
+Crypto markets are driven less by single data points and more by **emerging narratives**: themes that form when social attention, on-chain behavior, and market structure begin to align.
 
 Most tools surface raw metrics:
 - tweet counts  
@@ -44,7 +44,7 @@ This document is a **full onboarding and reference guide**.
 
 # 1. Quick Start Guide (Beginner-Friendly)
 
-## Step 1 — Install Python
+## Step 1, Install Python
 
 Python 3.10 or newer is required.
 
@@ -58,7 +58,7 @@ Verify:
 
 ------------------------------------------------------------------------
 
-## Step 2 — Install dependencies
+## Step 2, Install dependencies
 
 From inside the project directory:
 
@@ -68,7 +68,7 @@ All dependencies are lightweight and standard.
 
 ------------------------------------------------------------------------
 
-## Step 3 — Run the agent
+## Step 3, Run the agent
 
     python3 main.py
 

@@ -10,14 +10,14 @@ See `LICENSE.txt` for full terms.
 # Discord Support Agent
 
 A production‑grade, beginner‑friendly, and deeply extensible Discord support bot template.  
-This README is **structure, depth, and polish** — including diagrams, onboarding flows, config walkthroughs, architecture breakdowns, strategy examples, and troubleshooting trees.
+This README is **structure, depth, and polish**: including diagrams, onboarding flows, config walkthroughs, architecture breakdowns, strategy examples, and troubleshooting trees.
 
 ---
 
 # 0. Introduction
 
 Managing a Discord community means facing repeated questions, support bottlenecks, and moderation workload.  
-This **Discord Support Agent** is built to solve that — usable by beginners, extendable by developers, and powerful with optional AI integrations.
+This **Discord Support Agent** is built to solve that, usable by beginners, extendable by developers, and powerful with optional AI integrations.
 
 It includes:
 
@@ -35,7 +35,7 @@ This documentation provides **full technical + beginner onboarding**.
 
 # 1. Quick Start Guide (Beginner Mode)
 
-### **Step 1 — Install Python (if you don’t already have it)**  
+### **Step 1, Install Python (if you don’t already have it)**  
 Download Python 3.10+ from:  
 https://www.python.org/downloads/
 
@@ -43,7 +43,7 @@ Ensure “Add to PATH” is checked.
 
 ---
 
-### **Step 2 — Install dependencies**
+### **Step 2, Install dependencies**
 
 ```
 pip install -r requirements.txt
@@ -51,7 +51,7 @@ pip install -r requirements.txt
 
 ---
 
-### **Step 3 — Get your Discord bot token**
+### **Step 3, Get your Discord bot token**
 
 1. Go to: https://discord.com/developers/applications  
 2. Click **New Application**  
@@ -63,7 +63,7 @@ pip install -r requirements.txt
 
 ---
 
-### **Step 4 — Add your bot token to config.json**
+### **Step 4, Add your bot token to config.json**
 
 ```json
 "discord": {
@@ -74,7 +74,7 @@ pip install -r requirements.txt
 
 ---
 
-### **Step 5 — (Optional) Enable AI replies**
+### **Step 5, (Optional) Enable AI replies**
 
 ```json
 "ai": {
@@ -87,7 +87,7 @@ pip install -r requirements.txt
 
 ---
 
-### **Step 6 — Run the bot**
+### **Step 6, Run the bot**
 
 ```
 python main.py
@@ -273,16 +273,16 @@ Handles:
 
 # 9. Real‑World Use Cases
 
-### **Use Case A — Support Bot**
+### **Use Case A, Support Bot**
 Auto‑reply to FAQs using AI.
 
-### **Use Case B — Moderation Assistant**
+### **Use Case B, Moderation Assistant**
 Kick/ban enforcement + notifications.
 
-### **Use Case C — Community Helper**
+### **Use Case C, Community Helper**
 Provide server info, onboarding, or rules.
 
-### **Use Case D — Customer Support**
+### **Use Case D, Customer Support**
 Integrate with your product’s AI assistant.
 
 ---

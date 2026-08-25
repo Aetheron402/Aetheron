@@ -25,7 +25,7 @@ This **Pump.fun Launch Assistant** is a **production‑quality template** design
 
 …without writing any discovery, filtering, or RPC code.
 
-This documentation explains **exactly how the assistant works**, how to customize it, how to integrate real trading *if desired*, and how to safely run it — even if you’re a beginner.
+This documentation explains **exactly how the assistant works**, how to customize it, how to integrate real trading *if desired*, and how to safely run it, even if you’re a beginner.
 
 This is a **full technical + beginner onboarding guide**, optimized for developers, traders, and automation builders.
 
@@ -33,7 +33,7 @@ This is a **full technical + beginner onboarding guide**, optimized for develope
 
 # 1. Quick Start Guide (Beginner‑Friendly)
 
-## Step 1 — Install dependencies
+## Step 1, Install dependencies
 
 Open a terminal inside the folder:
 
@@ -43,7 +43,7 @@ pip install -r requirements.txt
 
 That's it.
 
-## Step 2 — Edit config.json (optional)
+## Step 2, Edit config.json (optional)
 
 You can run the assistant with default settings, but beginners often adjust:
 
@@ -53,7 +53,7 @@ You can run the assistant with default settings, but beginners often adjust:
 
 All settings are fully explained later.
 
-## Step 3 — Run the assistant
+## Step 3, Run the assistant
 
 ```
 python main.py
@@ -165,13 +165,13 @@ Below is the upgraded explanation for **every parameter**.
 }
 ```
 
-- **url** – optional Solana RPC provider  
+- **url**: optional Solana RPC provider  
   (used for deeper checks or future extensions)  
 
 - **poll_interval_seconds**  
-  - 2–3s = sniper speed  
-  - 4–6s = medium  
-  - 7–12s = low frequency  
+  - 2-3s = sniper speed  
+  - 4-6s = medium  
+  - 7-12s = low frequency  
 
 ---
 
@@ -252,7 +252,7 @@ The assistant supports many styles:
 
 ---
 
-## Example Strategy A — Early Curve Sniping
+## Example Strategy A, Early Curve Sniping
 
 Best for users willing to take higher risk.
 
@@ -264,27 +264,27 @@ Recommended config:
 
 ---
 
-## Example Strategy B — Safer Curve Entries
+## Example Strategy B, Safer Curve Entries
 
 Focuses on tokens past the critical risk zone.
 
 Use:
 
-- `min_bonding_curve_percent: 12–15`  
+- `min_bonding_curve_percent: 12-15`  
 - `require_locked_liquidity: true`  
 
 ---
 
-## Example Strategy C — Volume Confirmation
+## Example Strategy C, Volume Confirmation
 
 Focus on tokens gaining traction.
 
-- `min_trades_5m: 10–20`  
+- `min_trades_5m: 10-20`  
 - `min_liquidity_sol: 2.0+`  
 
 ---
 
-## Example Strategy D — Creator Reputation Scoring
+## Example Strategy D, Creator Reputation Scoring
 
 Block bad creators:
 

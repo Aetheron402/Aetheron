@@ -29,7 +29,7 @@ The whole exchange is four HTTP messages and one Solana transfer.
 |:--|:--|
 | 🧩 &nbsp; **5 components** | prompts, code, personas, token risk, Monte Carlo |
 | 🤖 &nbsp; **9 agent templates** | full Python projects, yours to keep |
-| 💵 &nbsp; **$0.25 – $4.99** | per call, in USDC |
+| 💵 &nbsp; **$0.25 to $4.99** | per call, in USDC |
 | 🔑 &nbsp; **Non-custodial** | this code cannot sign anything |
 | 🏠 &nbsp; **Self-hostable** | clone, add a key, run |
 
@@ -39,7 +39,7 @@ The whole exchange is four HTTP messages and one Solana transfer.
 
 ## What's in the shop
 
-Every component returns a written report — PDF, DOCX, HTML, Markdown or plain text.
+Every component returns a written report: PDF, DOCX, HTML, Markdown or plain text.
 
 | | Component | Price | What you get |
 |---|---|---:|---|
@@ -52,7 +52,7 @@ Every component returns a written report — PDF, DOCX, HTML, Markdown or plain 
 The first three need only an OpenAI key. The last two read Solana and Ethereum, and
 fall back to whatever sources remain when a provider is missing.
 
-### Agent templates — `$4.99`
+### Agent templates, `$4.99` each
 
 Nine complete Python projects. You download the source, and it is yours: they run on
 your machine and depend on nothing here to keep working.
@@ -80,7 +80,7 @@ $ curl -sX POST localhost:8000/api/prompt-optimizer \
        -H 'Content-Type: application/json' -d '{"text":"..."}'
 ```
 
-**2. Get quoted.** The refusal carries the terms — you never need telling out-of-band
+**2. Get quoted.** The refusal carries the terms, so you never need telling out-of-band
 what a call costs.
 
 ```json
@@ -126,7 +126,7 @@ matches each to its own prior balance by account index, and sums the rise. So:
 | An actual transfer to the payment wallet | ✅ |
 
 The signer must also be the wallet claiming the purchase, and claiming a payment is
-an `INSERT` keyed on the signature — the write *is* the check, so two requests racing
+an `INSERT` keyed on the signature. The write *is* the check, so two requests racing
 with the same signature cannot both succeed.
 
 Underpay and the shortfall is recorded against your wallet and that component, so a
@@ -143,7 +143,7 @@ $ pytest -q
 
 ## Quick start
 
-You need Python 3.11 and Redis. Nothing else — no database to provision, no cloud
+You need Python 3.11 and Redis. Nothing else: no database to provision, no cloud
 account to open.
 
 ```bash
@@ -161,7 +161,7 @@ Open `http://127.0.0.1:8000`.
 
 Leaving `DB_HOST` empty puts the ledger in a local SQLite file; set it and the same
 code runs on Postgres. Generated reports go to Cloudflare R2 in production, and the
-token price comes from DexScreener with a pump.fun fallback — neither needs a key.
+token price comes from DexScreener with a pump.fun fallback, and neither needs a key.
 
 `.env.example` documents every setting. Exactly three are required: the receiving
 wallet, an OpenAI key, and Redis.
@@ -195,7 +195,7 @@ tests/               payment and validation tests
 ```
 
 Money is integers everywhere. Prices are read as decimal strings and converted to
-base units once, at the point of comparison — nothing here holds a balance in a float.
+base units once, at the point of comparison, so nothing here holds a balance in a float.
 
 Reports are served from a public bucket, so their filenames are cryptographically
 random rather than derived from a timestamp: the name is the only thing standing
@@ -206,7 +206,7 @@ between a report and everyone else.
 ## SDK
 
 `sdk/` is the TypeScript client. Browser-first, framework-agnostic, and it does not
-hide the payment step — nothing is auto-paid, and no transaction is signed for you.
+hide the payment step. Nothing is auto-paid, and no transaction is signed for you.
 
 ```ts
 import { AetheronSDK } from "aetheron-sdk";
@@ -229,7 +229,7 @@ const report = await aetheron.promptOptimizer(
 ```
 
 `promptOptimizer`, `codeExplainer`, `promptTester`, `contractIntel` and `downloadAgent`
-all wrap `callPaidComponent`, which accepts any endpoint — so the Risk Engine, and
+all wrap `callPaidComponent`, which accepts any endpoint, so the Risk Engine, and
 anything added later, is reachable before a named method exists for it.
 
 The endpoint defaults to the origin serving the page, so a UI hosted by Aetheron needs
@@ -250,8 +250,8 @@ When it launches, the mint address will appear here and on
 anywhere else, or before that, as fake.
 
 Components can be priced in AETH as well as USDC. That path is already built and sits
-dormant: setting `AETH_MINT_ADDRESS` turns it on everywhere at once — the shop, the
-SDK and the `accepted_methods` in every 402 — with no redeploy and no code change.
+dormant: setting `AETH_MINT_ADDRESS` turns it on everywhere at once (the shop, the
+SDK and the `accepted_methods` in every 402) with no redeploy and no code change.
 
 ---
 

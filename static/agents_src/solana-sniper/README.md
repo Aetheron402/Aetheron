@@ -24,7 +24,7 @@ The **Sniper Trade Agent** is a configurable framework that lets you build:
 - On‑chain opportunity filters  
 - Custom execution systems using DEX APIs (Jupiter/Raydium/etc.)  
 
-This template is intentionally **safe by default** — no real trades occur unless *you* add an execution call.
+This template is intentionally **safe by default**: no real trades occur unless *you* add an execution call.
 
 It is perfect for:
 
@@ -38,7 +38,7 @@ It is perfect for:
 
 # 1. Quick Start Guide (Beginner Mode)
 
-### **Step 1 — Install Python**
+### **Step 1, Install Python**
 https://www.python.org/downloads/
 
 Check installation:
@@ -49,7 +49,7 @@ python --version
 
 ---
 
-### **Step 2 — Install dependencies**
+### **Step 2, Install dependencies**
 
 ```
 pip install -r requirements.txt
@@ -57,7 +57,7 @@ pip install -r requirements.txt
 
 ---
 
-### **Step 3 — Fill in config.json**
+### **Step 3, Fill in config.json**
 
 At minimum:
 
@@ -74,7 +74,7 @@ For beginners, leave `auto_buy_enabled` **false** to stay in simulation mode.
 
 ---
 
-### **Step 4 — Run the agent**
+### **Step 4, Run the agent**
 
 ```
 python main.py
@@ -169,9 +169,9 @@ Below is a **deep dive** into every config value.
 | poll_interval_seconds | How frequently new tokens are scanned |
 
 **Recommended:**
-- Fast sniping: `2–4 sec`  
-- Balanced: `5–7 sec`  
-- Low-resource mode: `8–12 sec`
+- Fast sniping: `2-4 sec`  
+- Balanced: `5-7 sec`  
+- Low-resource mode: `8-12 sec`
 
 ---
 
@@ -282,10 +282,10 @@ These presets help users configure the sniper for different goals.
 
 ---
 
-## Strategy A — Early Curve Sniping (High Risk)
+## Strategy A, Early Curve Sniping (High Risk)
 
 ```
-min_liquidity_sol: 1–2  
+min_liquidity_sol: 1-2  
 min_initial_liquidity_ratio: 0.25  
 min_trades_1m: 1  
 ```
@@ -294,23 +294,23 @@ Useful for adrenaline seekers and experimenters.
 
 ---
 
-## Strategy B — Safer Curve Entry
+## Strategy B, Safer Curve Entry
 
 ```
-min_liquidity_sol: 3–5  
+min_liquidity_sol: 3-5  
 require_locked_liquidity: true  
 block_mint_authority: true  
-min_initial_liquidity_ratio: 0.35–0.45
+min_initial_liquidity_ratio: 0.35-0.45
 ```
 
 Avoids most instant rugs.
 
 ---
 
-## Strategy C — Volume Confirmation
+## Strategy C, Volume Confirmation
 
 ```
-min_trades_1m: 8–15
+min_trades_1m: 8-15
 min_liquidity_sol: 4+
 ```
 
@@ -318,7 +318,7 @@ Focuses on momentum.
 
 ---
 
-## Strategy D — Strict Maker Filtering
+## Strategy D, Strict Maker Filtering
 
 ```
 creator_addresses blacklist enabled
@@ -365,7 +365,7 @@ def execute_buy(self, token):
   "content": "**New Sniper Opportunity Detected**",
   "embeds": [{
     "title": "Token Passed Filters",
-    "description": "Liquidity: 4.3 SOL — MC: $120k",
+    "description": "Liquidity: 4.3 SOL, MC: $120k",
     "color": 65280
   }]
 }
@@ -423,7 +423,7 @@ min_initial_liquidity_ratio: 0.40
 ### Aggressive Mode
 
 ```
-min_liquidity_sol: 1–2  
+min_liquidity_sol: 1-2  
 min_trades_1m: 1  
 max_market_cap_usd: 500k  
 ```
@@ -446,7 +446,7 @@ max_market_cap_usd: 500k
 
 This is a **non-trading template**.  
 You must add real execution manually.  
-Crypto trading is risky — test carefully.
+Crypto trading is risky, test carefully.
 
 ---
 

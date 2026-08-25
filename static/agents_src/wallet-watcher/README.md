@@ -10,7 +10,7 @@ See `LICENSE.txt` for full terms.
 # Wallet Watcher Bot  
 *A production‑grade wallet activity monitoring agent with real‑time event detection, webhook alerts, strategy modules, and an extensible architecture.*
 
-This README is written with **richness, clarity, and depth** — including deep feature explanations, diagrams, workflows, advanced usage, onboarding guides, troubleshooting flows, and developer extension points.
+This README is written with **richness, clarity, and depth**: including deep feature explanations, diagrams, workflows, advanced usage, onboarding guides, troubleshooting flows, and developer extension points.
 
 ---
 
@@ -39,7 +39,7 @@ This guide explains the bot **from zero to full customization**, friendly for be
 
 # 1. Quick Start Guide (Beginner Mode)
 
-### Step 1 — Install Python  
+### Step 1, Install Python  
 https://www.python.org/downloads/
 
 Check:
@@ -49,14 +49,14 @@ python --version
 
 ---
 
-### Step 2 — Install dependencies  
+### Step 2, Install dependencies  
 ```
 pip install -r requirements.txt
 ```
 
 ---
 
-### Step 3 — Edit config.json
+### Step 3, Edit config.json
 
 ```json
 {
@@ -74,7 +74,7 @@ pip install -r requirements.txt
 
 ---
 
-### Step 4 — Run the watcher  
+### Step 4, Run the watcher  
 ```
 python main.py
 ```
@@ -162,9 +162,9 @@ The bot is controlled entirely through **config.json**.
 
 **Recommended settings:**
 
-- **Fast tracking:** 2–4 seconds  
-- **Balanced:** 5–8 seconds  
-- **CPU/RPC friendly:** 10–15 seconds  
+- **Fast tracking:** 2-4 seconds  
+- **Balanced:** 5-8 seconds  
+- **CPU/RPC friendly:** 10-15 seconds  
 
 ---
 
@@ -294,32 +294,32 @@ These examples help beginners configure the watcher for different goals.
 
 ---
 
-## Strategy A — Whale Watching  
+## Strategy A, Whale Watching  
 Ideal config:
 
-- `poll_interval_seconds: 3–5`  
+- `poll_interval_seconds: 3-5`  
 - Webhooks enabled  
 - Track large token movements  
 - Add filters for high‑value tokens  
 
 ---
 
-## Strategy B — NFT Wallet Tracker  
-- Lower frequency needed (8–12 sec)  
+## Strategy B, NFT Wallet Tracker  
+- Lower frequency needed (8-12 sec)  
 - Focus on NFT‑style events  
 - Use Discord for alerting  
 
 ---
 
-## Strategy C — Personal Trading Monitor  
+## Strategy C, Personal Trading Monitor  
 - Watch your own wallet  
 - Track swaps  
 - Get pinged when trades settle  
 
 ---
 
-## Strategy D — Quiet Monitoring (RPC Friendly)  
-- `poll_interval_seconds: 12–18`  
+## Strategy D, Quiet Monitoring (RPC Friendly)  
+- `poll_interval_seconds: 12-18`  
 - Logging level WARNING  
 - No webhooks  
 
@@ -416,7 +416,7 @@ notifications: off
 
 ### Fast mode (active wallets):
 ```
-poll_interval_seconds: 3–5
+poll_interval_seconds: 3-5
 logging: INFO
 notifications: on
 ```

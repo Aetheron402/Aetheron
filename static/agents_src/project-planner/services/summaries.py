@@ -92,7 +92,7 @@ class SummariesService:
 
     def _store_summary_note(self, summary: ProjectSummary) -> None:
         prefix = str(self.config.get("note_title_prefix", "Project Summary")).strip() or "Project Summary"
-        title = f"{prefix} — {summary.generated_at.date().isoformat()}"
+        title = f"{prefix}, {summary.generated_at.date().isoformat()}"
         body = "\n".join(summary.lines)
 
         note = {

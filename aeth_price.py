@@ -7,13 +7,13 @@ overcharges customers or lets them underpay.
 
 Sources, in order:
 
-1. DexScreener — the deepest-liquidity pair where AETH is the base token.
+1. DexScreener, the deepest-liquidity pair where AETH is the base token.
    Free, keyless, and already used elsewhere in this codebase.
 2. The pump.fun bonding curve, converted through SOL/USD. This is the path a
    freshly launched token needs, before any DEX pool exists for it.
 
 Both the primary source and the fallback previously called Birdeye, so a
-Birdeye outage took out both at once — a single point of failure presented as
+Birdeye outage took out both at once, a single point of failure presented as
 two. Neither path depends on an API key now.
 """
 
@@ -194,7 +194,7 @@ def get_aeth_price_usdc(force_refresh: bool = False) -> float:
             logger.warning("AETH pricing via %s failed: %s", source, exc)
             errors.append(f"{source}: {exc}")
     else:
-        raise AethPricingError("All AETH price sources failed — " + "; ".join(errors))
+        raise AethPricingError("All AETH price sources failed, " + "; ".join(errors))
 
     _cached_price_usdc = price_usdc
     _last_ts = now

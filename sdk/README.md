@@ -155,7 +155,7 @@ type PaymentRequiredError = {
 };
 ```
 
-The SDK never retries automatically — **your app controls the UX**.
+The SDK never retries automatically, **your app controls the UX**.
 
 ---
 

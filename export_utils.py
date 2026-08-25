@@ -64,7 +64,7 @@ def export_generic(format: str, content: str, asset_id: str = "asset"):
     Export `content` and give it a unique, unguessable filename.
 
     The per-format helpers above return a fixed name, which meant every user's
-    export was written to the same object in a public bucket — downloading it
+    export was written to the same object in a public bucket, downloading it
     returned whichever job wrote last. The name is assigned here instead.
     """
     fmt = (format or "").lower()

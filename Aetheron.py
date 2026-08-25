@@ -54,7 +54,7 @@ def _require_env(name: str, why: str) -> str:
     value = (os.getenv(name) or "").strip()
     if not value:
         raise RuntimeError(
-            f"{name} is not set — {why}. "
+            f"{name} is not set, {why}. "
             f"Set it in your .env (see .env.example) or in the Railway variables."
         )
     return value
@@ -118,7 +118,7 @@ templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).s
 
 # Exposed as globals so no template ever restates a payment address as a literal.
 # These are the values users copy and send funds to, so they must come from the
-# same source the backend verifies against — never from a second, drifting copy.
+# same source the backend verifies against, never from a second, drifting copy.
 templates.env.globals["payment_wallet"] = PAYMENT_WALLET
 templates.env.globals["payment_network"] = PAYMENT_NETWORK
 templates.env.globals["aeth_enabled"] = bool(AETH_MINT)
@@ -130,7 +130,7 @@ def payment_required(component: str, message: str, price_usdc) -> JSONResponse:
     Build the X402 challenge.
 
     The bundled web UI gets the amount and destination from its template, but
-    every other client — the SDK above all — learns them only from this body.
+    every other client, the SDK above all, learns them only from this body.
     Returning just a message told an integrator that payment was needed while
     withholding how much, in which currency, and to which wallet.
     """
@@ -239,7 +239,7 @@ def extract_received_amount(tx: dict, target_mint: str, recipient: str) -> int:
     This asks the only question that matters for a payment: did *our* balance
     go up, and by how much. The previous implementation summed every positive
     balance delta for the mint regardless of owner, so a transfer between two
-    wallets an attacker controlled — or simply buying the token on a DEX —
+    wallets an attacker controlled, or simply buying the token on a DEX -
     registered as a payment to us while we received nothing.
     """
     meta = tx.get("meta") or {}
@@ -403,7 +403,7 @@ MAX_CODE_CHARS = 100_000
 
 # Monte Carlo allocates runs × steps floats. Unbounded, a request for
 # runs=1_000_000 steps=10_000 asks for roughly 75 GB and takes the workers with
-# it — a denial of service costing the price of one component.
+# it, a denial of service costing the price of one component.
 MAX_RISK_RUNS = 10_000
 MAX_RISK_STEPS = 2_000
 # Deliberately below MAX_RISK_RUNS * MAX_RISK_STEPS, so the combined limit
@@ -434,7 +434,7 @@ class ContractIntelInput(BaseModel):
 
         This runs as a model validator rather than a field validator because a
         field validator only sees fields declared before it, and network is
-        declared after contract_address — so the check silently did nothing.
+        declared after contract_address, so the check silently did nothing.
         """
         self.contract_address = self.contract_address.strip()
 
@@ -594,7 +594,7 @@ def shop(request: Request):
             "id": 3,
             "slug": "prompt-tester",
             "name": "Smart Prompt Tester (PersonaSim)",
-            "description": "Test your prompt against multiple AI personas—Developer, Skeptic, Hacker—to uncover blind spots, weaknesses, and ways to strengthen it.",
+            "description": "Test your prompt against multiple AI personas, Developer, Skeptic, Hacker-to uncover blind spots, weaknesses, and ways to strengthen it.",
             "price": f"{PROMPT_TESTER_PRICE_USDC} {PAYMENT_CURRENCY}",
             "type": "pay-per-use",
             "coming_soon": False,
@@ -678,7 +678,7 @@ def ledger_page(request: Request):
     """
     Connected wallets see their own paginated history; everyone else sees the
     most recent public entries. The template renders a pager and links to
-    /ledger?page=N, so both `page` and `total_pages` must always be supplied —
+    /ledger?page=N, so both `page` and `total_pages` must always be supplied -
     omitting them raised UndefinedError and made this page a guaranteed 500.
     """
     wallet = request.headers.get("X-USER-WALLET")
@@ -825,7 +825,7 @@ def list_agents():
         {
             "id": "discord-helper",
             "title": "Discord AI Helper Bot",
-            "description": "A customizable AI bot for Discord — moderation, auto-replies, chat, commands, and wallet verification.",
+            "description": "A customizable AI bot for Discord, moderation, auto-replies, chat, commands, and wallet verification.",
             "price": AGENT_PRICE_USDC,
         },
         {

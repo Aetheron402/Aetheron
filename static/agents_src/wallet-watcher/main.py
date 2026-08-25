@@ -21,7 +21,7 @@ class WalletWatcher:
 
     def run(self):
         """
-        Main loop — poll RPC, detect activity, classify events, log them, and notify if enabled.
+        Main loop, poll RPC, detect activity, classify events, log them, and notify if enabled.
         """
         poll_interval = self.config["rpc"]["poll_interval_seconds"]
         self.logger.info(f"Starting wallet watcher loop (poll every {poll_interval}s)...")

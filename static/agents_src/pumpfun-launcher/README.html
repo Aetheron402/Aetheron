@@ -15,15 +15,15 @@
 <li>A wallet intelligence pipeline  </li>
 </ul>
 <p>…without writing any discovery, filtering, or RPC code.</p>
-<p>This documentation explains <strong>exactly how the assistant works</strong>, how to customize it, how to integrate real trading <em>if desired</em>, and how to safely run it — even if you’re a beginner.</p>
+<p>This documentation explains <strong>exactly how the assistant works</strong>, how to customize it, how to integrate real trading <em>if desired</em>, and how to safely run it, even if you’re a beginner.</p>
 <p>This is a <strong>full technical + beginner onboarding guide</strong>, optimized for developers, traders, and automation builders.</p>
 <hr>
 <h1 id="-1-quick-start-guide-beginner-friendly-">1. Quick Start Guide (Beginner‑Friendly)</h1>
-<h2 id="-step-1-install-dependencies">Step 1 — Install dependencies</h2>
+<h2 id="-step-1-install-dependencies">Step 1, Install dependencies</h2>
 <p>Open a terminal inside the folder:</p>
 <pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
 </code></pre><p>That&#39;s it.</p>
-<h2 id="-step-2-edit-config-json-optional-">Step 2 — Edit config.json (optional)</h2>
+<h2 id="-step-2-edit-config-json-optional-">Step 2, Edit config.json (optional)</h2>
 <p>You can run the assistant with default settings, but beginners often adjust:</p>
 <ul>
 <li><code>min_liquidity_sol</code></li>
@@ -31,7 +31,7 @@
 <li><code>min_trades_5m</code></li>
 </ul>
 <p>All settings are fully explained later.</p>
-<h2 id="-step-3-run-the-assistant">Step 3 — Run the assistant</h2>
+<h2 id="-step-3-run-the-assistant">Step 3, Run the assistant</h2>
 <pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
 </code></pre><p>Immediately, you’ll see live Pump.fun token data flowing through your terminal.</p>
 <p>No keys. No API setup. No coding.</p>
@@ -119,13 +119,13 @@
   <span class="hljs-string">"poll_interval_seconds"</span>: <span class="hljs-number">4</span>
 }
 </code></pre><ul>
-<li><p><strong>url</strong> – optional Solana RPC provider<br>(used for deeper checks or future extensions)  </p>
+<li><p><strong>url</strong>: optional Solana RPC provider<br>(used for deeper checks or future extensions)  </p>
 </li>
 <li><p><strong>poll_interval_seconds</strong>  </p>
 <ul>
-<li>2–3s = sniper speed  </li>
-<li>4–6s = medium  </li>
-<li>7–12s = low frequency  </li>
+<li>2-3s = sniper speed  </li>
+<li>4-6s = medium  </li>
+<li>7-12s = low frequency  </li>
 </ul>
 </li>
 </ul>
@@ -181,7 +181,7 @@
 <h1 id="-5-strategy-examples-trader-focused-section-">5. Strategy Examples (Trader-Focused Section)</h1>
 <p>The assistant supports many styles:</p>
 <hr>
-<h2 id="-example-strategy-a-early-curve-sniping">Example Strategy A — Early Curve Sniping</h2>
+<h2 id="-example-strategy-a-early-curve-sniping">Example Strategy A, Early Curve Sniping</h2>
 <p>Best for users willing to take higher risk.</p>
 <p>Recommended config:</p>
 <ul>
@@ -190,22 +190,22 @@
 <li><code>min_trades_5m: 3</code></li>
 </ul>
 <hr>
-<h2 id="-example-strategy-b-safer-curve-entries">Example Strategy B — Safer Curve Entries</h2>
+<h2 id="-example-strategy-b-safer-curve-entries">Example Strategy B, Safer Curve Entries</h2>
 <p>Focuses on tokens past the critical risk zone.</p>
 <p>Use:</p>
 <ul>
-<li><code>min_bonding_curve_percent: 12–15</code>  </li>
+<li><code>min_bonding_curve_percent: 12-15</code>  </li>
 <li><code>require_locked_liquidity: true</code>  </li>
 </ul>
 <hr>
-<h2 id="-example-strategy-c-volume-confirmation">Example Strategy C — Volume Confirmation</h2>
+<h2 id="-example-strategy-c-volume-confirmation">Example Strategy C, Volume Confirmation</h2>
 <p>Focus on tokens gaining traction.</p>
 <ul>
-<li><code>min_trades_5m: 10–20</code>  </li>
+<li><code>min_trades_5m: 10-20</code>  </li>
 <li><code>min_liquidity_sol: 2.0+</code>  </li>
 </ul>
 <hr>
-<h2 id="-example-strategy-d-creator-reputation-scoring">Example Strategy D — Creator Reputation Scoring</h2>
+<h2 id="-example-strategy-d-creator-reputation-scoring">Example Strategy D, Creator Reputation Scoring</h2>
 <p>Block bad creators:</p>
 <pre><code><span class="hljs-string">"creator_addresses"</span>: [<span class="hljs-string">"BadCreator1..."</span>, <span class="hljs-string">"BadCreator2..."</span>]
 </code></pre><hr>

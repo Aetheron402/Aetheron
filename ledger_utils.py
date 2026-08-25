@@ -51,7 +51,7 @@ def _cursor(commit: bool = False):
 
     Replay protection deliberately raises on a duplicate signature, so the
     error path here is routine rather than exceptional. Closing only on the
-    success path leaked a connection every time it fired — locking SQLite
+    success path leaked a connection every time it fired, locking SQLite
     outright, and exhausting the Postgres pool over time.
     """
     conn = _conn()
@@ -64,7 +64,7 @@ def _cursor(commit: bool = False):
 
 
 def backend_name() -> str:
-    """Which store is in use — surfaced by /api/status for diagnostics."""
+    """Which store is in use, surfaced by /api/status for diagnostics."""
     return "postgres" if USE_POSTGRES else f"sqlite ({SQLITE_PATH})"
 
 
@@ -151,7 +151,7 @@ def init_ledger():
 
         # Partial payments live here rather than in process memory, so they
         # survive a deploy and are shared by every web and worker process.
-        # Amounts are integer base units — never floats, which lose precision.
+        # Amounts are integer base units, never floats, which lose precision.
         cur.execute(
             f"""
             CREATE TABLE IF NOT EXISTS partial_payments (
@@ -194,7 +194,7 @@ def consume_signature(tx_sig, wallet, component, amount, currency) -> bool:
 
     The INSERT is the check. Reading first and writing later left a window in
     which two concurrent requests both saw an unused signature, and partial
-    payments were never recorded at all — so the same small transfer could be
+    payments were never recorded at all, so the same small transfer could be
     replayed until it accumulated past the price.
     """
     try:

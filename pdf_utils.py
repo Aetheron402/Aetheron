@@ -33,7 +33,7 @@ def _draw_page_frame(c: Canvas, title: str):
 
     c.setFont("Helvetica-Bold", 10)
     c.setFillColor(TEXT_MAIN)
-    c.drawString(48, h - 45, "Aetheron X402 — Automated Intelligence Report")
+    c.drawString(48, h - 45, "Aetheron X402: Automated Intelligence Report")
 
     c.saveState()
     c.setFont("Helvetica-Bold", 55)
@@ -55,7 +55,7 @@ def _footer(c: Canvas, doc):
 
     c.setFont("Helvetica", 7)
     c.setFillColor(TEXT_MUTED)
-    c.drawString(52, 28, "Aetheron X402 — Automated Intelligence Report")
+    c.drawString(52, 28, "Aetheron X402: Automated Intelligence Report")
     c.drawRightString(w - 48, 28, f"Page {doc.page}")
 
     c.restoreState()
@@ -195,7 +195,7 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
     text = re.sub(r"(?m)^---+$", "", text)
     text = re.sub(r"\*\*", "", text)
     text = re.sub(r"■", "", text)
-    text = re.sub(r"(?s)Aetheron X402 — Certified Asset.*", "", text)
+    text = re.sub(r"(?s)Aetheron X402 [—-] Certified Asset.*", "", text)
     text = re.sub(r"(?s)Certified Aetheron Asset.*", "", text)
 
     metric_pattern = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 \-/]+):\s*(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)\s*$")
@@ -219,7 +219,7 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
 
     story.append(Spacer(1, 0.8 * inch))
 
-    story.append(Paragraph("AETHERON X402 — INTELLIGENCE ASSET", styles["CoverKicker"]))
+    story.append(Paragraph("AETHERON X402: INTELLIGENCE ASSET", styles["CoverKicker"]))
     story.append(Spacer(1, 0.35 * inch))
 
     story.append(Paragraph(title, styles["CoverTitle"]))

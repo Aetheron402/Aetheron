@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Learn – Aetheron{% endblock %}
+{% block title %}Learn | Aetheron{% endblock %}
 
 {% block body_class %}page-learn{% endblock %}
 
@@ -39,13 +39,13 @@
             <td class="p-3">
               {% if e[2] %}
                 <span class="font-mono text-gray-400">{{ e[2][:4] }}…{{ e[2][-4:] }}</span>
-              {% else %}—{% endif %}
+              {% else %}-{% endif %}
             </td>
             <td class="p-3">
               {% if e[3] %}
                 <a href="https://solscan.io/tx/{{ e[3] }}" target="_blank"
                    class="text-cyan-400 hover:text-cyan-200 font-mono">{{ e[3][:6] }}…{{ e[3][-6:] }}</a>
-              {% else %}—{% endif %}
+              {% else %}-{% endif %}
             </td>
             <td class="p-3 text-cyan-200 font-mono">{{ "%.2f"|format(e[5] or 0) }} USDC</td>
             <td class="p-3">
@@ -58,7 +58,7 @@
             <td class="p-3">
               {% if e[7] %}
                 <a href="/download/{{ e[7] }}" class="text-cyan-300 hover:underline">Download</a>
-              {% else %}—{% endif %}
+              {% else %}-{% endif %}
             </td>
           </tr>
           {% endfor %}

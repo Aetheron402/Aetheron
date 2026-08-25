@@ -3,10 +3,10 @@
 <p>This template is licensed for <strong>personal use only</strong>.<br>Redistribution, resale, repackaging, or inclusion in any paid product or service is <strong>strictly prohibited</strong>.<br>See <code>LICENSE.txt</code> for full terms.</p>
 <hr>
 <h1 id="discord-support-agent">Discord Support Agent</h1>
-<p>A production‑grade, beginner‑friendly, and deeply extensible Discord support bot template.<br>This README is <strong>structure, depth, and polish</strong> — including diagrams, onboarding flows, config walkthroughs, architecture breakdowns, strategy examples, and troubleshooting trees.</p>
+<p>A production‑grade, beginner‑friendly, and deeply extensible Discord support bot template.<br>This README is <strong>structure, depth, and polish</strong>: including diagrams, onboarding flows, config walkthroughs, architecture breakdowns, strategy examples, and troubleshooting trees.</p>
 <hr>
 <h1 id="-0-introduction">🧩 0. Introduction</h1>
-<p>Managing a Discord community means facing repeated questions, support bottlenecks, and moderation workload.<br>This <strong>Discord Support Agent</strong> is built to solve that — usable by beginners, extendable by developers, and powerful with optional AI integrations.</p>
+<p>Managing a Discord community means facing repeated questions, support bottlenecks, and moderation workload.<br>This <strong>Discord Support Agent</strong> is built to solve that, usable by beginners, extendable by developers, and powerful with optional AI integrations.</p>
 <p>It includes:</p>
 <ul>
 <li>Automated replies (AI or static)  </li>
@@ -20,14 +20,14 @@
 <p>This documentation provides <strong>full technical + beginner onboarding</strong>.</p>
 <hr>
 <h1 id="-1-quick-start-guide-beginner-mode-">1. Quick Start Guide (Beginner Mode)</h1>
-<h3 id="-step-1-install-python-if-you-don-t-already-have-it-"><strong>Step 1 — Install Python (if you don’t already have it)</strong></h3>
+<h3 id="-step-1-install-python-if-you-don-t-already-have-it-"><strong>Step 1, Install Python (if you don’t already have it)</strong></h3>
 <p>Download Python 3.10+ from:<br><a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p>
 <p>Ensure “Add to PATH” is checked.</p>
 <hr>
-<h3 id="-step-2-install-dependencies-"><strong>Step 2 — Install dependencies</strong></h3>
+<h3 id="-step-2-install-dependencies-"><strong>Step 2, Install dependencies</strong></h3>
 <pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
 </code></pre><hr>
-<h3 id="-step-3-get-your-discord-bot-token-"><strong>Step 3 — Get your Discord bot token</strong></h3>
+<h3 id="-step-3-get-your-discord-bot-token-"><strong>Step 3, Get your Discord bot token</strong></h3>
 <ol>
 <li>Go to: <a href="https://discord.com/developers/applications">https://discord.com/developers/applications</a>  </li>
 <li>Click <strong>New Application</strong>  </li>
@@ -40,14 +40,14 @@
 </li>
 </ol>
 <hr>
-<h3 id="-step-4-add-your-bot-token-to-config-json-"><strong>Step 4 — Add your bot token to config.json</strong></h3>
+<h3 id="-step-4-add-your-bot-token-to-config-json-"><strong>Step 4, Add your bot token to config.json</strong></h3>
 <pre><code class="lang-json"><span class="hljs-string">"discord"</span>: {
   <span class="hljs-string">"bot_token"</span>: <span class="hljs-string">"YOUR_DISCORD_BOT_TOKEN"</span>,
   <span class="hljs-string">"prefix"</span>: <span class="hljs-string">"!"</span>
 }
 </code></pre>
 <hr>
-<h3 id="-step-5-optional-enable-ai-replies-"><strong>Step 5 — (Optional) Enable AI replies</strong></h3>
+<h3 id="-step-5-optional-enable-ai-replies-"><strong>Step 5, (Optional) Enable AI replies</strong></h3>
 <pre><code class="lang-json"><span class="hljs-string">"ai"</span>: {
   <span class="hljs-string">"enabled"</span>: <span class="hljs-literal">true</span>,
   <span class="hljs-string">"provider"</span>: <span class="hljs-string">"openai"</span>,
@@ -56,7 +56,7 @@
 }
 </code></pre>
 <hr>
-<h3 id="-step-6-run-the-bot-"><strong>Step 6 — Run the bot</strong></h3>
+<h3 id="-step-6-run-the-bot-"><strong>Step 6, Run the bot</strong></h3>
 <pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
 </code></pre><p>You should see:</p>
 <pre><code>[INFO] Initializing Discord Support Agent...
@@ -247,13 +247,13 @@
 </ul>
 <hr>
 <h1 id="-9-real-world-use-cases">9. Real‑World Use Cases</h1>
-<h3 id="-use-case-a-support-bot-"><strong>Use Case A — Support Bot</strong></h3>
+<h3 id="-use-case-a-support-bot-"><strong>Use Case A, Support Bot</strong></h3>
 <p>Auto‑reply to FAQs using AI.</p>
-<h3 id="-use-case-b-moderation-assistant-"><strong>Use Case B — Moderation Assistant</strong></h3>
+<h3 id="-use-case-b-moderation-assistant-"><strong>Use Case B, Moderation Assistant</strong></h3>
 <p>Kick/ban enforcement + notifications.</p>
-<h3 id="-use-case-c-community-helper-"><strong>Use Case C — Community Helper</strong></h3>
+<h3 id="-use-case-c-community-helper-"><strong>Use Case C, Community Helper</strong></h3>
 <p>Provide server info, onboarding, or rules.</p>
-<h3 id="-use-case-d-customer-support-"><strong>Use Case D — Customer Support</strong></h3>
+<h3 id="-use-case-d-customer-support-"><strong>Use Case D, Customer Support</strong></h3>
 <p>Integrate with your product’s AI assistant.</p>
 <hr>
 <h1 id="-10-extending-the-bot-developer-guide-">10. Extending the Bot (Developer Guide)</h1>

@@ -15,7 +15,7 @@
 <li>On‑chain opportunity filters  </li>
 <li>Custom execution systems using DEX APIs (Jupiter/Raydium/etc.)  </li>
 </ul>
-<p>This template is intentionally <strong>safe by default</strong> — no real trades occur unless <em>you</em> add an execution call.</p>
+<p>This template is intentionally <strong>safe by default</strong>: no real trades occur unless <em>you</em> add an execution call.</p>
 <p>It is perfect for:</p>
 <ul>
 <li>Traders building automated tooling  </li>
@@ -26,15 +26,15 @@
 </ul>
 <hr>
 <h1 id="-1-quick-start-guide-beginner-mode-">1. Quick Start Guide (Beginner Mode)</h1>
-<h3 id="-step-1-install-python-"><strong>Step 1 — Install Python</strong></h3>
+<h3 id="-step-1-install-python-"><strong>Step 1, Install Python</strong></h3>
 <p><a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p>
 <p>Check installation:</p>
 <pre><code><span class="hljs-keyword">python</span> --<span class="hljs-keyword">version</span>
 </code></pre><hr>
-<h3 id="-step-2-install-dependencies-"><strong>Step 2 — Install dependencies</strong></h3>
+<h3 id="-step-2-install-dependencies-"><strong>Step 2, Install dependencies</strong></h3>
 <pre><code>pip <span class="hljs-keyword">install</span> -r requirements.txt
 </code></pre><hr>
-<h3 id="-step-3-fill-in-config-json-"><strong>Step 3 — Fill in config.json</strong></h3>
+<h3 id="-step-3-fill-in-config-json-"><strong>Step 3, Fill in config.json</strong></h3>
 <p>At minimum:</p>
 <pre><code class="lang-json"><span class="hljs-string">"rpc"</span>: {
   <span class="hljs-string">"url"</span>: <span class="hljs-string">"YOUR_RPC_URL"</span>
@@ -45,7 +45,7 @@
 </code></pre>
 <p>For beginners, leave <code>auto_buy_enabled</code> <strong>false</strong> to stay in simulation mode.</p>
 <hr>
-<h3 id="-step-4-run-the-agent-"><strong>Step 4 — Run the agent</strong></h3>
+<h3 id="-step-4-run-the-agent-"><strong>Step 4, Run the agent</strong></h3>
 <pre><code><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
 </code></pre><p>Example output:</p>
 <pre><code>[<span class="hljs-symbol">INFO</span>] <span class="hljs-symbol">Starting</span> <span class="hljs-symbol">Sniper</span> <span class="hljs-symbol">Trade</span> <span class="hljs-symbol">Agent</span>...
@@ -129,9 +129,9 @@
 </table>
 <p><strong>Recommended:</strong></p>
 <ul>
-<li>Fast sniping: <code>2–4 sec</code>  </li>
-<li>Balanced: <code>5–7 sec</code>  </li>
-<li>Low-resource mode: <code>8–12 sec</code></li>
+<li>Fast sniping: <code>2-4 sec</code>  </li>
+<li>Balanced: <code>5-7 sec</code>  </li>
+<li>Low-resource mode: <code>8-12 sec</code></li>
 </ul>
 <hr>
 <h2 id="-wallet">wallet</h2>
@@ -278,25 +278,25 @@
 <h1 id="-7-strategy-examples-trading-logic-templates-">7. Strategy Examples (Trading Logic Templates)</h1>
 <p>These presets help users configure the sniper for different goals.</p>
 <hr>
-<h2 id="-strategy-a-early-curve-sniping-high-risk-">Strategy A — Early Curve Sniping (High Risk)</h2>
-<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>–<span class="hljs-number">2</span>  
+<h2 id="-strategy-a-early-curve-sniping-high-risk-">Strategy A, Early Curve Sniping (High Risk)</h2>
+<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>, <span class="hljs-number">2</span>  
 <span class="hljs-symbol">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.25</span>  
 <span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">1</span>
 </code></pre><p>Useful for adrenaline seekers and experimenters.</p>
 <hr>
-<h2 id="-strategy-b-safer-curve-entry">Strategy B — Safer Curve Entry</h2>
-<pre><code><span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>–<span class="hljs-number">5</span>  
+<h2 id="-strategy-b-safer-curve-entry">Strategy B, Safer Curve Entry</h2>
+<pre><code><span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>, <span class="hljs-number">5</span>  
 <span class="hljs-string">require_locked_liquidity:</span> <span class="hljs-literal">true</span>  
 <span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>  
-<span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.35</span>–<span class="hljs-number">0.45</span>
+<span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.35</span>, <span class="hljs-number">0.45</span>
 </code></pre><p>Avoids most instant rugs.</p>
 <hr>
-<h2 id="-strategy-c-volume-confirmation">Strategy C — Volume Confirmation</h2>
-<pre><code><span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">8</span>–<span class="hljs-number">15</span>
+<h2 id="-strategy-c-volume-confirmation">Strategy C, Volume Confirmation</h2>
+<pre><code><span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">8</span>, <span class="hljs-number">15</span>
 <span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">4</span>+
 </code></pre><p>Focuses on momentum.</p>
 <hr>
-<h2 id="-strategy-d-strict-maker-filtering">Strategy D — Strict Maker Filtering</h2>
+<h2 id="-strategy-d-strict-maker-filtering">Strategy D, Strict Maker Filtering</h2>
 <pre><code>creator_addresses blacklist enabled
 <span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>
 <span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.50</span>
@@ -326,7 +326,7 @@
   <span class="hljs-attr">"content"</span>: <span class="hljs-string">"**New Sniper Opportunity Detected**"</span>,
   <span class="hljs-attr">"embeds"</span>: [{
     <span class="hljs-attr">"title"</span>: <span class="hljs-string">"Token Passed Filters"</span>,
-    <span class="hljs-attr">"description"</span>: <span class="hljs-string">"Liquidity: 4.3 SOL — MC: $120k"</span>,
+    <span class="hljs-attr">"description"</span>: <span class="hljs-string">"Liquidity: 4.3 SOL, MC: $120k"</span>,
     <span class="hljs-attr">"color"</span>: <span class="hljs-number">65280</span>
   }]
 }
@@ -366,7 +366,7 @@
 <span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>  
 <span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.40</span>
 </code></pre><h3 id="aggressive-mode">Aggressive Mode</h3>
-<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>–<span class="hljs-number">2</span>  
+<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>, <span class="hljs-number">2</span>  
 <span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">1</span>  
 <span class="hljs-symbol">max_market_cap_usd:</span> <span class="hljs-number">500</span>k
 </code></pre><hr>
@@ -403,6 +403,6 @@
 </table>
 <hr>
 <h1 id="-13-disclaimer">13. Disclaimer</h1>
-<p>This is a <strong>non-trading template</strong>.<br>You must add real execution manually.<br>Crypto trading is risky — test carefully.</p>
+<p>This is a <strong>non-trading template</strong>.<br>You must add real execution manually.<br>Crypto trading is risky, test carefully.</p>
 <hr>
 <h1 id="-end-of-document">End of Document</h1>

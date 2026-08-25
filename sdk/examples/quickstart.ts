@@ -16,7 +16,7 @@ async function demo() {
   const sdk = new AetheronSDK(mockWallet, connection);
 
   try {
-    // First attempt — expected to throw 402
+    // First attempt, expected to throw 402
     const res = await sdk.promptOptimizer(
       { text: "Generate a Solana meme with Grok", format: "pdf" },
       { paymentMethod: "USDC" }

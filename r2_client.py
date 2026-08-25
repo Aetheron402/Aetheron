@@ -40,7 +40,7 @@ def get_r2_client():
     ]
     if missing:
         raise RuntimeError(
-            f"R2 is not configured — missing {', '.join(missing)}. "
+            f"R2 is not configured, missing {', '.join(missing)}. "
             f"See .env.example, or set them in the Railway variables."
         )
 
@@ -71,7 +71,7 @@ def r2_upload_bytes(data: bytes, filename: str) -> str:
     ]
     if missing:
         raise RuntimeError(
-            f"R2 is not configured — missing {', '.join(missing)}. "
+            f"R2 is not configured, missing {', '.join(missing)}. "
             f"See .env.example, or set them in the Railway variables."
         )
 

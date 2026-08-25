@@ -9,8 +9,8 @@ Both properties were previously missing. PDFs and TXT files were named
 ``aetheron_asset_<unix timestamp>``, which is roughly 86,400 candidates per day
 and trivial to enumerate; two jobs finishing in the same second also produced
 the same name, so one customer's report silently overwrote another's. Every
-other export format used a single fixed name — ``aetheron_output.txt`` and
-friends — meaning all users shared one object in the bucket and downloading it
+other export format used a single fixed name, ``aetheron_output.txt`` and
+friends, meaning all users shared one object in the bucket and downloading it
 returned whatever the last job happened to write.
 """
 

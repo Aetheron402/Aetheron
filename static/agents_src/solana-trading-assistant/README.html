@@ -44,16 +44,16 @@
 </ul>
 <hr>
 <h1 id="-1-quick-start-guide-beginner-friendly-">1. Quick Start Guide (Beginner-Friendly)</h1>
-<h3 id="-step-1-install-requirements">Step 1 — Install requirements</h3>
+<h3 id="-step-1-install-requirements">Step 1, Install requirements</h3>
 <pre><code class="lang-bash">pip <span class="hljs-keyword">install</span> -r requirements.txt
 </code></pre>
 <p>This installs:</p>
 <ul>
-<li><code>requests</code> — for HTTP/Birdeye/webhooks</li>
-<li><code>PyNaCl</code> — for Solana-related cryptography/extensions (if you expand RPC usage later)</li>
+<li><code>requests</code>, for HTTP/Birdeye/webhooks</li>
+<li><code>PyNaCl</code>, for Solana-related cryptography/extensions (if you expand RPC usage later)</li>
 </ul>
 <hr>
-<h3 id="-step-2-add-your-birdeye-api-key">Step 2 — Add your Birdeye API key</h3>
+<h3 id="-step-2-add-your-birdeye-api-key">Step 2, Add your Birdeye API key</h3>
 <p>Open <code>config.json</code> and set:</p>
 <pre><code class="lang-json"><span class="hljs-comment">"birdeye"</span>: {
   <span class="hljs-comment">"api_key"</span>: <span class="hljs-comment">"YOUR_BIRDEYE_API_KEY"</span>,
@@ -63,7 +63,7 @@
 </code></pre>
 <p>You can get a free API key at: <a href="https://birdeye.so">https://birdeye.so</a></p>
 <hr>
-<h3 id="-step-3-add-tokens-to-watch">Step 3 — Add tokens to watch</h3>
+<h3 id="-step-3-add-tokens-to-watch">Step 3, Add tokens to watch</h3>
 <p>In <code>config.json</code>:</p>
 <pre><code class="lang-json"><span class="hljs-string">"analysis"</span>: {
   <span class="hljs-string">"tokens_to_watch"</span>: [
@@ -86,9 +86,9 @@
   }
 }
 </code></pre>
-<p>You can add multiple mints — the agent will loop through all of them.</p>
+<p>You can add multiple mints, the agent will loop through all of them.</p>
 <hr>
-<h3 id="-step-4-run-the-assistant">Step 4 — Run the assistant</h3>
+<h3 id="-step-4-run-the-assistant">Step 4, Run the assistant</h3>
 <pre><code class="lang-bash"><span class="hljs-keyword">python</span> main.<span class="hljs-keyword">py</span>
 </code></pre>
 <p>You’ll see periodic analysis prints in your terminal, and if webhooks are enabled, embeds will be sent to your endpoint.</p>
@@ -316,7 +316,7 @@
 <p>If stable, contributes positively to score.<br>If unstable, contributes negatively.</p>
 <hr>
 <h3 id="4-volatility">4. Volatility</h3>
-<p>Uses candle high–low range as basic volatility estimate:</p>
+<p>Uses candle high, low range as basic volatility estimate:</p>
 <pre><code class="lang-text"><span class="hljs-attr">volatility</span> = (high - low) / low * <span class="hljs-number">100</span>
 </code></pre>
 <p>Higher volatility is penalized (depending on configuration).</p>
@@ -369,21 +369,21 @@ TOTAL <span class="hljs-string">SCORE:</span> <span class="hljs-number">7.58</sp
 <p>You can customize the fields and structure in <code>send_webhook_notification()</code>.</p>
 <hr>
 <h1 id="-9-use-case-examples">9. Use Case Examples</h1>
-<h3 id="-use-case-a-trading-signal-assistant">Use Case A — Trading Signal Assistant</h3>
+<h3 id="-use-case-a-trading-signal-assistant">Use Case A, Trading Signal Assistant</h3>
 <p>Use the score and trend metrics to:</p>
 <ul>
 <li>Flag tokens entering a strong uptrend</li>
 <li>Watch for exhaustion or volatility spikes</li>
 <li>Trigger alerts when conditions match your strategy</li>
 </ul>
-<h3 id="-use-case-b-dashboard-backend">Use Case B — Dashboard Backend</h3>
+<h3 id="-use-case-b-dashboard-backend">Use Case B, Dashboard Backend</h3>
 <p>Pipe the JSON analysis into:</p>
 <ul>
 <li>A database (Postgres, MongoDB, etc.)</li>
 <li>A time-series store (Influx, Timescale)</li>
 <li>A custom UI or dashboard</li>
 </ul>
-<h3 id="-use-case-c-alerting-bot">Use Case C — Alerting Bot</h3>
+<h3 id="-use-case-c-alerting-bot">Use Case C, Alerting Bot</h3>
 <p>Combine this agent with:</p>
 <ul>
 <li>Discord webhooks</li>
@@ -391,7 +391,7 @@ TOTAL <span class="hljs-string">SCORE:</span> <span class="hljs-number">7.58</sp
 <li>Email alerts</li>
 </ul>
 <p>To get structured notifications when a token’s score crosses a threshold.</p>
-<h3 id="-use-case-d-research-backtesting">Use Case D — Research / Backtesting</h3>
+<h3 id="-use-case-d-research-backtesting">Use Case D, Research / Backtesting</h3>
 <p>Log outputs over time and run:</p>
 <ul>
 <li>Historical performance analysis</li>
@@ -415,7 +415,7 @@ No webhook notifications?
  ├ webhook_url <span class="hljs-built_in">set</span> correctly?
  └ Any network/firewall restrictions?
 </code></pre>
-<p>If something fails, check logs — the logger is configured to surface RPC and Birdeye errors clearly.</p>
+<p>If something fails, check logs, the logger is configured to surface RPC and Birdeye errors clearly.</p>
 <hr>
 <h1 id="-11-performance-safety-tips">11. Performance &amp; Safety Tips</h1>
 <ul>
