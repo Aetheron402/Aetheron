@@ -121,6 +121,32 @@ templates.env.globals["payment_network"] = PAYMENT_NETWORK
 templates.env.globals["aeth_enabled"] = bool(AETH_MINT)
 templates.env.globals["aeth_mint"] = AETH_MINT or ""
 
+
+def payment_required(component: str, message: str, price_usdc) -> JSONResponse:
+    """
+    Build the X402 challenge.
+
+    The bundled web UI gets the amount and destination from its template, but
+    every other client — the SDK above all — learns them only from this body.
+    Returning just a message told an integrator that payment was needed while
+    withholding how much, in which currency, and to which wallet.
+    """
+    return JSONResponse(
+        status_code=402,
+        content={
+            "status": 402,
+            "message": message,
+            "component": component,
+            "required": float(price_usdc),
+            "currency": PAYMENT_CURRENCY,
+            "network": PAYMENT_NETWORK,
+            "wallet": PAYMENT_WALLET,
+            # AETH appears only once a mint is configured, so the field stays
+            # truthful before the token exists.
+            "accepted_methods": ["USDC"] + (["AETH"] if AETH_MINT else []),
+        },
+    )
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -444,14 +470,7 @@ def risk_engine_api(
     )
 
     if payment_check is False:
-        return JSONResponse(
-            status_code=402,
-            content={
-                "status": 402,
-                "message": "Payment required to use Agent Risk & Simulation Engine",
-                "component": "risk-engine",
-            },
-        )
+        return payment_required("risk-engine", "Payment required to use Agent Risk & Simulation Engine", RISK_ENGINE_PRICE_USDC)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -658,19 +677,44 @@ def job_status(task_id: str):
 
     return out
 
+LEDGER_PAGE_SIZE = 10
+
+
 @app.get("/ledger", response_class=HTMLResponse)
 def ledger_page(request: Request):
+    """
+    Connected wallets see their own paginated history; everyone else sees the
+    most recent public entries. The template renders a pager and links to
+    /ledger?page=N, so both `page` and `total_pages` must always be supplied —
+    omitting them raised UndefinedError and made this page a guaranteed 500.
+    """
     wallet = request.headers.get("X-USER-WALLET")
 
+    try:
+        page = max(1, int(request.query_params.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+
     if wallet:
-        entries = get_by_wallet(wallet)
+        total = get_wallet_entry_count(wallet)
+        total_pages = max(1, (total + LEDGER_PAGE_SIZE - 1) // LEDGER_PAGE_SIZE)
+        page = min(page, total_pages)
+        entries = get_by_wallet_paginated(
+            wallet,
+            limit=LEDGER_PAGE_SIZE,
+            offset=(page - 1) * LEDGER_PAGE_SIZE,
+        )
     else:
-        entries = []
+        entries = get_recent(limit=50)
+        total_pages = 1
+        page = 1
 
     return templates.TemplateResponse("ledger.html", {
         "request": request,
         "entries": entries,
-        "wallet": wallet or "Not connected"
+        "wallet": wallet or "Not connected",
+        "page": page,
+        "total_pages": total_pages,
     })
 
 @app.get("/api/price/aeth")
@@ -713,14 +757,12 @@ def download_agent(
         )
 
         if payment_check is False:
-            return JSONResponse(
-                status_code=402,
-                content={
-                    "status": 402,
-                    "message": "Payment required for agent download",
-                    "agent_id": agent_id,
-                },
+            response = payment_required(
+                f"agent:{agent_id}",
+                "Payment required for agent download",
+                AGENT_PRICE_USDC,
             )
+            return response
 
         if isinstance(payment_check, dict):
             return JSONResponse(
@@ -875,14 +917,7 @@ def contract_intel_api(
     )
 
     if payment_check is False:
-        return JSONResponse(
-            status_code=402,
-            content={
-                "status": 402,
-                "message": "Payment required to use Contract Intelligence Analyzer",
-                "component": "contract-intel",
-            },
-        )
+        return payment_required("contract-intel", "Payment required to use Contract Intelligence Analyzer", CONTRACT_INTEL_PRICE_USDC)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1015,14 +1050,7 @@ def prompt_optimizer(
     )
 
     if payment_check is False:
-        return JSONResponse(
-            status_code=402,
-            content={
-                "status": 402,
-                "message": "Payment required to use AI Prompt Optimizer",
-                "component": "prompt-optimizer",
-            },
-        )
+        return payment_required("prompt-optimizer", "Payment required to use AI Prompt Optimizer", PROMPT_OPTIMIZER_PRICE_USDC)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1107,14 +1135,7 @@ def code_explainer(
     )
 
     if payment_check is False:
-        return JSONResponse(
-            status_code=402,
-            content={
-                "status": 402,
-                "message": "Payment required to use LLM-Powered Code Explainer",
-                "component": "code-explainer",
-            },
-        )
+        return payment_required("code-explainer", "Payment required to use LLM-Powered Code Explainer", CODE_EXPLAINER_PRICE_USDC)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1199,14 +1220,7 @@ def prompt_tester(
     )
 
     if payment_check is False:
-        return JSONResponse(
-            status_code=402,
-            content={
-                "status": 402,
-                "message": "Payment required to use Smart Prompt Tester",
-                "component": "prompt-tester",
-            },
-        )
+        return payment_required("prompt-tester", "Payment required to use Smart Prompt Tester", PROMPT_TESTER_PRICE_USDC)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
