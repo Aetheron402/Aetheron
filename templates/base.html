@@ -40,7 +40,7 @@
       <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">GitHub</a>
       <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">X</a>
       <a href="/learn" class="text-gray-400 hover:text-cyan-300 transition">Learn</a>
-      <a href="/sdk" class="text-gray-400 hover:text-cyan-300 transition">SDK</a>
+      <a href="/docs" class="text-gray-400 hover:text-cyan-300 transition">Docs</a>
       <a href="/roadmap" class="text-gray-400 hover:text-cyan-300 transition">Roadmap</a>
       <a href="/legal" class="text-gray-400 hover:text-cyan-300 transition">Legal</a>
 
@@ -50,9 +50,9 @@
         Network operational
       </span>
 
-      <button id="connect-wallet"
-        class="wallet-btn text-white px-3 py-1 rounded text-xs transition">
-        Connect Wallet
+      <button id="connect-wallet" class="wallet-btn" aria-haspopup="dialog">
+        <span class="wallet-dot" aria-hidden="true"></span>
+        <span id="connect-wallet-label">Connect Wallet</span>
       </button>
     </nav>
 
@@ -66,7 +66,7 @@
       <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-300">GitHub</a>
       <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-300">X</a>
       <a href="/learn" class="text-gray-300">Learn</a>
-      <a href="/sdk" class="text-gray-300">SDK</a>
+      <a href="/docs" class="text-gray-300">Docs</a>
       <a href="/roadmap" class="text-gray-300">Roadmap</a>
       <a href="/legal" class="text-gray-300">Legal</a>
 
@@ -76,9 +76,9 @@
         Network operational
       </span>
 
-      <button id="mobile-connect-wallet"
-        class="bg-cyan-700 text-white px-3 py-2 rounded">
-        Connect Wallet
+      <button id="mobile-connect-wallet" class="wallet-btn w-full justify-center">
+        <span class="wallet-dot" aria-hidden="true"></span>
+        <span id="mobile-connect-wallet-label">Connect Wallet</span>
       </button>
     </nav>
   </header>
@@ -294,6 +294,73 @@
       border-color: var(--cyan);
     }
 
+    /* ---- wallet picker ---- */
+    .wallet-group-label{
+      font-size: .6875rem;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: rgba(148,163,184,0.75);
+      margin: 0 0 .5rem .15rem;
+    }
+    .wallet-list{ display: flex; flex-direction: column; gap: .5rem; }
+
+    .wallet-row{
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      width: 100%;
+      text-align: left;
+      padding: .7rem .8rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: .75rem;
+      transition: background .15s ease, border-color .15s ease;
+      cursor: pointer;
+    }
+    .wallet-row:hover{
+      background: rgba(34,211,238,0.07);
+      border-color: rgba(34,211,238,0.38);
+    }
+    .wallet-row[disabled]{ opacity:.45; cursor:not-allowed; }
+    .wallet-row[disabled]:hover{
+      background: rgba(255,255,255,0.03);
+      border-color: rgba(255,255,255,0.09);
+    }
+
+    .wallet-logo{
+      width: 34px; height: 34px;
+      border-radius: .55rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+    }
+    .wallet-meta{ display: flex; flex-direction: column; line-height: 1.25; flex: 1 1 auto; }
+    .wallet-name{ font-size: .9rem; font-weight: 600; color: #e5e7eb; }
+    .wallet-sub{ font-size: .72rem; color: rgba(148,163,184,0.85); }
+    .wallet-sub.is-installed{ color: #34d399; }
+    .wallet-chev{ color: rgba(148,163,184,0.5); font-size: 1.15rem; flex: none; }
+
+    .wallet-close{
+      color: rgba(148,163,184,0.7);
+      font-size: 1.4rem;
+      line-height: 1;
+      padding: 0 .25rem;
+      transition: color .15s ease;
+    }
+    .wallet-close:hover{ color: #e5e7eb; }
+
+    .wallet-cancel{
+      width: 100%;
+      margin-top: 1.1rem;
+      padding: .55rem;
+      font-size: .8125rem;
+      color: rgba(148,163,184,0.85);
+      border-radius: .625rem;
+      transition: background .15s ease, color .15s ease;
+    }
+    .wallet-cancel:hover{ background: rgba(255,255,255,0.05); color: #e5e7eb; }
+
     input, textarea, select {
       color-scheme: dark;
     }
@@ -310,17 +377,44 @@
       .scanlines{ opacity:0.18; }
     }
 
+    /* Outline by default so it does not compete with the primary actions on
+       the page, and fills in only once a wallet is actually attached. */
     .wallet-btn {
-      background: linear-gradient(180deg, #22d3ee, #0ea5e9);
-      color: #001018;
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.35);
-      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem .85rem;
+      font-size: .8125rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: var(--cyan-2);
+      background: rgba(34,211,238,0.06);
+      border: 1px solid rgba(34,211,238,0.30);
+      border-radius: .625rem;
+      transition: background .16s ease, border-color .16s ease, color .16s ease;
+      cursor: pointer;
+    }
+    .wallet-btn:hover {
+      background: rgba(34,211,238,0.13);
+      border-color: rgba(34,211,238,0.55);
     }
 
-    .wallet-btn:hover {
-      filter: brightness(1.05);
-      transform: translateY(-1px);
+    .wallet-dot {
+      width: 7px; height: 7px;
+      border-radius: 9999px;
+      background: rgba(148,163,184,0.65);
+      flex: none;
+      transition: background .16s ease, box-shadow .16s ease;
+    }
+    /* Connected: the dot goes live and the address reads as a value, not a CTA. */
+    .wallet-btn.is-connected {
+      color: #a5f3fc;
+      background: rgba(34,211,238,0.10);
+      border-color: rgba(34,211,238,0.42);
+    }
+    .wallet-btn.is-connected .wallet-dot {
+      background: #34d399;
+      box-shadow: 0 0 0 3px rgba(52,211,153,0.16);
     }
 
     .wallet-btn:active {
@@ -385,24 +479,80 @@
   </div>
 
   <!-- Wallet Selection Modal -->
-  <div id="wallet-select-modal" class="modal-bg" style="display:none;">
-    <div class="modal text-center">
-      <h3 class="text-cyan-300 text-lg font-semibold mb-4">Choose Wallet</h3>
+  <div id="wallet-select-modal" class="modal-bg" style="display:none;"
+       role="dialog" aria-modal="true" aria-labelledby="wallet-modal-title">
+    <div class="modal">
 
-      <button id="phantom-btn" class="btn mb-3 w-full flex items-center justify-center gap-2">
-        Phantom Wallet
-      </button>
-
-      <button class="btn w-full flex flex-col items-center justify-center gap-0.5 bg-gray-800 cursor-not-allowed opacity-60"
-              disabled>
-        <span>MetaMask</span>
-        <span class="text-xs text-gray-400">Coming Q1 2026</span>
-      </button>
-
-      <p class="text-xs text-gray-400 mt-4 cursor-pointer hover:underline"
-         onclick="document.getElementById('wallet-select-modal').style.display='none'">
-        Cancel
+      <div class="flex items-start justify-between mb-1">
+        <h3 id="wallet-modal-title" class="text-white text-base font-semibold tracking-tight">Connect a wallet</h3>
+        <button type="button" class="wallet-close" aria-label="Close"
+                onclick="closeWalletModal()">&times;</button>
+      </div>
+      <p class="text-xs text-gray-400 mb-5">
+        Aetheron never holds your keys. You approve every payment in your own wallet.
       </p>
+
+      <p class="wallet-group-label">Solana</p>
+      <div class="wallet-list mb-4">
+
+        <button class="wallet-row" data-wallet="phantom" onclick="connectPhantom()">
+          <span class="wallet-logo" style="background:#ab9ff2">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <path fill="#3d3172" d="M20.6 11.6c0 4.9-4 8.9-8.9 8.9H4.3c-.6 0-1-.6-.7-1.1 1-1.9 2.7-4.4 5.2-5.6-.5 1-.8 2-.8 2.7 0 .5.4.9.9.9.6 0 1.1-.5 1.5-1.2l1-1.9c.2-.4.6-.7 1.1-.7h1.2c.3 0 .5.2.5.5 0 .2 0 .3-.1.5-.2.4-.3.8-.3 1.2 0 .8.5 1.3 1.3 1.3 1.6 0 3.1-2 3.1-4.3 0-3.1-2.4-5.5-6.1-5.5-4.2 0-7.3 3-7.3 7 0 .6-.2 1-.6 1-.5 0-.8-.4-.8-1.1 0-4.8 3.9-8.5 8.9-8.5 4.7 0 8.3 3.2 8.3 7.7z"/>
+            </svg>
+          </span>
+          <span class="wallet-meta">
+            <span class="wallet-name">Phantom</span>
+            <span class="wallet-sub" data-detect="phantom">Detecting…</span>
+          </span>
+          <span class="wallet-chev" aria-hidden="true">&rsaquo;</span>
+        </button>
+
+        <button class="wallet-row" data-wallet="solflare" onclick="connectSolflare()">
+          <span class="wallet-logo" style="background:#fc7227">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <path fill="#ffe0c2" d="M12 2.6c1.9 3 1.1 5-.2 6.7-1.4 1.9-2 3.6-1 5.6.6-1.5 1.5-2.4 2.6-3.2-.3 2.3.8 3.3 1.7 4.4.8 1 1.1 2.4.4 3.7-.7 1.3-2 2-3.6 2-3 0-5.3-2.2-5.3-5.2 0-2.2 1-3.6 2.2-5.1C11 8.6 12.6 6.7 12 2.6z"/>
+            </svg>
+          </span>
+          <span class="wallet-meta">
+            <span class="wallet-name">Solflare</span>
+            <span class="wallet-sub" data-detect="solflare">Detecting…</span>
+          </span>
+          <span class="wallet-chev" aria-hidden="true">&rsaquo;</span>
+        </button>
+
+        <button class="wallet-row" data-wallet="backpack" onclick="connectBackpack()">
+          <span class="wallet-logo" style="background:#e33e3f">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <path fill="#fff" d="M7.6 9.2V7.6a4.4 4.4 0 1 1 8.8 0v1.6c1.6.5 2.6 1.9 2.6 3.6v4.4c0 1.5-1.2 2.7-2.7 2.7H7.7C6.2 19.9 5 18.7 5 17.2v-4.4c0-1.7 1-3.1 2.6-3.6zm2-1.6v1.4h4.8V7.6a2.4 2.4 0 0 0-4.8 0zm-.5 5.6h6v1.7h-6v-1.7z"/>
+            </svg>
+          </span>
+          <span class="wallet-meta">
+            <span class="wallet-name">Backpack</span>
+            <span class="wallet-sub" data-detect="backpack">Detecting…</span>
+          </span>
+          <span class="wallet-chev" aria-hidden="true">&rsaquo;</span>
+        </button>
+      </div>
+
+      <p class="wallet-group-label">Ethereum</p>
+      <div class="wallet-list">
+        <button class="wallet-row" data-wallet="metamask" onclick="connectMetamask()">
+          <span class="wallet-logo" style="background:#f6851b">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <path fill="#fff" d="M21 3.6l-7.3 5.4 1.4-3.2L21 3.6zM3 3.6l7.2 5.5L8.9 5.8 3 3.6zm15.4 12.1l2.1 3.2-4.5 1.2-1.1-2.4 3.5-2zM5.6 15.7l3.5 2-1.1 2.4-4.5-1.2 2.1-3.2z"/>
+              <path fill="#fff" opacity=".85" d="M9.4 11l-.9 2.3 4.9.2-.2-3.1-3.8.6zm5.2 0l-3.8-.6-.2 3.1 4.9-.2-.9-2.3z"/>
+            </svg>
+          </span>
+          <span class="wallet-meta">
+            <span class="wallet-name">MetaMask</span>
+            <span class="wallet-sub" data-detect="metamask">Detecting…</span>
+          </span>
+          <span class="wallet-chev" aria-hidden="true">&rsaquo;</span>
+        </button>
+      </div>
+
+      <button type="button" class="wallet-cancel" onclick="closeWalletModal()">Cancel</button>
     </div>
   </div>
 
@@ -439,13 +589,18 @@
 
     function updateWalletUI() {
       const mobileWalletBtn = document.getElementById("mobile-connect-wallet");
-      if (!currentWallet) {
-        walletBtn.textContent = "Connect Wallet";
-        if (mobileWalletBtn) mobileWalletBtn.textContent = "Connect Wallet";
-        return;
-      }
-      walletBtn.textContent = shorten(currentWallet);
-      if (mobileWalletBtn) mobileWalletBtn.textContent = shorten(currentWallet);
+      const label = document.getElementById("connect-wallet-label");
+      const mobileLabel = document.getElementById("mobile-connect-wallet-label");
+
+      const connected = !!currentWallet;
+      const text = connected ? shorten(currentWallet) : "Connect Wallet";
+
+      if (label) label.textContent = text;
+      if (mobileLabel) mobileLabel.textContent = text;
+
+      walletBtn.classList.toggle("is-connected", connected);
+      walletBtn.title = connected ? currentWallet + " (click to disconnect)" : "Connect a wallet";
+      if (mobileWalletBtn) mobileWalletBtn.classList.toggle("is-connected", connected);
     }
 
     async function connectPhantom() {
@@ -480,21 +635,77 @@
       document.getElementById("wallet-select-modal").style.display = "none";
     }
 
+    function closeWalletModal() {
+      document.getElementById("wallet-select-modal").style.display = "none";
+    }
+
+    /* Adopt whatever provider object a wallet injected, then share the result
+       through the same globals and event the Phantom path already uses. */
+    async function adoptSolanaProvider(provider, label) {
+      if (!provider) {
+        alert(label + " was not detected. Install it, then reload this page.");
+        return;
+      }
+      try {
+        await provider.disconnect?.().catch(() => {});
+        const res = await provider.connect({ onlyIfTrusted: false });
+        currentWallet = (res?.publicKey ?? provider.publicKey).toString();
+        currentChain = "solana";
+        window.currentWallet = currentWallet;
+        window.currentChain = currentChain;
+        updateWalletUI();
+        window.dispatchEvent(new Event("wallet:connected"));
+      } catch (err) {
+        console.error(err);
+      }
+      closeWalletModal();
+    }
+
+    function connectSolflare() {
+      adoptSolanaProvider(window.solflare, "Solflare");
+    }
+
+    function connectBackpack() {
+      adoptSolanaProvider(window.backpack?.solana || window.xnf?.solana, "Backpack");
+    }
+
     async function connectMetamask() {
-      if (!window.ethereum) { alert("MetaMask not found"); return; }
+      if (!window.ethereum) {
+        alert("MetaMask was not detected. Install it, then reload this page.");
+        return;
+      }
       try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         currentWallet = accounts[0];
         currentChain = "ethereum";
+        window.currentWallet = currentWallet;
+        window.currentChain = currentChain;
         updateWalletUI();
+        window.dispatchEvent(new Event("wallet:connected"));
       } catch(err) {
         console.error(err);
       }
-      document.getElementById("wallet-select-modal").style.display = "none";
+      closeWalletModal();
+    }
+
+    /* Tell the reader which wallets are actually available before they click. */
+    function refreshWalletAvailability() {
+      const found = {
+        phantom:  !!(window.phantom?.solana?.isPhantom || window.solana?.isPhantom),
+        solflare: !!window.solflare,
+        backpack: !!(window.backpack?.solana || window.xnf?.solana),
+        metamask: !!window.ethereum,
+      };
+      document.querySelectorAll("[data-detect]").forEach(el => {
+        const installed = found[el.dataset.detect];
+        el.textContent = installed ? "Installed" : "Not detected";
+        el.classList.toggle("is-installed", installed);
+      });
     }
 
     walletBtn.addEventListener("click", () => {
       if (!currentWallet) {
+        refreshWalletAvailability();
         document.getElementById("wallet-select-modal").style.display = "flex";
       } else {
         if (confirm("Disconnect wallet?")) {
@@ -506,7 +717,13 @@
       }
     });
 
-    document.getElementById("phantom-btn").onclick = connectPhantom;
+    const walletModal = document.getElementById("wallet-select-modal");
+    walletModal.addEventListener("click", (e) => {
+      if (e.target === walletModal) closeWalletModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && walletModal.style.display === "flex") closeWalletModal();
+    });
   </script>
 
   <script>

@@ -3,6 +3,7 @@ from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
     FileResponse,
+    RedirectResponse,
     StreamingResponse,
 )
 from fastapi.templating import Jinja2Templates
@@ -108,7 +109,11 @@ USDC_DECIMALS = 6
 app = FastAPI(
     title="Aetheron",
     description="AI Component Shop powered by X402",
-    version="0.1"
+    version="0.1",
+    # /docs is the written documentation page. FastAPI's generated explorer
+    # moves aside rather than being switched off, since it stays useful.
+    docs_url="/api-explorer",
+    redoc_url=None,
 )
 templates = Jinja2Templates(directory="templates")
 
@@ -647,9 +652,15 @@ def legal_page(request: Request):
 def roadmap_page(request: Request):
     return templates.TemplateResponse("roadmap.html", {"request": request})
     
-@app.get("/sdk", response_class=HTMLResponse)
-def sdk_page(request: Request):
-    return templates.TemplateResponse("sdk.html", {"request": request})
+@app.get("/docs", response_class=HTMLResponse)
+def docs_page(request: Request):
+    return templates.TemplateResponse("docs.html", {"request": request})
+
+
+@app.get("/sdk", include_in_schema=False)
+def sdk_page_redirect():
+    """The SDK page folded into Docs; keep old links working."""
+    return RedirectResponse(url="/docs#sdk", status_code=308)
 
 @app.get("/api/job-status/{task_id}")
 def job_status(task_id: str):

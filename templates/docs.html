@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Docs | Aetheron{% endblock %}
+
+{% block body_class %}page-docs{% endblock %}
+
+{% block content %}
+
+<div class="page-fade">
+
+<section class="max-w-5xl mx-auto">
+
+  <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">
+    / Aetheron / Docs
+  </p>
+
+  <h1 class="text-4xl font-bold text-cyan-400 mb-4 tracking-tight">
+    Documentation
+  </h1>
+
+  <p class="text-gray-300 max-w-2xl mb-10">
+    Aetheron sells AI work one call at a time. You ask an endpoint to do something,
+    it answers with a price, you pay from your own wallet, and you ask again. Everything
+    below describes that exchange and the ways to drive it.
+  </p>
+
+  <!-- ON THIS PAGE -->
+  <nav class="card mb-14" aria-label="Contents">
+    <p class="wallet-group-label">On this page</p>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2 text-sm">
+      <a href="#quickstart"  class="text-cyan-300 hover:text-cyan-200 transition">Quickstart</a>
+      <a href="#flow"        class="text-cyan-300 hover:text-cyan-200 transition">The X402 flow</a>
+      <a href="#api"         class="text-cyan-300 hover:text-cyan-200 transition">HTTP API reference</a>
+      <a href="#payments"    class="text-cyan-300 hover:text-cyan-200 transition">Payment methods</a>
+      <a href="#sdk"         class="text-cyan-300 hover:text-cyan-200 transition">TypeScript SDK</a>
+      <a href="#agents"      class="text-cyan-300 hover:text-cyan-200 transition">Agent templates</a>
+      <a href="#security"    class="text-cyan-300 hover:text-cyan-200 transition">Security model</a>
+      <a href="#selfhost"    class="text-cyan-300 hover:text-cyan-200 transition">Self-hosting</a>
+      <a href="#errors"      class="text-cyan-300 hover:text-cyan-200 transition">Errors</a>
+      <a href="#tooling"     class="text-cyan-300 hover:text-cyan-200 transition">CLI and MCP</a>
+    </div>
+  </nav>
+
+  <!-- QUICKSTART -->
+  <div id="quickstart" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">Quickstart</h2>
+    <p class="text-gray-300 mb-4 max-w-2xl">
+      No key, no account, no signup. A paid endpoint answers an unpaid request with
+      the terms of payment, so <code class="doc-code">curl</code> is a complete client.
+    </p>
+    <pre class="doc-pre"><code>curl -sX POST {{ request.base_url }}api/prompt-optimizer \
+     -H 'Content-Type: application/json' \
+     -d '{"text": "make this prompt better"}'</code></pre>
+    <p class="text-gray-400 text-sm mt-3">
+      That returns <span class="doc-code">402</span> with an amount and a destination.
+      Send the transfer, then repeat the call with the signature in
+      <span class="doc-code">X-TX-SIG</span>.
+    </p>
+  </div>
+
+  <!-- FLOW -->
+  <div id="flow" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">The X402 flow</h2>
+    <div class="grid md:grid-cols-4 gap-4 mb-5">
+      <div class="card"><p class="doc-step">1</p><p class="text-sm text-gray-300">Ask, with no payment attached.</p></div>
+      <div class="card"><p class="doc-step">2</p><p class="text-sm text-gray-300">Receive 402 carrying amount, currency and wallet.</p></div>
+      <div class="card"><p class="doc-step">3</p><p class="text-sm text-gray-300">Send the transfer yourself, signed in your wallet.</p></div>
+      <div class="card"><p class="doc-step">4</p><p class="text-sm text-gray-300">Ask again with the signature. Work is queued.</p></div>
+    </div>
+    <pre class="doc-pre"><code>{
+  "status": 402,
+  "component": "prompt-optimizer",
+  "required": 0.25,
+  "currency": "USDC",
+  "network": "Solana",
+  "wallet": "&lt;receiving address&gt;",
+  "accepted_methods": ["USDC"]
+}</code></pre>
+    <p class="text-gray-400 text-sm mt-3">
+      A client never needs telling out of band what a call costs. Everything required
+      to pay is in the response that refused you.
+    </p>
+  </div>
+
+  <!-- API -->
+  <div id="api" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">HTTP API reference</h2>
+    <p class="text-gray-300 mb-5 max-w-2xl">
+      Every paid endpoint takes the same three headers and answers 402 until payment
+      is verified on chain.
+    </p>
+
+    <div class="overflow-x-auto mb-6">
+      <table class="doc-table">
+        <thead>
+          <tr><th>Header</th><th>Required</th><th>Meaning</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="doc-code">X-USER-WALLET</span></td><td>yes</td><td>The wallet claiming the purchase. Must be the transaction signer.</td></tr>
+          <tr><td><span class="doc-code">X-TX-SIG</span></td><td>after paying</td><td>The transaction signature that paid for this call.</td></tr>
+          <tr><td><span class="doc-code">X-PAYMENT-METHOD</span></td><td>no</td><td><span class="doc-code">USDC</span> (default) or <span class="doc-code">AETH</span>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="overflow-x-auto mb-6">
+      <table class="doc-table">
+        <thead>
+          <tr><th>Endpoint</th><th>Price</th><th>Body</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="doc-method">POST</span> <span class="doc-code">/api/prompt-optimizer</span></td><td>$0.25</td><td><span class="doc-code">text</span>, <span class="doc-code">format</span></td></tr>
+          <tr><td><span class="doc-method">POST</span> <span class="doc-code">/api/code-explainer</span></td><td>$0.50</td><td><span class="doc-code">text</span>, <span class="doc-code">format</span></td></tr>
+          <tr><td><span class="doc-method">POST</span> <span class="doc-code">/api/prompt-tester</span></td><td>$0.50</td><td><span class="doc-code">text</span>, <span class="doc-code">format</span></td></tr>
+          <tr><td><span class="doc-method">POST</span> <span class="doc-code">/api/risk-engine</span></td><td>$0.75</td><td><span class="doc-code">runs</span>, <span class="doc-code">steps</span>, <span class="doc-code">start_price</span>, <span class="doc-code">mu</span>, <span class="doc-code">sigma</span></td></tr>
+          <tr><td><span class="doc-method">POST</span> <span class="doc-code">/api/contract-intel</span></td><td>$1.00</td><td><span class="doc-code">contract_address</span>, <span class="doc-code">network</span></td></tr>
+          <tr><td><span class="doc-method">GET</span> <span class="doc-code">/api/download_agent/{id}</span></td><td>$4.99</td><td>&mdash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="text-gray-300 mb-3">Free endpoints, no payment required:</p>
+    <div class="overflow-x-auto">
+      <table class="doc-table">
+        <tbody>
+          <tr><td><span class="doc-method">GET</span> <span class="doc-code">/api/status</span></td><td>Service health and which ledger backend is in use.</td></tr>
+          <tr><td><span class="doc-method">GET</span> <span class="doc-code">/api/agents</span></td><td>The agent catalogue.</td></tr>
+          <tr><td><span class="doc-method">GET</span> <span class="doc-code">/api/job-status/{task_id}</span></td><td>Poll a queued job. Returns a download URL when finished.</td></tr>
+          <tr><td><span class="doc-method">GET</span> <span class="doc-code">/api/ledger</span></td><td>Recent public ledger entries.</td></tr>
+          <tr><td><span class="doc-method">GET</span> <span class="doc-code">/api/my-assets/{wallet}</span></td><td>A wallet's purchase history, paginated.</td></tr>
+          <tr><td><span class="doc-method">GET</span> <span class="doc-code">/api/price/aeth</span></td><td>AETH needed for a given USDC price.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="text-gray-400 text-sm mt-4">
+      Paid calls answer <span class="doc-code">202</span> with a
+      <span class="doc-code">task_id</span>. Poll
+      <span class="doc-code">/api/job-status/{task_id}</span> until it reports success,
+      then fetch the download URL it returns. Reports are available as PDF, DOCX, HTML,
+      Markdown or plain text through the <span class="doc-code">format</span> field.
+    </p>
+  </div>
+
+  <!-- PAYMENTS -->
+  <div id="payments" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">Payment methods</h2>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="card">
+        <h3 class="text-white font-semibold mb-1">USDC on Solana</h3>
+        <p class="text-sm text-gray-400">
+          The default. Prices are exact and settle at the quoted amount. Available now.
+        </p>
+      </div>
+      <div class="card">
+        <h3 class="text-white font-semibold mb-1">$AETH on Solana</h3>
+        <p class="text-sm text-gray-400">
+          Priced from a live quote, with a one percent tolerance for drift between
+          quoting and settlement. Activates automatically once the token launches;
+          until then <span class="doc-code">accepted_methods</span> reports USDC only.
+        </p>
+      </div>
+    </div>
+    <p class="text-gray-400 text-sm mt-4">
+      Underpay and the shortfall is recorded against your wallet for that component,
+      so a later transfer completes the purchase. The signature that paid it is spent
+      and cannot be presented again.
+    </p>
+  </div>
+
+  <!-- SDK -->
+  <div id="sdk" class="mb-14 scroll-mt-24">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-2xl font-semibold text-cyan-300 tracking-tight">TypeScript SDK</h2>
+      <span class="doc-badge">v0.3.0</span>
+    </div>
+    <p class="text-gray-300 mb-4 max-w-2xl">
+      Browser first and framework agnostic. It does not hide the payment step: nothing
+      is auto-paid, and no transaction is built or signed for you.
+    </p>
+    <pre class="doc-pre"><code>npm install aetheron-sdk</code></pre>
+    <pre class="doc-pre mt-3"><code>import { AetheronSDK } from "aetheron-sdk";
+
+const aetheron = new AetheronSDK(wallet, connection);
+
+try {
+  await aetheron.promptOptimizer({ text: "make this prompt better" });
+} catch (err) {
+  const terms = aetheron.getPaymentInfo(err);   // null if it was a real error
+  terms?.required;   // 0.25
+  terms?.wallet;     // where to send it
+}
+
+// once the user has signed and sent the transfer
+const report = await aetheron.promptOptimizer(
+  { text: "make this prompt better", format: "pdf" },
+  { txSig }
+);</code></pre>
+    <p class="text-gray-400 text-sm mt-3">
+      <span class="doc-code">promptOptimizer</span>, <span class="doc-code">codeExplainer</span>,
+      <span class="doc-code">promptTester</span>, <span class="doc-code">contractIntel</span> and
+      <span class="doc-code">downloadAgent</span> all wrap
+      <span class="doc-code">callPaidComponent</span>, which accepts any endpoint, so the
+      Risk Engine and anything added later is reachable before a named method exists.
+      The endpoint defaults to the origin serving the page.
+    </p>
+  </div>
+
+  <!-- AGENTS -->
+  <div id="agents" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">Agent templates</h2>
+    <p class="text-gray-300 mb-4 max-w-2xl">
+      Nine complete Python projects at $4.99 each. You download the source and it is
+      yours: they run on your machine and depend on nothing here to keep working. Each
+      ships with a README, a <span class="doc-code">config.json</span>, its requirements
+      and a licence.
+    </p>
+    <a href="/agents" class="btn">Browse the agent store</a>
+  </div>
+
+  <!-- SECURITY -->
+  <div id="security" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">Security model</h2>
+    <p class="text-gray-300 mb-4 max-w-2xl">
+      Aetheron holds no keys and can sign nothing. Verifying payment means checking that
+      its own balance rose, not that a transfer happened somewhere.
+    </p>
+    <div class="overflow-x-auto">
+      <table class="doc-table">
+        <thead><tr><th>Transaction</th><th>Credited</th></tr></thead>
+        <tbody>
+          <tr><td>Moving tokens between two wallets you control</td><td><span class="doc-code">0</span></td></tr>
+          <tr><td>Buying the token on a DEX</td><td><span class="doc-code">0</span></td></tr>
+          <tr><td>Paying somebody else</td><td><span class="doc-code">0</span></td></tr>
+          <tr><td>Reusing a signature that already bought something</td><td><span class="doc-code">409</span></td></tr>
+          <tr><td>A real transfer to the payment wallet</td><td>accepted</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-gray-400 text-sm mt-4">
+      The signer must also be the wallet claiming the purchase. Claiming a payment is an
+      insert keyed on the signature, so two requests racing with the same signature cannot
+      both be credited.
+    </p>
+  </div>
+
+  <!-- SELF HOSTING -->
+  <div id="selfhost" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">Self-hosting</h2>
+    <p class="text-gray-300 mb-4 max-w-2xl">
+      Aetheron is MIT licensed and runs on your own machine with Python 3.11 and Redis.
+      There is no database to provision: leave <span class="doc-code">DB_HOST</span> empty
+      and the ledger is a local SQLite file.
+    </p>
+    <pre class="doc-pre"><code>git clone https://github.com/Aetheron402/Aetheron
+cd Aetheron
+
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env          # set PAYMENT_WALLET and OPENAI_API_KEY
+
+redis-server --daemonize yes
+.venv/bin/uvicorn Aetheron:app --reload
+.venv/bin/celery -A celery_worker.celery worker --loglevel=info</code></pre>
+    <p class="text-gray-400 text-sm mt-3">
+      Exactly three settings are required: the receiving wallet, an OpenAI key, and Redis.
+      Everything else is optional and degrades cleanly.
+    </p>
+  </div>
+
+  <!-- ERRORS -->
+  <div id="errors" class="mb-14 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">Errors</h2>
+    <div class="overflow-x-auto">
+      <table class="doc-table">
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="doc-code">202</span></td><td>Payment accepted, work queued. Poll the returned task id.</td></tr>
+          <tr><td><span class="doc-code">400</span></td><td>Malformed request, such as an empty body.</td></tr>
+          <tr><td><span class="doc-code">402</span></td><td>Payment required, or a partial payment was received. The body carries what is still owed.</td></tr>
+          <tr><td><span class="doc-code">409</span></td><td>That transaction signature has already been used.</td></tr>
+          <tr><td><span class="doc-code">422</span></td><td>Input failed validation, for example an address that does not match its chain.</td></tr>
+          <tr><td><span class="doc-code">502</span></td><td>A pricing source was unreachable. Retry shortly.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TOOLING -->
+  <div id="tooling" class="mb-6 scroll-mt-24">
+    <h2 class="text-2xl font-semibold text-cyan-300 mb-3 tracking-tight">CLI and MCP</h2>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="card">
+        <div class="flex items-center gap-2 mb-1">
+          <h3 class="text-white font-semibold">Aetheron CLI</h3>
+          <span class="doc-badge doc-badge-soon">In development</span>
+        </div>
+        <p class="text-sm text-gray-400">
+          The same calls from a terminal, for scripting bulk prompt or code analysis.
+        </p>
+      </div>
+      <div class="card">
+        <div class="flex items-center gap-2 mb-1">
+          <h3 class="text-white font-semibold">MCP server</h3>
+          <span class="doc-badge doc-badge-soon">In development</span>
+        </div>
+        <p class="text-sm text-gray-400">
+          Exposes the components as tools, so an agent can buy and run one directly.
+          The 402 exchange is already the whole interface and nothing about it is
+          specific to a browser.
+        </p>
+      </div>
+    </div>
+    <p class="text-gray-500 text-sm mt-4">
+      Neither has shipped yet. This page will show usage the day they do, rather than
+      documentation for something you cannot install.
+    </p>
+  </div>
+
+  <div class="divider pt-6 text-sm text-gray-500">
+    Source, issues and the full README live on
+    <a href="https://github.com/Aetheron402/Aetheron" target="_blank"
+       class="text-cyan-300 hover:text-cyan-200 transition">GitHub</a>.
+  </div>
+
+</section>
+</div>
+
+<style>
+  .doc-pre{
+    background: rgba(2,6,23,0.75);
+    border: 1px solid rgba(56,189,248,0.18);
+    border-radius: .75rem;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-size: .8125rem;
+    line-height: 1.6;
+    color: #cbd5e1;
+  }
+  .doc-code{
+    background: rgba(34,211,238,0.10);
+    border: 1px solid rgba(34,211,238,0.20);
+    border-radius: .35rem;
+    padding: .08rem .35rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .8em;
+    color: #a5f3fc;
+    white-space: nowrap;
+  }
+  .doc-method{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    color: #34d399;
+    margin-right: .3rem;
+  }
+  .doc-table{ width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .doc-table th{
+    text-align: left;
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(148,163,184,0.9);
+    padding: .55rem .75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+  }
+  .doc-table td{
+    padding: .6rem .75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: #cbd5e1;
+    vertical-align: top;
+  }
+  .doc-table tr:last-child td{ border-bottom: none; }
+  .doc-step{
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(34,211,238,0.55);
+    line-height: 1;
+    margin-bottom: .5rem;
+  }
+  .doc-badge{
+    font-size: .68rem;
+    padding: .12rem .5rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(34,211,238,0.35);
+    color: #a5f3fc;
+  }
+  .doc-badge-soon{
+    border-color: rgba(148,163,184,0.35);
+    color: rgba(148,163,184,0.9);
+  }
+</style>
+
+{% endblock %}
