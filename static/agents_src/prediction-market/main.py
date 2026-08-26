@@ -2,6 +2,7 @@ import json
 import time
 
 from adapters.example import ExampleAdapter
+from adapters.polymarket import PolymarketAdapter
 from core.engine import PredictionMarketEngine
 from core.strategy import ProbabilityThresholdStrategy
 from core.sizing import FixedFractionSizer
@@ -29,9 +30,6 @@ def load_config(path: str) -> AgentConfig:
 
 def main():
     logger.info("Starting Prediction Market Agent")
-    logger.info("This is a TEMPLATE agent.")
-    logger.info("You are currently using ExampleAdapter (mock market data).")
-    logger.info("To connect a real prediction market, replace ExampleAdapter with your own adapter.")
 
     config = load_config("config.json")
     logger.info(
@@ -40,8 +38,22 @@ def main():
         f"run_interval={config.run_interval}s"
     )
 
-    adapter = ExampleAdapter()
-    logger.info("Adapter initialized")
+    # Live markets by default. ExampleAdapter is still here for offline work
+    # and for testing a strategy against a board you control.
+    raw = json.load(open("config.json"))
+    if str(raw.get("adapter", "polymarket")).lower() == "example":
+        adapter = ExampleAdapter()
+        logger.info("Adapter: ExampleAdapter, invented markets, nothing is real.")
+    else:
+        adapter = PolymarketAdapter(
+            logger,
+            limit=int(raw.get("market_limit", 20)),
+            min_liquidity=float(raw.get("min_market_liquidity", 5000)),
+        )
+        logger.info(
+            "Adapter: Polymarket. Prices are live; orders fill in memory only, "
+            "so no funds move and nothing is sent to an exchange."
+        )
 
     strategy = ProbabilityThresholdStrategy(
         min_probability=0.3

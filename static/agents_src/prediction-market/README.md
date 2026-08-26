@@ -76,9 +76,9 @@ No Python changes required.
 When running, the agent will:
 
 -   clearly log startup information\
--   state that it is using mock data\
--   explain what to replace to go live\
--   show decision flow step-by-step
+-   load live markets from Polymarket, no API key required\
+-   run the full decision flow against real prices\
+-   fill every order in memory and say so on each one
 
 No API keys. No real trading. Safe by default.
 
@@ -262,13 +262,33 @@ Adapters live in:
 Defines the adapter interface.\
 This file should not be modified.
 
+## `polymarket.py`
+
+The default adapter. Reads are real:
+
+-   live markets, outcomes, prices and close times from Polymarket's public
+    Gamma API\
+-   thin markets filtered out, since a price nobody can trade at is not a
+    probability worth acting on\
+-   open positions marked against the current live price
+
+Orders are not real. They fill in memory at the live price and every fill is
+logged as a paper fill. Placing a real order means holding a funded wallet and
+signing on your behalf, which this template does not do. To trade for real,
+implement `place_order` and `close_position` against Polymarket's CLOB with
+your own signer; nothing else has to change.
+
+Set `"adapter": "example"` in config.json to use the offline adapter instead.
+
 ## `example.py`
 
-A fully logged mock adapter that:
+An offline adapter that:
 
--   returns fake markets\
+-   returns invented markets\
 -   simulates execution\
 -   stores positions in memory
+
+Useful for testing a strategy against a board you control, or with no network.
 
 This file exists purely as a reference.
 
@@ -312,7 +332,7 @@ The agent logs:
 -   sizing calculations\
 -   risk rejections\
 -   lifecycle exits\
--   mock execution notices
+-   paper fill notices, on every order
 
 Logs are designed to teach users how the agent works.
 

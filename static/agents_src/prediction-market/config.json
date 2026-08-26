@@ -1,27 +1,24 @@
 {
-    "bankroll": 1000.0,
+  "bankroll": 1000.0,
+  "max_exposure": 300.0,
+  "strategy": {
+    "type": "probability_threshold",
+    "min_probability": 0.3
+  },
+  "sizing": {
+    "type": "fixed_fraction",
+    "fraction": 0.05,
+    "max_size": 100.0
+  },
+  "risk_limits": {
     "max_exposure": 300.0,
-  
-    "strategy": {
-      "type": "probability_threshold",
-      "min_probability": 0.30
-    },
-  
-    "sizing": {
-      "type": "fixed_fraction",
-      "fraction": 0.05,
-      "max_size": 100.0
-    },
-  
-    "risk_limits": {
-      "max_exposure": 300.0,
-      "max_orders_per_run": 5
-    },
-  
-    "lifecycle": {
-      "max_hold_time_seconds": 21600
-    },
-  
-    "run_interval": 10
-  }
-  
+    "max_orders_per_run": 5
+  },
+  "lifecycle": {
+    "max_hold_time_seconds": 21600
+  },
+  "run_interval": 10,
+  "adapter": "polymarket",
+  "market_limit": 20,
+  "min_market_liquidity": 5000
+}
