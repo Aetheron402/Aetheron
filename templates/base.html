@@ -44,11 +44,10 @@
       <a href="/roadmap" class="text-gray-400 hover:text-cyan-300 transition">Roadmap</a>
       <a href="/legal" class="text-gray-400 hover:text-cyan-300 transition">Legal</a>
 
-      <span id="system-status"
-            class="hidden sm:flex items-center gap-2 text-xs text-emerald-400 select-none">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        Network operational
-      </span>
+      <a id="system-status" href="/status" class="status-chip hidden sm:inline-flex" title="View full system status">
+        <span class="status-chip-dot"></span>
+        <span class="status-chip-text">Checking</span>
+      </a>
 
       <button id="connect-wallet" class="wallet-btn" aria-haspopup="dialog">
         <span class="wallet-dot" aria-hidden="true"></span>
@@ -70,11 +69,10 @@
       <a href="/roadmap" class="text-gray-300">Roadmap</a>
       <a href="/legal" class="text-gray-300">Legal</a>
 
-      <span id="system-status-mobile"
-            class="flex items-center gap-2 text-xs text-emerald-400 select-none">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        Network operational
-      </span>
+      <a id="system-status-mobile" href="/status" class="status-chip">
+        <span class="status-chip-dot"></span>
+        <span class="status-chip-text">Checking</span>
+      </a>
 
       <button id="mobile-connect-wallet" class="wallet-btn w-full justify-center">
         <span class="wallet-dot" aria-hidden="true"></span>
@@ -363,6 +361,47 @@
       transition: background .15s ease, color .15s ease;
     }
     .wallet-cancel:hover{ background: rgba(255,255,255,0.05); color: #e5e7eb; }
+
+    /* ---- header status chip ---- */
+    .status-chip{
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .35rem .7rem;
+      border-radius: 9999px;
+      font-size: .75rem;
+      font-weight: 500;
+      color: rgba(148,163,184,0.95);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.09);
+      transition: background .16s ease, border-color .16s ease, color .16s ease;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .status-chip:hover{ background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.2); }
+
+    .status-chip-dot{
+      width: 7px; height: 7px; border-radius: 9999px; flex: none;
+      background: rgba(148,163,184,0.7);
+    }
+
+    /* Only the healthy state pulses. A problem should hold still and be read. */
+    .status-chip.is-ok{ color:#6ee7b7; border-color: rgba(52,211,153,0.28); background: rgba(52,211,153,0.07); }
+    .status-chip.is-ok .status-chip-dot{ background:#34d399; animation: chipPulse 2.4s ease-in-out infinite; }
+
+    .status-chip.is-degraded{ color:#fcd34d; border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.07); }
+    .status-chip.is-degraded .status-chip-dot{ background:#fbbf24; }
+
+    .status-chip.is-down{ color:#fca5a5; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.07); }
+    .status-chip.is-down .status-chip-dot{ background:#f87171; }
+
+    @keyframes chipPulse{
+      0%,100%{ box-shadow: 0 0 0 0 rgba(52,211,153,0.45); }
+      70%    { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
+    }
+    @media (prefers-reduced-motion: reduce){
+      .status-chip.is-ok .status-chip-dot{ animation: none; }
+    }
 
     input, textarea, select {
       color-scheme: dark;
@@ -791,45 +830,29 @@
 
       if (!els.length) return;
 
-      function setOperational() {
+      function paint(state, label) {
         lastStatusCheck = Date.now();
         els.forEach(el => {
-          el.innerHTML = `
-            <span class="relative group flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Network operational</span>
-              <span class="absolute top-full mt-2 left-1/2 -translate-x-1/2
-                           whitespace-nowrap text-xs text-gray-300
-                           bg-black/80 border border-white/10
-                           rounded-md px-2 py-1 opacity-0
-                           pointer-events-none transition
-                           group-hover:opacity-100">
-                Last check: ${timeAgo(lastStatusCheck)}
-              </span>
-            </span>
-          `;
-          el.classList.remove("text-yellow-400");
-          el.classList.add("text-emerald-400");
+          el.classList.remove("is-ok", "is-degraded", "is-down");
+          el.classList.add(state);
+          const t = el.querySelector(".status-chip-text");
+          if (t) t.textContent = label;
+          el.title = label + " . Click for the full status page";
         });
       }
 
-      function setDegraded() {
-        els.forEach(el => {
-          el.innerHTML = `
-            <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
-            Network degraded
-          `;
-          el.classList.remove("text-emerald-400");
-          el.classList.add("text-yellow-400");
-        });
-      }
+      const setOperational = () => paint("is-ok", "All systems operational");
+      const setDegraded    = () => paint("is-degraded", "Partially degraded");
+      const setDown        = () => paint("is-down", "Service disruption");
 
       try {
         const res = await fetch("/api/status", { cache: "no-store" });
         const json = await res.json();
-        json?.ok === true ? setOperational() : setDegraded();
+        if (json?.overall === "operational") setOperational();
+        else if (json?.overall === "degraded") setDegraded();
+        else setDown();
       } catch {
-        setDegraded();
+        setDown();
       }
     }
 

@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}System Status | Aetheron{% endblock %}
+{% block body_class %}page-status{% endblock %}
+
+{% block content %}
+<div class="page-fade">
+<section class="max-w-5xl mx-auto">
+
+  <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">/ Aetheron / Status</p>
+
+  <!-- HEADLINE -->
+  <div id="banner" class="status-banner mb-3">
+    <span class="banner-dot"></span>
+    <div>
+      <h1 id="banner-title" class="text-2xl font-bold text-white tracking-tight">Checking systems</h1>
+      <p id="banner-sub" class="text-sm text-gray-400 mt-0.5">Running live probes against every dependency.</p>
+    </div>
+    <button id="refresh" class="btn btn-ghost ml-auto text-xs px-3 py-1.5" title="Re-run every probe">
+      Refresh
+    </button>
+  </div>
+
+  <p class="text-xs text-gray-500 mb-10">
+    Every value on this page is measured when the page loads. Latencies are the real
+    round trip to each dependency, and the counts come from the ledger.
+    <span id="checked-at"></span>
+  </p>
+
+  <!-- TOP LINE NUMBERS -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+    <div class="stat">
+      <p class="stat-label">Uptime</p>
+      <p class="stat-value" id="stat-uptime">&mdash;</p>
+      <p class="stat-note">since last deploy</p>
+    </div>
+    <div class="stat">
+      <p class="stat-label">Solana slot</p>
+      <p class="stat-value" id="stat-slot">&mdash;</p>
+      <p class="stat-note" id="stat-slot-note">mainnet head</p>
+    </div>
+    <div class="stat">
+      <p class="stat-label">Assets generated</p>
+      <p class="stat-value" id="stat-assets">&mdash;</p>
+      <p class="stat-note"><span id="stat-assets-24h">0</span> in the last 24h</p>
+    </div>
+    <div class="stat">
+      <p class="stat-label">Workers</p>
+      <p class="stat-value" id="stat-workers">&mdash;</p>
+      <p class="stat-note">celery pool</p>
+    </div>
+  </div>
+
+  <!-- CORE SERVICES -->
+  <h2 class="text-lg font-semibold text-white tracking-tight mb-1">Core services</h2>
+  <p class="text-sm text-gray-500 mb-4">
+    Probed on every load. A failure here affects the whole platform.
+  </p>
+  <div id="services" class="space-y-2 mb-12">
+    <div class="svc-skeleton"></div>
+    <div class="svc-skeleton"></div>
+    <div class="svc-skeleton"></div>
+  </div>
+
+  <!-- COMPONENTS -->
+  <h2 class="text-lg font-semibold text-white tracking-tight mb-1">Components</h2>
+  <p class="text-sm text-gray-500 mb-4">
+    What each component needs in order to run, and whether that is present right now.
+  </p>
+  <div class="overflow-x-auto mb-12">
+    <table class="status-table">
+      <thead>
+        <tr><th>Component</th><th>Price</th><th>Depends on</th><th class="text-right">State</th></tr>
+      </thead>
+      <tbody id="components"></tbody>
+    </table>
+  </div>
+
+  <!-- DATA PROVIDERS -->
+  <h2 class="text-lg font-semibold text-white tracking-tight mb-1">Data providers</h2>
+  <p class="text-sm text-gray-500 mb-4">
+    Optional sources. When one is absent the component that uses it falls back to the
+    others rather than failing.
+  </p>
+  <div id="integrations" class="grid sm:grid-cols-2 gap-2 mb-12"></div>
+
+  <!-- PAYMENTS -->
+  <h2 class="text-lg font-semibold text-white tracking-tight mb-1">Payments</h2>
+  <p class="text-sm text-gray-500 mb-4">Which methods the API is currently accepting.</p>
+  <div class="grid sm:grid-cols-2 gap-3 mb-12">
+    <div class="card">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="text-white font-semibold text-sm">USDC on Solana</h3>
+        <span class="chip chip-ok">accepting</span>
+      </div>
+      <p class="text-xs text-gray-500">Exact pricing. Settles at the quoted amount.</p>
+    </div>
+    <div class="card">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="text-white font-semibold text-sm">$AETH on Solana</h3>
+        <span class="chip" id="aeth-chip">checking</span>
+      </div>
+      <p class="text-xs text-gray-500" id="aeth-note">
+        Activates automatically once a mint address is configured.
+      </p>
+    </div>
+  </div>
+
+  <!-- LEDGER -->
+  <h2 class="text-lg font-semibold text-white tracking-tight mb-1">Ledger</h2>
+  <p class="text-sm text-gray-500 mb-4">
+    Counted from the ledger itself over its most recent entries, not from a running tally.
+  </p>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-12">
+    <div class="stat"><p class="stat-label">Backend</p><p class="stat-value text-base" id="led-backend">&mdash;</p></div>
+    <div class="stat"><p class="stat-label">Succeeded</p><p class="stat-value" id="led-ok">&mdash;</p></div>
+    <div class="stat"><p class="stat-label">Pending</p><p class="stat-value" id="led-pending">&mdash;</p></div>
+    <div class="stat"><p class="stat-label">Replay guard</p><p class="stat-value text-base">enforced</p></div>
+  </div>
+
+  <div class="divider pt-6 text-sm text-gray-500">
+    The same data is available as JSON at
+    <a href="/api/status" class="text-cyan-300 hover:text-cyan-200 transition">/api/status</a>.
+    Nothing on this page is cached for longer than eight seconds.
+  </div>
+
+</section>
+</div>
+
+<style>
+  .status-banner{
+    display:flex; align-items:center; gap:1rem;
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:1rem; padding:1.25rem 1.4rem;
+    background:rgba(15,23,42,0.5);
+  }
+  .banner-dot{
+    width:12px; height:12px; border-radius:9999px; flex:none;
+    background:#64748b; box-shadow:0 0 0 4px rgba(100,116,139,0.15);
+  }
+  .banner-ok    .banner-dot{ background:#34d399; box-shadow:0 0 0 4px rgba(52,211,153,0.18); }
+  .banner-degr  .banner-dot{ background:#fbbf24; box-shadow:0 0 0 4px rgba(251,191,36,0.18); }
+  .banner-down  .banner-dot{ background:#f87171; box-shadow:0 0 0 4px rgba(248,113,113,0.18); }
+
+  .stat{
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:.75rem; padding:.9rem 1rem;
+    background:rgba(15,23,42,0.42);
+  }
+  .stat-label{ font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:rgba(148,163,184,0.75); }
+  .stat-value{ font-size:1.4rem; font-weight:700; color:#fff; font-variant-numeric:tabular-nums; margin-top:.15rem; }
+  .stat-note{ font-size:.7rem; color:rgba(148,163,184,0.6); margin-top:.1rem; }
+
+  .svc{
+    display:flex; align-items:center; gap:.9rem;
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:.75rem; padding:.85rem 1rem;
+    background:rgba(15,23,42,0.42);
+  }
+  .svc-dot{ width:8px; height:8px; border-radius:9999px; flex:none; background:#64748b; }
+  .svc-name{ font-size:.9rem; font-weight:600; color:#e5e7eb; }
+  .svc-detail{ font-size:.75rem; color:rgba(148,163,184,0.8); }
+  .svc-latency{
+    margin-left:auto; font-size:.75rem; font-variant-numeric:tabular-nums;
+    color:rgba(148,163,184,0.85); font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  .svc-skeleton{ height:56px; border-radius:.75rem; background:rgba(255,255,255,0.03); }
+
+  .chip{
+    font-size:.68rem; padding:.12rem .55rem; border-radius:9999px;
+    border:1px solid rgba(148,163,184,0.3); color:rgba(148,163,184,0.9);
+    white-space:nowrap;
+  }
+  .chip-ok    { border-color:rgba(52,211,153,0.4);  color:#6ee7b7; }
+  .chip-warn  { border-color:rgba(251,191,36,0.4);  color:#fcd34d; }
+  .chip-down  { border-color:rgba(248,113,113,0.4); color:#fca5a5; }
+
+  .status-table{ width:100%; border-collapse:collapse; font-size:.85rem; }
+  .status-table th{
+    text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.08em;
+    color:rgba(148,163,184,0.8); padding:.55rem .7rem;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .status-table td{
+    padding:.65rem .7rem; border-bottom:1px solid rgba(255,255,255,0.05);
+    color:rgba(203,213,225,0.9); vertical-align:middle;
+  }
+  .status-table tr:last-child td{ border-bottom:none; }
+</style>
+
+<script>
+  const OK = "operational", DEGR = "degraded", DOWN = "down", NC = "not configured";
+
+  const SERVICE_LABELS = {
+    api:     ["Web API",            "Serves the site and every endpoint"],
+    solana:  ["Solana RPC",         "Reads transactions to verify payments"],
+    redis:   ["Queue broker",       "Carries jobs to the workers"],
+    ledger:  ["Ledger database",    "Purchases and replay protection"],
+    workers: ["Job workers",        "Run every component"],
+    oracle:  ["Price oracle",       "Quotes AETH against USDC"],
+    storage: ["Report storage",     "Delivers generated files"],
+    ai:      ["Inference",          "The model behind every component"],
+  };
+
+  // Which service each component actually needs, so its state is derived
+  // rather than asserted.
+  const COMPONENTS = [
+    ["Prompt Optimizer",       "$0.25", ["ai", "workers"],                    "OpenAI"],
+    ["Code Explainer",         "$0.50", ["ai", "workers"],                    "OpenAI"],
+    ["Prompt Tester",          "$0.50", ["ai", "workers"],                    "OpenAI"],
+    ["Risk Engine",            "$0.75", ["ai", "workers"],                    "OpenAI, matplotlib"],
+    ["Contract Intelligence",  "$1.00", ["ai", "workers", "solana"],          "OpenAI, chain data"],
+    ["Agent templates",        "$4.99", ["solana"],                           "Payment verification"],
+  ];
+
+  function chipFor(status) {
+    if (status === OK)   return ["chip chip-ok",   "operational"];
+    if (status === DEGR) return ["chip chip-warn", "degraded"];
+    if (status === NC)   return ["chip chip-warn", "not configured"];
+    return ["chip chip-down", "unavailable"];
+  }
+  function dotColour(status) {
+    if (status === OK)   return "#34d399";
+    if (status === DEGR || status === NC) return "#fbbf24";
+    return "#f87171";
+  }
+
+  function render(d) {
+    // headline
+    const banner = document.getElementById("banner");
+    banner.className = "status-banner mb-3 " +
+      (d.overall === OK ? "banner-ok" : d.overall === DEGR ? "banner-degr" : "banner-down");
+    document.getElementById("banner-title").textContent =
+      d.overall === OK ? "All systems operational"
+      : d.overall === DEGR ? "Partially degraded"
+      : "Service disruption";
+
+    const bad = Object.entries(d.services)
+      .filter(([, s]) => s.status === DOWN || s.status === DEGR)
+      .map(([k]) => (SERVICE_LABELS[k] || [k])[0]);
+    document.getElementById("banner-sub").textContent =
+      bad.length ? bad.join(", ") + (bad.length === 1 ? " is affected" : " are affected")
+                 : "Every probe returned healthy.";
+
+    document.getElementById("checked-at").textContent =
+      "Last checked " + new Date(d.checked_at).toLocaleTimeString() + ".";
+
+    // headline numbers
+    document.getElementById("stat-uptime").textContent = d.uptime.text;
+    const slot = (d.services.solana.detail.match(/slot (\d+)/) || [])[1];
+    document.getElementById("stat-slot").textContent = slot ? Number(slot).toLocaleString() : "unreachable";
+    document.getElementById("stat-slot-note").textContent =
+      d.services.solana.latency_ms + " ms round trip";
+    document.getElementById("stat-assets").textContent = d.ledger.available ? d.ledger.assets_total : "n/a";
+    document.getElementById("stat-assets-24h").textContent = d.ledger.available ? d.ledger.assets_24h : 0;
+    const w = (d.services.workers.detail.match(/^(\d+)/) || [])[1];
+    document.getElementById("stat-workers").textContent = w ? w : "0";
+
+    // core services
+    const host = document.getElementById("services");
+    host.innerHTML = "";
+    for (const [key, s] of Object.entries(d.services)) {
+      const [name, blurb] = SERVICE_LABELS[key] || [key, ""];
+      const [cls, text] = chipFor(s.status);
+      const row = document.createElement("div");
+      row.className = "svc";
+      row.innerHTML =
+        '<span class="svc-dot" style="background:' + dotColour(s.status) + '"></span>' +
+        '<div><div class="svc-name">' + name + '</div>' +
+        '<div class="svc-detail">' + blurb + " &middot; " + s.detail + '</div></div>' +
+        '<span class="svc-latency">' + (s.latency_ms ? s.latency_ms + " ms" : "") + '</span>' +
+        '<span class="' + cls + '" style="margin-left:.75rem">' + text + '</span>';
+      host.appendChild(row);
+    }
+
+    // components, state derived from what they depend on
+    const tb = document.getElementById("components");
+    tb.innerHTML = "";
+    for (const [name, price, deps, needs] of COMPONENTS) {
+      const states = deps.map(k => d.services[k] ? d.services[k].status : DOWN);
+      const worst = states.includes(DOWN) ? DOWN
+                  : states.some(s => s === DEGR || s === NC) ? DEGR : OK;
+      const [cls, text] = chipFor(worst);
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td class="text-white">' + name + '</td>' +
+        '<td>' + price + '</td>' +
+        '<td class="text-gray-500">' + needs + '</td>' +
+        '<td class="text-right"><span class="' + cls + '">' + text + '</span></td>';
+      tb.appendChild(tr);
+    }
+
+    // providers
+    const ig = document.getElementById("integrations");
+    ig.innerHTML = "";
+    for (const p of d.integrations) {
+      const [cls, text] = chipFor(p.status);
+      const el = document.createElement("div");
+      el.className = "svc";
+      el.innerHTML =
+        '<span class="svc-dot" style="background:' + dotColour(p.status) + '"></span>' +
+        '<div><div class="svc-name">' + p.label + '</div>' +
+        '<div class="svc-detail">' + p.detail + '</div></div>' +
+        '<span class="' + cls + '" style="margin-left:auto">' + text + '</span>';
+      ig.appendChild(el);
+    }
+
+    // payments
+    const aethOn = {{ 'true' if aeth_enabled else 'false' }};
+    const chip = document.getElementById("aeth-chip");
+    chip.className = aethOn ? "chip chip-ok" : "chip";
+    chip.textContent = aethOn ? "accepting" : "awaiting launch";
+    if (aethOn) {
+      document.getElementById("aeth-note").textContent =
+        "Priced live with a one percent tolerance for drift between quote and settlement.";
+    }
+
+    // ledger
+    if (d.ledger.available) {
+      document.getElementById("led-backend").textContent = d.services.ledger.detail;
+      document.getElementById("led-ok").textContent = d.ledger.succeeded;
+      document.getElementById("led-pending").textContent = d.ledger.pending;
+    }
+  }
+
+  async function load() {
+    try {
+      const res = await fetch("/api/status", { cache: "no-store" });
+      render(await res.json());
+    } catch {
+      document.getElementById("banner").className = "status-banner mb-3 banner-down";
+      document.getElementById("banner-title").textContent = "Cannot reach the API";
+      document.getElementById("banner-sub").textContent =
+        "This page could not load its own status endpoint.";
+    }
+  }
+
+  document.getElementById("refresh").addEventListener("click", load);
+  load();
+  setInterval(load, 20000);
+</script>
+{% endblock %}

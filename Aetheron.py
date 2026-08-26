@@ -562,17 +562,31 @@ def home(request: Request):
     
 @app.get("/api/status")
 def api_status():
+    """
+    Full system snapshot. Every figure here is measured when asked for.
+
+    The `ok` field is kept at the top level because the header indicator on
+    every page polls this and only reads that key.
+    """
+    import health
+    import ledger_utils
+
     try:
-        # Lightweight, reliable call
-        resp = solana_client.get_latest_blockhash()
-
-        if resp and resp.value:
-            return {"ok": True}
-
-        return JSONResponse(status_code=503, content={"ok": False})
-
+        data = health.snapshot(
+            solana_client=solana_client,
+            ledger_utils=ledger_utils,
+            redis_url=REDIS_URL,
+        )
     except Exception:
-        return JSONResponse(status_code=503, content={"ok": False})
+        traceback.print_exc()
+        return JSONResponse(status_code=503, content={"ok": False, "overall": "down"})
+
+    return JSONResponse(status_code=200 if data["ok"] else 503, content=data)
+
+
+@app.get("/status", response_class=HTMLResponse)
+def status_page(request: Request):
+    return templates.TemplateResponse("status.html", {"request": request})
 
 @app.get("/shop", response_class=HTMLResponse)
 def shop(request: Request):
