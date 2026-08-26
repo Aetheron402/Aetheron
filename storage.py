@@ -55,9 +55,30 @@ def backend_name() -> str:
     return f"database ({ledger_utils.backend_name()})"
 
 
+_initialised_for = None
+
+
+def _target() -> str:
+    """Which database the table would be created in, read live."""
+    return "postgres" if ledger_utils.USE_POSTGRES else ledger_utils.SQLITE_PATH
+
+
 def init_storage():
-    """Create the asset table. Safe to call repeatedly."""
-    if using_r2():
+    """
+    Create the asset table. Safe to call repeatedly.
+
+    Every entry point calls this so none of them depends on being reached
+    second, but the statement only needs to run once per process. Opening a
+    connection to a hosted Postgres costs around a second, and this was paying
+    that on every store, fetch and status probe in order to re-run a CREATE
+    TABLE that had already succeeded.
+
+    Remembering which database it ran against, rather than just that it ran,
+    means pointing at a different one re-creates the table there instead of
+    assuming the previous one's schema carries over.
+    """
+    global _initialised_for
+    if using_r2() or _initialised_for == _target():
         return
     with _cursor(commit=True) as cur:
         cur.execute(
@@ -71,6 +92,7 @@ def init_storage():
             );
             """
         )
+    _initialised_for = _target()
 
 
 def store_asset(data: bytes, filename: str) -> str:

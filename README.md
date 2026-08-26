@@ -49,7 +49,7 @@ Every component returns a written report: PDF, DOCX, HTML, Markdown or plain tex
 | 📊 | **Risk Engine** | `$0.75` | Monte Carlo GBM simulation, charted paths and outcome distribution |
 | 🛡️ | **Contract Intelligence** | `$1.00` | Holder concentration, LP lock, admin powers and honeypot checks |
 
-The first three need only an OpenAI key. The last two read Solana and Ethereum, and
+The first three need only an Anthropic key. The last two read Solana and Ethereum, and
 fall back to whatever sources remain when a provider is missing.
 
 ### Agent templates, `$4.99` each
@@ -164,7 +164,7 @@ code runs on Postgres. Generated reports go to Cloudflare R2 in production, and 
 token price comes from DexScreener with a pump.fun fallback, and neither needs a key.
 
 `.env.example` documents every setting. Exactly three are required: the receiving
-wallet, an OpenAI key, and Redis.
+wallet, an Anthropic key, and Redis.
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt

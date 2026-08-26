@@ -221,16 +221,12 @@
     ai:      ["Inference",          "The model behind every component"],
   };
 
-  // Which service each component actually needs, so its state is derived
-  // rather than asserted.
-  const COMPONENTS = [
-    ["Prompt Optimizer",       "$0.25", ["ai", "workers"],                    "OpenAI"],
-    ["Code Explainer",         "$0.50", ["ai", "workers"],                    "OpenAI"],
-    ["Prompt Tester",          "$0.50", ["ai", "workers"],                    "OpenAI"],
-    ["Risk Engine",            "$0.75", ["ai", "workers"],                    "OpenAI, matplotlib"],
-    ["Contract Intelligence",  "$1.00", ["ai", "workers", "solana"],          "OpenAI, chain data"],
-    ["Agent templates",        "$4.99", ["solana"],                           "Payment verification"],
-  ];
+  function cell(text, cls) {
+    const td = document.createElement("td");
+    if (cls) td.className = cls;
+    td.textContent = text;
+    return td;
+  }
 
   function chipFor(status) {
     if (status === OK)   return ["chip chip-ok",   "operational"];
@@ -301,21 +297,30 @@
       host.appendChild(row);
     }
 
-    // components, state derived from what they depend on
+    // Components, prices and dependencies all come from the API, which reads
+    // the same configuration checkout charges against. A list kept here drifted
+    // the moment a price or the model changed in the environment.
     const tb = document.getElementById("components");
     tb.innerHTML = "";
-    for (const [name, price, deps, needs] of COMPONENTS) {
-      const states = deps.map(k => d.services[k] ? d.services[k].status : DOWN);
+    for (const c of (d.components || [])) {
+      const states = c.needs.map(k => d.services[k] ? d.services[k].status : DOWN);
       const worst = states.includes(DOWN) ? DOWN
                   : states.includes(DEGR)  ? DEGR
                   : states.includes(NC)    ? NC : OK;
       const [cls, text] = chipFor(worst);
+
       const tr = document.createElement("tr");
-      tr.innerHTML =
-        '<td class="text-white">' + name + '</td>' +
-        '<td>' + price + '</td>' +
-        '<td class="text-gray-500">' + needs + '</td>' +
-        '<td class="text-right"><span class="' + cls + '">' + text + '</span></td>';
+      tr.appendChild(cell(c.name, "text-white"));
+      tr.appendChild(cell("$" + c.price, ""));
+      tr.appendChild(cell(c.depends_on.join(", "), "text-gray-500"));
+
+      const last = document.createElement("td");
+      last.className = "text-right";
+      const chip = document.createElement("span");
+      chip.className = cls;
+      chip.textContent = text;
+      last.appendChild(chip);
+      tr.appendChild(last);
       tb.appendChild(tr);
     }
 

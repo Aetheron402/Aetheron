@@ -17,7 +17,7 @@ from typing import Literal
 
 from dotenv import load_dotenv
 from solana.rpc.api import Client
-from datetime import datetime
+from datetime import datetime, timezone
 from solders.pubkey import Pubkey
 
 from ledger_utils import (
@@ -140,6 +140,10 @@ templates.env.globals["payment_wallet"] = PAYMENT_WALLET
 templates.env.globals["payment_network"] = PAYMENT_NETWORK
 templates.env.globals["aeth_enabled"] = bool(AETH_MINT)
 templates.env.globals["aeth_mint"] = AETH_MINT or ""
+
+# Read per render rather than at import, so a process that stays up across New
+# Year does not keep serving a footer with last year in it.
+templates.env.globals["current_year"] = lambda: datetime.now(timezone.utc).year
 
 
 def payment_required(component: str, message: str, price_usdc) -> JSONResponse:
@@ -598,6 +602,29 @@ def api_status():
     except Exception:
         traceback.print_exc()
         return JSONResponse(status_code=503, content={"ok": False, "overall": "down"})
+
+    # What each component costs and what it runs on, read from the same
+    # configuration the checkout uses. The status page rendered these from a
+    # hardcoded list, so changing a price in the environment moved what we
+    # charge without moving what we advertise, and the model name stayed at
+    # whatever it was when the list was written.
+    import llm
+
+    data["components"] = [
+        {"name": "Prompt Optimizer", "price": PROMPT_OPTIMIZER_PRICE_USDC,
+         "needs": ["ai", "workers"], "depends_on": [llm.MODEL]},
+        {"name": "Code Explainer", "price": CODE_EXPLAINER_PRICE_USDC,
+         "needs": ["ai", "workers"], "depends_on": [llm.MODEL]},
+        {"name": "Prompt Tester", "price": PROMPT_TESTER_PRICE_USDC,
+         "needs": ["ai", "workers"], "depends_on": [llm.MODEL]},
+        {"name": "Risk Engine", "price": RISK_ENGINE_PRICE_USDC,
+         "needs": ["ai", "workers"], "depends_on": [llm.MODEL, "matplotlib"]},
+        {"name": "Contract Intelligence", "price": CONTRACT_INTEL_PRICE_USDC,
+         "needs": ["ai", "workers", "solana"], "depends_on": [llm.MODEL, "chain data"]},
+        {"name": "Agent templates", "price": AGENT_PRICE_USDC,
+         "needs": ["solana"], "depends_on": ["payment verification"]},
+    ]
+    data["currency"] = PAYMENT_CURRENCY
 
     return JSONResponse(status_code=200 if data["ok"] else 503, content=data)
 
