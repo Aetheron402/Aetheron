@@ -796,3 +796,17 @@ def test_metric_lines_keep_their_exact_format():
     md = w._render_tester_report(_test_result())
     assert re.search(r"^Prompt Quality Score: 2/10$", md, re.M)
     assert re.search(r"^Persona Divergence Score: 8/10$", md, re.M)
+
+
+def test_readings_stay_on_separate_lines():
+    """
+    The house style strips em and en dashes together with the whitespace
+    around them, so an en dash used as a list marker pulled every reading back
+    onto one run-on line. Renderers must not use one as punctuation.
+    """
+    import celery_worker as w
+    md = w.clean_markdown(w._render_tester_report(_test_result()))
+    section = md[md.index("2. Where It Splits"):md.index("3. PersonaBench")]
+    assert section.count("- reads as:") == 4
+    for line in section.splitlines():
+        assert line.count("reads as:") <= 1, f"readings collapsed onto one line: {line[:80]}"

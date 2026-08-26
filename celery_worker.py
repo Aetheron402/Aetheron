@@ -777,7 +777,10 @@ def _render_tester_report(r: "PersonaTest") -> str:
         for a in ordered:
             block = [f"\u2022 [{(a.impact or '').upper()}] \"{a.phrase.strip()}\""]
             block.append(f"  {a.problem.strip()}")
-            block += [f"  \u2013 read as: {reading.strip()}" for reading in a.readings]
+            # A hyphen, not an en dash: the house style strips long dashes along
+            # with the surrounding whitespace, which would pull these readings
+            # back onto one line.
+            block += [f"  - reads as: {reading.strip()}" for reading in a.readings]
             chunks.append("\n".join(block))
         parts.append("\n".join(chunks))
     else:
