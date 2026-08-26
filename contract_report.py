@@ -64,32 +64,60 @@ HOLDER_HOSTILE = (
 SELF_SCOPED = ("burn", "approve", "transfer", "transferfrom", "permit")
 
 
+def _present_names(container) -> list:
+    """
+    The capability names a container actually reports as present.
+
+    Shapes differ across the scan. exploit_surface.flags is a dict keyed by
+    every capability the detector knows about, with False for the ones absent,
+    so iterating it yields mint and upgrade for a contract that has neither.
+    Reading the keys of that dict was worth two risk points on every Ethereum
+    token regardless of what it could do.
+    """
+    if isinstance(container, dict):
+        return [str(k) for k, v in container.items() if v]
+    if isinstance(container, (list, tuple, set)):
+        return [str(v) for v in container if v]
+    return []
+
+
 def _hostile_capabilities(blob: dict) -> set:
     """Names of holder-hostile capabilities the scan actually found."""
     exploit = blob.get("exploit_surface") or {}
     admin = blob.get("admin_risk") or {}
     hints = blob.get("risk_hints") or {}
 
-    found = set()
-    candidates = []
-    candidates += list(exploit.get("dangerous_functions") or [])
-    candidates += list(exploit.get("flags") or [])
-    candidates += list(admin.get("signals") or [])
+    candidates = (
+        _present_names(exploit.get("dangerous_functions"))
+        + _present_names(exploit.get("flags"))
+        + _present_names(admin.get("signals"))
+        # risk_hints answers each capability directly, so it is the most
+        # reliable of the three when present.
+        + _present_names({
+            "mint": hints.get("has_mint"),
+            "pause": hints.get("has_pausing"),
+            "blacklist": hints.get("has_blacklist"),
+            "whitelist": hints.get("has_whitelist"),
+            "withdraw": hints.get("has_withdraw"),
+            "setfee": hints.get("has_fee_change"),
+            "transferownership": hints.get("has_transfer_ownership"),
+            "upgrade": hints.get("is_proxy") or hints.get("has_implementation"),
+            "mint_authority": hints.get("mint_authority") or hints.get("has_mint_authority"),
+            "freeze_authority": hints.get("freeze_authority") or hints.get("has_freeze_authority"),
+        })
+    )
 
+    found = set()
     for raw in candidates:
         name = str(raw).lower().replace("_", "").replace("-", "").replace(" ", "")
+        # A function that only touches the caller's own balance is not a lever
+        # over anyone else, whatever a name-matching heuristic calls it.
         if any(tag in name for tag in SELF_SCOPED) and not any(t in name for t in HOLDER_HOSTILE):
             continue
         for tag in HOLDER_HOSTILE:
             if tag in name:
                 found.add(tag)
                 break
-
-    # Solana expresses the same powers as mint and freeze authorities.
-    if hints.get("mint_authority"):
-        found.add("mint")
-    if hints.get("freeze_authority"):
-        found.add("freeze")
     return found
 
 

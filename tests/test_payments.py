@@ -908,3 +908,48 @@ def test_a_field_the_previous_scan_lacked_is_not_a_change():
 def test_no_previous_scan_produces_no_section():
     import contract_report as cr
     assert cr.snapshot_delta(_eth_blob()) == ""
+
+
+def test_flags_dict_only_counts_capabilities_that_are_present():
+    """
+    exploit_surface.flags is a dict keyed by every capability the detector
+    knows about, False for the absent ones. Reading its keys scored mint and
+    upgrade against every Ethereum token regardless of what it could do, which
+    an earlier list-shaped test did not catch.
+    """
+    import contract_report as cr
+    blob = _eth_blob(exploit_surface={
+        "dangerous_functions": ["burn(uint256)"],
+        "flags": {"mint": False, "pause": False, "blacklist": False,
+                  "upgrade": False, "burn": True},
+    })
+    assert cr._hostile_capabilities(blob) == set()
+    assert cr.score(blob)["overall_risk"] <= 3
+
+
+def test_flags_dict_with_a_real_capability_is_counted():
+    import contract_report as cr
+    blob = _eth_blob(exploit_surface={
+        "dangerous_functions": [],
+        "flags": {"mint": True, "pause": False, "blacklist": False},
+    })
+    assert "mint" in cr._hostile_capabilities(blob)
+
+
+def test_risk_hints_booleans_are_read():
+    """risk_hints answers each capability directly and is the most reliable source."""
+    import contract_report as cr
+    clean = _eth_blob(risk_hints={"has_mint": False, "has_pausing": False,
+                                  "has_blacklist": False, "is_proxy": False})
+    risky = _eth_blob(risk_hints={"has_mint": True, "has_pausing": True,
+                                  "has_blacklist": False, "is_proxy": True})
+    assert cr._hostile_capabilities(clean) == set()
+    assert {"mint", "pause", "upgrade"} <= cr._hostile_capabilities(risky)
+
+
+def test_present_names_handles_every_container_shape():
+    import contract_report as cr
+    assert cr._present_names({"a": True, "b": False}) == ["a"]
+    assert cr._present_names(["a", "b"]) == ["a", "b"]
+    assert cr._present_names(None) == []
+    assert cr._present_names("nonsense") == []
