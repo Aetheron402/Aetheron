@@ -63,9 +63,36 @@ def check_redis(redis_url):
     return _timed(probe)
 
 
+def ephemeral_sqlite() -> bool:
+    """
+    True when we are running on SQLite inside a deployment platform.
+
+    SQLite is the right default for a local clone and the wrong one in a
+    container. The file is not shared with the worker, so a report the worker
+    writes cannot be found by the web process that has to serve it, and the
+    disk is replaced on every deploy, taking the payment ledger with it.
+
+    Worth detecting precisely because nothing else notices. Every probe passes,
+    every write succeeds, and the fault only surfaces when a paying customer
+    follows a download link. The usual cause is a DATABASE_URL reference that
+    resolved to an empty string.
+    """
+    from ledger_utils import USE_POSTGRES
+
+    hosted = any(
+        os.getenv(v)
+        for v in ("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "DYNO", "FLY_APP_NAME")
+    )
+    return hosted and not USE_POSTGRES
+
+
 def check_ledger(ledger_utils):
     def probe():
         ledger_utils.get_recent(limit=1)
+        if ephemeral_sqlite():
+            return DEGRADED, (
+                "sqlite on a disk that is wiped each deploy; DATABASE_URL is unset"
+            )
         return OK, ledger_utils.backend_name()
     return _timed(probe)
 
@@ -105,6 +132,13 @@ def check_storage():
     def probe():
         import storage
         usage = storage.usage()
+        if ephemeral_sqlite():
+            # The worker's file and ours are different files. Reports would be
+            # generated, charged for, and then 404 on download.
+            return DEGRADED, (
+                "sqlite is not shared with the worker; paid reports would not "
+                "be downloadable. Set DATABASE_URL"
+            )
         if not usage.get("counted"):
             return OK, usage["backend"]
         mb = usage["bytes"] / 1024 / 1024
