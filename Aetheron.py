@@ -4,6 +4,7 @@ from fastapi.responses import (
     JSONResponse,
     FileResponse,
     RedirectResponse,
+    Response,
     StreamingResponse,
 )
 from fastapi.templating import Jinja2Templates
@@ -33,6 +34,8 @@ from ledger_utils import (
     clear_partial,
 )
 from aeth_price import calculate_required_aeth, AethPricingError
+
+import storage
 
 from celery.result import AsyncResult
 from solders.signature import Signature
@@ -108,6 +111,7 @@ app = FastAPI(
 templates = Jinja2Templates(directory="templates")
 
 init_ledger()
+storage.init_storage()
 
 templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M")
 
@@ -1311,37 +1315,42 @@ def prompt_tester(
 
 @app.get("/download/{filename}")
 def download_file(filename: str):
+    """
+    Serve a generated report from whichever backend stored it.
 
-    # The filename is appended to a public bucket URL and echoed into a
-    # Content-Disposition header, so it is constrained to the shape our own
-    # generator produces. Without this, "..%2F..%2F" walked outside the bucket
-    # prefix and a quote in the name broke out of the header value.
+    The filename is echoed into a Content-Disposition header and, on the R2
+    path, appended to a bucket URL, so it is constrained to the shape our own
+    generator produces before it is used for either.
+    """
     if not filename or not ASSET_FILENAME_RE.match(filename):
         raise HTTPException(status_code=400, detail="Invalid filename")
 
+    stored = storage.fetch_asset(filename)
+    if stored is not None:
+        data, content_type = stored
+        return Response(
+            content=data,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # R2 is configured, so the file lives in the bucket rather than the database.
     public_base = os.getenv("R2_PUBLIC_BASE")
-
     if not public_base:
-        raise HTTPException(status_code=500, detail="R2 configuration missing")
-
-    clean_name = filename.lstrip("/")
-    file_url = f"{public_base}/{clean_name}"
+        raise HTTPException(status_code=404, detail="File not found")
 
     try:
-        r = requests.get(file_url, stream=True, timeout=30)
+        r = requests.get(f"{public_base.rstrip('/')}/{filename}", stream=True, timeout=30)
         r.raise_for_status()
     except Exception:
         raise HTTPException(status_code=404, detail="File not found")
 
-    headers = {
-        "Content-Disposition": f'attachment; filename="{os.path.basename(filename)}"'
-    }
-
     return StreamingResponse(
         r.iter_content(chunk_size=8192),
         media_type=guess_media_type(filename),
-        headers=headers,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 @app.post("/api/prompt-optimize")
 def prompt_optimize_alias(

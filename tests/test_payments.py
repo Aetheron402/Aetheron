@@ -343,3 +343,64 @@ def test_optimizer_report_renders_every_section():
     assert out.index("1. Optimized Prompt") < out.index("3. Prompt Analysis")
     # An empty variants list says so rather than rendering a bare heading.
     assert "admits one sensible reading" in out
+
+
+# ── report storage ──────────────────────────────────────────────────────────
+
+def test_report_survives_a_round_trip(clean_db):
+    """A customer paid for this file; it has to come back byte for byte."""
+    import storage
+    storage.init_storage()
+
+    data = b"%PDF-1.4 fake report bytes \x00\x01\x02 with nulls"
+    url = storage.store_asset(data, "aetheron_X402-PROMPT-A1_tok.pdf")
+
+    assert url == "/download/aetheron_X402-PROMPT-A1_tok.pdf"
+    back, ctype = storage.fetch_asset("aetheron_X402-PROMPT-A1_tok.pdf")
+    assert back == data
+    assert ctype == "application/pdf"
+
+
+def test_content_type_follows_the_extension(clean_db):
+    import storage
+    storage.init_storage()
+    for ext, expected in [
+        ("pdf", "application/pdf"),
+        ("txt", "text/plain"),
+        ("md", "text/markdown"),
+        ("html", "text/html"),
+        ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    ]:
+        storage.store_asset(b"x", f"a_{ext}.{ext}")
+        assert storage.fetch_asset(f"a_{ext}.{ext}")[1] == expected
+
+
+def test_missing_report_returns_none(clean_db):
+    import storage
+    storage.init_storage()
+    assert storage.fetch_asset("aetheron_nothing_here.pdf") is None
+
+
+def test_oversized_report_is_refused(clean_db):
+    """A runaway generation should fail loudly, not fill the database."""
+    import storage
+    storage.init_storage()
+    with pytest.raises(ValueError):
+        storage.store_asset(b"x" * (storage.MAX_ASSET_BYTES + 1), "huge.pdf")
+
+
+def test_retention_drops_old_reports_only(clean_db):
+    import storage, time
+    from ledger_utils import _cursor, _q
+    storage.init_storage()
+
+    storage.store_asset(b"recent", "recent.pdf")
+    storage.store_asset(b"ancient", "ancient.pdf")
+    # backdate one past the window
+    with _cursor(commit=True) as cur:
+        cur.execute(_q("UPDATE assets SET created_at = %s WHERE filename = %s;"),
+                    (time.time() - 60 * 86400, "ancient.pdf"))
+
+    storage.purge_expired(max_age_days=30)
+    assert storage.fetch_asset("ancient.pdf") is None
+    assert storage.fetch_asset("recent.pdf") is not None

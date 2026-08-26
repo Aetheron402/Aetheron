@@ -2,15 +2,21 @@ import os
 import time
 from contextlib import contextmanager
 
-# The ledger runs on Postgres in production (Railway sets DB_HOST) and on a
-# local SQLite file otherwise, so a fresh clone runs with no database to set up.
+# The ledger runs on Postgres in production and on a local SQLite file
+# otherwise, so a fresh clone runs with no database to set up.
+#
+# DATABASE_URL is the form to prefer. Railway publishes one per database, so
+# wiring it up is a single reference rather than five variables that all have to
+# agree with each other. The individual DB_* settings stay supported for hosts
+# that do not hand out a URL.
+DATABASE_URL = os.getenv("DATABASE_URL")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 
-USE_POSTGRES = bool(DB_HOST)
+USE_POSTGRES = bool(DATABASE_URL or DB_HOST)
 SQLITE_PATH = os.getenv("LEDGER_DB_PATH", "ledger.db")
 
 if USE_POSTGRES:
@@ -29,6 +35,8 @@ else:
 def _conn():
     """Open a new ledger connection against whichever backend is configured."""
     if USE_POSTGRES:
+        if DATABASE_URL:
+            return psycopg2.connect(DATABASE_URL)
         return psycopg2.connect(
             host=DB_HOST,
             port=DB_PORT,

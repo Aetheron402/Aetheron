@@ -97,12 +97,18 @@ def check_price_oracle():
 
 
 def check_storage():
+    """
+    Reports fall back to the ledger database when R2 is absent, so missing R2
+    is a choice rather than a fault. What matters is whether the backend in use
+    can actually be reached.
+    """
     def probe():
-        base = os.getenv("R2_PUBLIC_BASE")
-        bucket = os.getenv("R2_BUCKET_NAME")
-        if not base or not bucket:
-            return UNCONFIGURED, "R2 is not configured; downloads unavailable"
-        return OK, f"bucket {bucket}"
+        import storage
+        usage = storage.usage()
+        if not usage.get("counted"):
+            return OK, usage["backend"]
+        mb = usage["bytes"] / 1024 / 1024
+        return OK, f"{usage['backend']}, {usage['assets']} reports, {mb:.1f} MB"
     return _timed(probe)
 
 

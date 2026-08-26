@@ -15,7 +15,7 @@ from PIL import Image
 from datetime import datetime
 from dotenv import load_dotenv
 from celery import Celery
-from r2_client import r2_upload_bytes
+from storage import store_asset
 from pydantic import BaseModel, Field
 
 import llm
@@ -161,7 +161,7 @@ def generate_pdf(asset_id, wallet, title, subtitle, md_text, chart_path=None):
         chart_path=chart_path,
     )
 
-    r2_url = r2_upload_bytes(buffer.getvalue(), fname)
+    r2_url = store_asset(buffer.getvalue(), fname)
 
     return fname, r2_url
 
@@ -173,7 +173,7 @@ def generate_txt(md_text, asset_id="asset"):
     data = "\ufeff" + md_text
     data = data.encode("utf-8")
 
-    r2_url = r2_upload_bytes(data, fname)
+    r2_url = store_asset(data, fname)
 
     return fname, r2_url
 
@@ -340,7 +340,7 @@ def process_prompt(asset_id, user_text, out_format, wallet, target=None):
         )
     else:
         buffer, fname = export_generic(fmt, final_md, asset_id)
-        url = r2_upload_bytes(buffer.getvalue(), fname)
+        url = store_asset(buffer.getvalue(), fname)
         filename = fname
 
     finalize_asset(asset_id, filename)
@@ -494,7 +494,7 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
         )
     else:
         buffer, fname = export_generic(fmt, final_md, asset_id)
-        url = r2_upload_bytes(buffer.getvalue(), fname)
+        url = store_asset(buffer.getvalue(), fname)
         filename = fname
 
     finalize_asset(asset_id, filename)
@@ -646,7 +646,7 @@ def process_tester(asset_id, prompt, out_format, wallet):
         )
     else:
         buffer, fname = export_generic(fmt, final_md, asset_id)
-        url = r2_upload_bytes(buffer.getvalue(), fname)
+        url = store_asset(buffer.getvalue(), fname)
         filename = fname
 
     finalize_asset(asset_id, filename)
@@ -2571,7 +2571,7 @@ Interpretation:
             )
         else:
             buffer, fname = export_generic(fmt, summary_md, asset_id)
-            url = r2_upload_bytes(buffer.getvalue(), fname)
+            url = store_asset(buffer.getvalue(), fname)
             filename = fname
     finally:
         # The charts are rendered before this branch regardless of format, so
@@ -3361,7 +3361,7 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
         )
     else:
         buffer, fname = export_generic(fmt, final_md, asset_id)
-        url = r2_upload_bytes(buffer.getvalue(), fname)
+        url = store_asset(buffer.getvalue(), fname)
         filename = fname
 
     finalize_asset(asset_id, filename)
