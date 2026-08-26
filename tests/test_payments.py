@@ -640,10 +640,13 @@ def test_every_renderer_separates_titles_from_content():
             divergence_score=5, divergence_reasoning="d",
             improvements=["imp"], improved_prompt="better prompt")),
         w._render_code_report(w.CodeAudit(
-            language="python", summary="s", how_it_works="h",
-            strengths=["st"], weaknesses=["wk"], complexity="c",
-            security=["sec"], edge_cases=["ec"], refactors=["rf"],
-            patches=["print(1)"], recommendations=["rec"])),
+            language="python", verdict="needs fixes before use",
+            summary="s", how_it_works="h", strengths=["st"],
+            weaknesses=[_finding("high", 2, "wk")], complexity="c",
+            security=[_finding("critical", 3, "sec")],
+            edge_cases=[_finding("medium", 4, "ec")], refactors=["rf"],
+            patches=["print(1)"], tests=["assert True"],
+            recommendations=["rec"])),
         w._render_risk_report(w.RiskInterpretation(
             verdict="v", downside=["d"], upside=["u"], drawdown_reading="dd",
             assumptions=["a"], parameter_notes=["p"]), "Parameters:\n• Runs: 10"),
@@ -653,3 +656,65 @@ def test_every_renderer_separates_titles_from_content():
             t = block.strip()
             if re.match(r"^\d+\.\s", t) and not t.startswith("```"):
                 assert "\n" not in t, f"title carries content: {t[:60]!r}"
+
+
+# ── code audit findings ─────────────────────────────────────────────────────
+
+def _finding(sev, line, title="t", detail="d"):
+    import celery_worker as w
+    return w.Finding(severity=sev, line=line, title=title, detail=detail)
+
+
+def test_findings_are_ordered_worst_first():
+    """
+    A flat list left the reader meeting the naming nit before the injection.
+    Order is imposed here rather than trusted from the model.
+    """
+    import celery_worker as w
+    out = w._fmt_findings(
+        [_finding("low", 3, "nit"), _finding("critical", 9, "injection"),
+         _finding("medium", 1, "middling"), _finding("high", 5, "leak")],
+        "none",
+    )
+    positions = [out.index(t) for t in ("injection", "leak", "middling", "nit")]
+    assert positions == sorted(positions), out
+
+
+def test_a_finding_carries_its_severity_and_line():
+    import celery_worker as w
+    out = w._fmt_findings([_finding("critical", 42, "SQL injection")], "none")
+    assert "[CRITICAL]" in out
+    assert "(line 42)" in out
+
+
+def test_a_whole_file_finding_omits_the_line():
+    import celery_worker as w
+    out = w._fmt_findings([_finding("medium", None, "Relative path")], "none")
+    assert "(line" not in out
+
+
+def test_an_unknown_severity_sorts_last_rather_than_crashing():
+    import celery_worker as w
+    out = w._fmt_findings(
+        [_finding("banana", 1, "odd"), _finding("critical", 2, "real")], "none")
+    assert out.index("real") < out.index("odd")
+
+
+def test_empty_finding_lists_state_that_plainly():
+    import celery_worker as w
+    assert w._fmt_findings([], "no security surface") == "no security surface"
+
+
+def test_code_is_numbered_for_citation():
+    """A model counting lines itself cites the wrong ones."""
+    import celery_worker as w
+    out = w._numbered("import os\nimport sys\n\ndef f():\n    pass")
+    assert "1 | import os" in out
+    assert "5 |     pass" in out
+
+
+def test_line_numbering_width_stays_aligned_past_nine():
+    import celery_worker as w
+    out = w._numbered("\n".join(f"line{i}" for i in range(1, 12)))
+    assert " 1 | line1" in out
+    assert "11 | line11" in out

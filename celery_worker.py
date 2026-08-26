@@ -376,6 +376,51 @@ def process_prompt(asset_id, user_text, out_format, wallet, target=None):
         "format": fmt
     }
 
+def _numbered(code_text: str) -> str:
+    """
+    Present the code with line numbers.
+
+    Findings cite a line, and a model given an unnumbered listing has to count,
+    which it does badly. Numbering the input is the difference between a
+    citation the reader can follow and one that points at the wrong place.
+    """
+    lines = (code_text or "").splitlines() or [""]
+    width = len(str(len(lines)))
+    body = "\n".join(f"{i:>{width}} | {line}" for i, line in enumerate(lines, 1))
+    return (
+        "Code for analysis. The leading numbers are line references for your "
+        "findings and are not part of the source.\n\n" + body
+    )
+
+
+SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+class Finding(BaseModel):
+    """
+    One defect, tied to where it is and how much it matters.
+
+    Findings were plain sentences, which left a reader with a flat list and no
+    way to tell the SQL injection from the naming nit, and no way to find
+    either in the file. Severity orders the work, and the line makes it
+    checkable.
+    """
+    severity: str = Field(
+        description="One of critical, high, medium, low. Critical means exploitable now or "
+                    "silently wrong results. Low means it would not change behaviour."
+    )
+    line: int | None = Field(
+        default=None,
+        description="The line number in the submitted code where this occurs, taken from the "
+                    "numbers in the prompt. Null only when it is a property of the whole file.",
+    )
+    title: str = Field(description="The defect in one short phrase, naming the construct at fault.")
+    detail: str = Field(
+        description="What goes wrong, the input or condition that triggers it, and the "
+                    "consequence. Concrete enough to reproduce."
+    )
+
+
 # What the code auditor returns. Named fields rather than headings the renderer
 # has to find in free text, so a section cannot be merged, renamed or dropped.
 class CodeAudit(BaseModel):
@@ -388,6 +433,10 @@ class CodeAudit(BaseModel):
         description="What this code is for, what it does, and the state it is in. "
                     "Written for someone deciding whether to trust it."
     )
+    verdict: str = Field(
+        description="One of: safe to use, use with caution, needs fixes before use, "
+                    "do not use as written. The single judgement the reader wants first."
+    )
     how_it_works: str = Field(
         description="Execution flow, how inputs are processed, how outputs are produced, "
                     "and what it depends on."
@@ -396,21 +445,21 @@ class CodeAudit(BaseModel):
         description="What the code genuinely does well, and why that matters here. "
                     "Only real strengths. An empty list beats invented praise."
     )
-    weaknesses: list[str] = Field(
-        description="Defects, fragile patterns and maintainability problems. Each one names "
-                    "the specific construct at fault, not a general principle."
+    weaknesses: list[Finding] = Field(
+        description="Defects, fragile patterns and maintainability problems. Each names the "
+                    "construct at fault and the line it is on, not a general principle."
     )
     complexity: str = Field(
         description="Time and space behaviour, the bottleneck if there is one, and what "
                     "actually drives cost as input grows."
     )
-    security: list[str] = Field(
-        description="Concrete vulnerabilities and unsafe assumptions, each with the input or "
-                    "condition that triggers it. Empty when the code has no security surface."
+    security: list[Finding] = Field(
+        description="Concrete vulnerabilities and unsafe assumptions, each with the input that "
+                    "triggers it. Empty when nothing crosses a trust boundary."
     )
-    edge_cases: list[str] = Field(
-        description="Inputs or states that produce wrong output or a crash. Give the input "
-                    "and the resulting behaviour, not a category name."
+    edge_cases: list[Finding] = Field(
+        description="Inputs or states that produce wrong output or a crash. Give the input and "
+                    "the resulting behaviour, not a category name."
     )
     refactors: list[str] = Field(
         description="Changes worth making: what to change, and the failure or cost it removes."
@@ -420,9 +469,39 @@ class CodeAudit(BaseModel):
         description="Improved code, each entry a complete replacement for one construct. "
                     "Raw code only, no fences and no commentary; both are added on render.",
     )
+    tests: list[str] = Field(
+        default_factory=list,
+        description="Runnable test cases that fail against the submitted code and pass against "
+                    "the improved version, one per entry. Raw code only, no fences. These turn "
+                    "each claimed defect into something the reader can verify rather than take "
+                    "on trust. Empty only when the code has no reproducible defect.",
+    )
     recommendations: list[str] = Field(
         description="What to do first, in order of what carries the most risk."
     )
+
+
+def _fmt_findings(findings, when_empty: str) -> str:
+    """
+    Render findings worst first, each tagged with severity and line.
+
+    Sorting here rather than trusting the order they arrive in means the reader
+    always meets the exploitable problem before the naming nit, whatever order
+    the model happened to produce.
+    """
+    if not findings:
+        return when_empty
+
+    ordered = sorted(
+        findings,
+        key=lambda f: (SEVERITY_ORDER.get((f.severity or "").lower(), 4), f.line or 10**6),
+    )
+    out = []
+    for f in ordered:
+        sev = (f.severity or "").upper()
+        where = f" (line {f.line})" if f.line else ""
+        out.append(f"\u2022 [{sev}]{where} {f.title.strip()}\n  {f.detail.strip()}")
+    return "\n".join(out)
 
 
 def _render_code_report(r: "CodeAudit") -> str:
@@ -432,38 +511,43 @@ def _render_code_report(r: "CodeAudit") -> str:
 
     lang = (r.language or "text").strip().lower() or "text"
 
+    def code_blocks(entries):
+        out = []
+        for entry in entries:
+            body = entry.strip()
+            # The model occasionally fences anyway; do not double wrap it.
+            out.append(body if body.startswith("```") else f"```{lang}\n{body}\n```")
+        return "\n\n".join(out)
+
     parts = [
-        "1. Summary\n\n", r.summary.strip(),
-        "\n\n2. How It Works\n\n", r.how_it_works.strip(),
+        "1. Verdict\n\n", r.verdict.strip(),
+        "\n\n2. Summary\n\n", r.summary.strip(),
+        "\n\n3. How It Works\n\n", r.how_it_works.strip(),
+        "\n\n4. Strengths\n\n",
+        bullets(r.strengths) or "Nothing in this code goes beyond what the task required.",
+        "\n\n5. Weaknesses\n\n",
+        _fmt_findings(r.weaknesses, "No defects found in the submitted code."),
+        "\n\n6. Security\n\n",
+        _fmt_findings(r.security,
+                      "This code has no security surface: no input crosses a trust boundary."),
+        "\n\n7. Edge Cases\n\n",
+        _fmt_findings(r.edge_cases, "No input was found that produces wrong output."),
+        "\n\n8. Complexity\n\n", r.complexity.strip(),
+        "\n\n9. Refactoring\n\n",
+        bullets(r.refactors) or "No change would pay for the risk of making it.",
     ]
-    # Sections that can be genuinely empty say so, rather than being padded to
-    # a quota. A clean function with no security surface should report that.
-    for title, items, when_empty in [
-        ("3. Strengths", r.strengths, "Nothing here rises above ordinary competence."),
-        ("4. Weaknesses", r.weaknesses, "No defects found in the submitted code."),
-    ]:
-        parts += [f"\n\n{title}\n\n", bullets(items) or when_empty]
-
-    parts += ["\n\n5. Complexity\n\n", r.complexity.strip()]
-
-    for title, items, when_empty in [
-        ("6. Security", r.security, "This code has no security surface: no input crosses a trust boundary."),
-        ("7. Edge Cases", r.edge_cases, "No input was found that produces wrong output."),
-        ("8. Refactoring", r.refactors, "No change would pay for the risk of making it."),
-    ]:
-        parts += [f"\n\n{title}\n\n", bullets(items) or when_empty]
 
     if r.patches:
-        parts.append("\n\n9. Improved Code\n\n")
-        for patch in r.patches:
-            body = patch.strip()
-            # The model occasionally fences anyway; do not double wrap it.
-            if body.startswith("```"):
-                parts.append(body + "\n\n")
-            else:
-                parts.append(f"```{lang}\n{body}\n```\n\n")
+        parts += ["\n\n10. Improved Code\n\n", code_blocks(r.patches)]
+    if r.tests:
+        parts += [
+            "\n\n11. Tests That Prove It\n\n",
+            "Each of these fails against the code as submitted and passes against the "
+            "version above, so the findings can be checked rather than taken on trust.\n\n",
+            code_blocks(r.tests),
+        ]
 
-    parts += ["\n\n10. Recommendations\n\n", bullets(r.recommendations)]
+    parts += ["\n\n12. Recommendations\n\n", bullets(r.recommendations)]
     return "".join(parts)
 
 
@@ -472,29 +556,53 @@ def process_code(asset_id, code_text, out_format, wallet, features=None):
     SYSTEM_PROMPT = """
 You are a senior engineer auditing code someone is about to depend on.
 
-Report what is actually there. The previous version of this brief asked for a
+Report what is actually there. An earlier version of this brief asked for a
 fixed number of bullets per section, which meant a clean function still had to
 be given six weaknesses, so the real one was buried among five invented ones.
 Do not do that. Every section takes as many findings as the code warrants and
 no more, and several may legitimately be empty. A short accurate audit is worth
 more than a long one, and the reader is paying for judgement, not volume.
 
+Cite the line. The code is given to you with line numbers; put the number on
+every finding that lives at a specific place. A finding the reader has to hunt
+for costs them more than it saved, and a number you invented is worse than
+none, so read it off the listing rather than estimating.
+
+Rank honestly. Severity is what the finding does, not how much you dislike it.
+
+- critical: exploitable now, or silently produces wrong results a caller
+  would act on.
+- high: fails on inputs that will occur in normal use, or leaks resources
+  until the process dies.
+- medium: fails on unusual but reachable inputs, or makes the code hard to
+  change safely.
+- low: would not change behaviour.
+
+An audit where everything is critical is as useless as one where nothing is.
+
 What separates this from a summary anyone could write:
 
-- Name the construct. "The bare except on the retry loop swallows KeyboardInterrupt"
-  is a finding. "Error handling could be improved" is not.
+- Name the construct. "The bare except on the retry loop swallows
+  KeyboardInterrupt" is a finding. "Error handling could be improved" is not.
 - Give the trigger. An edge case is an input plus the behaviour it causes, so
   the reader can reproduce it. A category name is not an edge case.
 - Say what breaks. A weakness the reader cannot connect to a consequence reads
   as style preference and will be ignored.
 - Distinguish what is wrong from what you would have written differently. Only
   the first belongs in weaknesses.
-- Mutable default arguments, unbounded growth, swallowed exceptions, unvalidated
-  input reaching a query or a filesystem path, and integer or precision
-  assumptions are worth checking every time, but only report them when present.
+- Mutable default arguments, unbounded growth, swallowed exceptions,
+  unvalidated input reaching a query or a filesystem path, and integer or
+  precision assumptions are worth checking every time, but only report them
+  when present.
 
-For patches, give the replacement code raw, with no fences and no commentary.
-Both are added when the report is assembled, and the language is taken from the
+Prove it. Write tests that fail against the submitted code and pass against
+your improved version, one per defect worth demonstrating. This is the part
+that turns an opinion into something the reader can run, so prefer a test that
+pins the actual wrong value over one that merely asserts no exception. Use the
+language's ordinary test idiom, and keep each self-contained.
+
+For patches and tests, give the code raw, with no fences and no commentary.
+Both are added when the report is assembled, and the language comes from the
 language field, so identify it from the code rather than assuming.
 """
     STYLE_NOTE = (
@@ -525,7 +633,7 @@ language field, so identify it from the code rather than assuming.
 
     audit = llm.complete_structured(
         system_blocks=[HOUSE_STYLE, STYLE_NOTE, SYSTEM_PROMPT],
-        user_payload=f"Code for analysis:\n```\n{code_text}\n```",
+        user_payload=_numbered(code_text),
         schema=CodeAudit,
     )
 
