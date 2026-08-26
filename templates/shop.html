@@ -1211,6 +1211,14 @@ function toggleMobileMenu() {
   }
 </style>
 
+<div id="dev-banner" style="
+     position:fixed; top:0; left:0; right:0; z-index:90;
+     background:rgba(251,191,36,.15); border-bottom:1px solid rgba(251,191,36,.4);
+     color:#fde68a; text-align:center; font-size:.75rem; padding:.3rem 1rem;">
+  Dev preview is on. Execute runs free and takes no payment.
+  <a href="/dev/lock" style="color:#fbbf24; text-decoration:underline">turn off</a>
+</div>
+
 <div id="dev-panel" style="display:none">
   <h4>Component preview
     <span style="float:right">
@@ -1221,6 +1229,30 @@ function toggleMobileMenu() {
 </div>
 
 <script>
+// Send the modals' Execute button to the preview route instead of the paid one,
+// so your own input can be run without paying. Done by wrapping fetch rather
+// than editing the purchase code, which stays exactly as it ships. The preview
+// route answers with the same 202 shape, so the existing polling and download
+// handling works against it untouched.
+(function () {
+  const REDIRECT = {
+    "/api/prompt-optimizer": "/dev/run/prompt-optimizer",
+    "/api/code-explainer":   "/dev/run/code-explainer",
+    "/api/prompt-tester":    "/dev/run/prompt-tester",
+    "/api/contract-intel":   "/dev/run/contract-intel",
+    "/api/risk-engine":      "/dev/run/risk-engine",
+  };
+  const realFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    const to = REDIRECT[url];
+    if (to && init && (init.method || "").toUpperCase() === "POST") {
+      return realFetch(to, init);
+    }
+    return realFetch(input, init);
+  };
+})();
+
 (function () {
   const panel = document.getElementById("dev-panel");
   const runs  = document.getElementById("dev-runs");

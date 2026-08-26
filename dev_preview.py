@@ -113,42 +113,90 @@ def lock():
 
 
 @router.post("/run/{slug}")
-def run(slug: str, request: Request):
-    """Dispatch one component against its sample input and return the task id."""
+async def run(slug: str, request: Request):
+    """
+    Dispatch one component and return the task id.
+
+    Takes the same JSON body the paid endpoint takes, so the existing modals
+    can post their real inputs here and get their own text back rather than the
+    canned sample. An empty body falls back to the sample, which is what the
+    Test buttons send.
+
+    The response deliberately matches the paid endpoint's 202 shape, so the
+    page's existing polling and download code works against it unchanged.
+    """
     _guard(request)
 
     sample = SAMPLES.get(slug)
     if not sample:
         raise HTTPException(status_code=404, detail="Unknown component")
 
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            body = {}
+    except Exception:
+        body = {}
+
+    def text_of(*keys, default=None):
+        for k in keys:
+            v = body.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return default if default is not None else sample["input"]
+
+    def number(key, default):
+        v = body.get(key)
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) else default
+
+    fmt = body.get("format") if body.get("format") in ("pdf", "txt", "md", "docx", "html") else "pdf"
     asset_id = "DEV-" + slug.upper()[:12] + "-" + secrets.token_hex(4).upper()
     wallet = "dev-preview"
+    used = None
 
     import celery_worker as w
 
     if slug == "prompt-optimizer":
-        task = w.process_prompt.delay(asset_id, sample["input"], "pdf", wallet, None)
+        used = text_of("text")
+        target = body.get("target") if body.get("target") in (
+            "chat", "coding", "agent", "image", "extraction") else None
+        task = w.process_prompt.delay(asset_id, used, fmt, wallet, target)
+
     elif slug == "code-explainer":
-        task = w.process_code.delay(asset_id, sample["input"], "pdf", wallet, None)
+        used = text_of("text", "code")
+        task = w.process_code.delay(asset_id, used, fmt, wallet, None)
+
     elif slug == "prompt-tester":
-        task = w.process_tester.delay(asset_id, sample["input"], "pdf", wallet)
+        used = text_of("text", "prompt")
+        task = w.process_tester.delay(asset_id, used, fmt, wallet)
+
     elif slug == "risk-engine":
+        runs = int(number("runs", 1000))
+        steps = int(number("steps", 30))
+        seed = body.get("seed")
+        seed = int(seed) if isinstance(seed, (int, float)) and not isinstance(seed, bool) else 42
+        used = f"{runs} runs, {steps} steps"
         task = w.process_risk_engine.delay(
-            asset_id, 1000, 30, 0.05, 0.4, 1.0, 42, "pdf", wallet
+            asset_id, runs, steps,
+            float(number("mu", 0.05)), float(number("sigma", 0.4)),
+            float(number("start_price", 1.0)), seed, fmt, wallet,
         )
+
     elif slug == "contract-intel":
-        task = w.process_contract_intel.delay(
-            asset_id, sample["input"], "solana", "pdf", wallet
-        )
+        used = text_of("contract_address", "address")
+        network = body.get("network") if body.get("network") in ("solana", "ethereum") else "solana"
+        task = w.process_contract_intel.delay(asset_id, used, network, fmt, wallet)
+
     else:  # unreachable while SAMPLES and this block agree
         raise HTTPException(status_code=404, detail="Unknown component")
 
-    logger.warning("Dev preview run: %s -> %s", slug, asset_id)
-    return JSONResponse({
+    logger.warning("Dev preview run (unpaid): %s -> %s", slug, asset_id)
+    return JSONResponse(status_code=202, content={
+        "message": "Queued by the dev preview, no payment taken",
         "task_id": task.id,
         "asset_id": asset_id,
         "component": sample["label"],
-        "sample_input": sample["input"],
+        "sample_input": used,
     })
 
 
