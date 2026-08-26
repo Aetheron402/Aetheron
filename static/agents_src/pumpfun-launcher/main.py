@@ -7,7 +7,6 @@ import asyncio
 import json
 import requests
 import websockets
-import random
 
 from utils.helpers import (
     load_config,
@@ -15,12 +14,6 @@ from utils.helpers import (
     token_passes_filters,
     send_webhook,
 )
-
-
-# Generate realistic Solana-style txid for showcase
-def fake_txid():
-    alphabet = "0123456789abcdef"
-    return "".join(random.choice(alphabet) for _ in range(88))
 
 
 class PumpFunShowcase:
@@ -119,10 +112,14 @@ class PumpFunShowcase:
             route = None
             self.logger.error(f"Jupiter quote error: {e}")
 
-        # Realistic sniper-style output
+        # This agent watches launches and prices them. It places no orders and
+        # holds no key, so the header says what actually happened: a live
+        # quote, not a fill. It previously printed [TRADE EXECUTED] with a
+        # randomly generated transaction id, which is the one field a reader
+        # would paste into an explorer to check, and it resolved to nothing.
         lines = [
             "────────────────────────────────────────────",
-            f"[TRADE EXECUTED] BUY {amount_sol} SOL → {name} ({symbol})",
+            f"[QUOTE] {amount_sol} SOL would buy {name} ({symbol})",
             f"Mint: {mint}",
         ]
 
@@ -134,9 +131,9 @@ class PumpFunShowcase:
             lines.append(f"DEX Route: {route}")
 
         if out_amt:
-            lines.append(f"Tokens Received: {out_amt}")
+            lines.append(f"Tokens At This Quote: {out_amt}")
 
-        lines.append(f"TXID: {fake_txid()}")
+        lines.append("No order placed: this agent monitors and prices launches.")
         lines.append("────────────────────────────────────────────")
 
         self.logger.info("\n".join(lines))
