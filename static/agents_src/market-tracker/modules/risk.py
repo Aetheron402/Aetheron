@@ -1,41 +1,71 @@
 from utils.normalization import clamp
+from utils import data
+
+
+def _classify(score, config, pos_default, neg_default):
+    """Score to state, using the thresholds from config."""
+    pos = config.get("positive_threshold", pos_default)
+    neg = config.get("negative_threshold", neg_default)
+    if score >= pos:
+        return "positive"
+    if score <= neg:
+        return "negative"
+    return "neutral"
+
+
+def _trend(score, band=0.0):
+    if score > band:
+        return "improving"
+    if score < -band:
+        return "deteriorating"
+    return "stable"
+
+
+def _unavailable(reason):
+    """
+    What a module returns when its inputs did not arrive.
+
+    Reported rather than defaulted. Every module here used to score from
+    constants, so a reader could not tell a measurement from a placeholder,
+    and the whole point of the change is that they now can.
+    """
+    return {
+        "state": "unknown",
+        "score": 0.0,
+        "confidence": 0.0,
+        "trend": "stable",
+        "notes": [reason, "No score produced: this input was not measured."],
+    }
 
 
 def run(config: dict):
-    """
-    Determines broad risk appetite based on cross-market momentum.
-    """
+    """Broad risk appetite, from how the majors actually moved."""
+    crypto = data.get_crypto_momentum()
+    equity = data.get_equity_momentum()      # no keyless source, so None
 
-    # --- placeholder inputs (will come from data.py later) ---
-    equity_momentum = 0.6     # S&P / global equity proxy
-    crypto_momentum = 0.4     # BTC / crypto index proxy
+    if crypto is None:
+        return _unavailable("Crypto momentum was unavailable from CoinGecko.")
 
-    # --- combine signals ---
-    raw_score = (equity_momentum + crypto_momentum) / 2
+    parts = [crypto] + ([equity] if equity is not None else [])
+    score = clamp(sum(parts) / len(parts), -1.0, 1.0)
 
-    score = clamp(raw_score, -1.0, 1.0)
-
-    # --- state determination ---
-    pos_th = config.get("positive_threshold", 0.3)
-    neg_th = config.get("negative_threshold", -0.3)
-
-    if score >= pos_th:
-        state = "positive"
-    elif score <= neg_th:
-        state = "negative"
-    else:
-        state = "neutral"
-
-    # --- trend logic (simple, but correct) ---
-    trend = "improving" if score > 0 else "deteriorating" if score < 0 else "stable"
+    moves = data.snapshot()["values"].get("crypto_moves_pct") or []
+    notes = [
+        "Risk appetite from 24h moves across BTC, ETH and SOL"
+        + (f": {', '.join(f'{m:+.2f}%' for m in moves)}" if moves else ""),
+        f"Combined momentum score: {score:.2f}",
+    ]
+    if equity is None:
+        notes.append(
+            "Equity momentum was not included: no keyless source is available, "
+            "so this reads crypto only."
+        )
 
     return {
-        "state": state,
+        "state": _classify(score, config, 0.3, -0.3),
         "score": score,
-        "confidence": 0.7,
-        "trend": trend,
-        "notes": [
-            "Equity and crypto momentum used as risk proxies",
-            f"Combined momentum score: {score:.2f}"
-        ]
+        # Lower, because half the intended inputs are missing.
+        "confidence": 0.55 if equity is None else 0.75,
+        "trend": _trend(score),
+        "notes": notes,
     }
