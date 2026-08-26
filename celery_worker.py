@@ -249,24 +249,24 @@ def _render_optimizer_report(r: "OptimizedPrompt", target_label: str) -> str:
         return "\n".join(f"• {i}" for i in items) if items else ""
 
     parts = [
-        "1. Optimized Prompt\n",
+        "1. Optimized Prompt\n\n",
         # Fenced so it survives rendering intact. Unfenced, its own markdown
         # headings were read as report sections and its line breaks were
         # reflowed away, which ruins the one part meant to be copied and run.
         "```\n" + r.optimized_prompt.strip() + "\n```",
-        "\n\n2. What Changed\n",
+        "\n\n2. What Changed\n\n",
         bullets(r.what_changed),
-        "\n\n3. Prompt Analysis\n",
+        "\n\n3. Prompt Analysis\n\n",
         r.analysis.strip(),
-        "\n\n4. Failure Modes\n",
+        "\n\n4. Failure Modes\n\n",
         bullets(r.failure_modes),
     ]
     if r.variants:
-        parts += ["\n\n5. Variants\n", bullets(r.variants)]
+        parts += ["\n\n5. Variants\n\n", bullets(r.variants)]
     else:
-        parts += ["\n\n5. Variants\n",
+        parts += ["\n\n5. Variants\n\n",
                   "This prompt admits one sensible reading, so no alternative angle would serve it better."]
-    parts += ["\n\n6. Using It\n", bullets(r.usage_notes)]
+    parts += ["\n\n6. Using It\n\n", bullets(r.usage_notes)]
 
     if target_label:
         parts.insert(0, f"Optimized for: {target_label}\n\n")
@@ -433,8 +433,8 @@ def _render_code_report(r: "CodeAudit") -> str:
     lang = (r.language or "text").strip().lower() or "text"
 
     parts = [
-        "1. Summary\n", r.summary.strip(),
-        "\n\n2. How It Works\n", r.how_it_works.strip(),
+        "1. Summary\n\n", r.summary.strip(),
+        "\n\n2. How It Works\n\n", r.how_it_works.strip(),
     ]
     # Sections that can be genuinely empty say so, rather than being padded to
     # a quota. A clean function with no security surface should report that.
@@ -442,19 +442,19 @@ def _render_code_report(r: "CodeAudit") -> str:
         ("3. Strengths", r.strengths, "Nothing here rises above ordinary competence."),
         ("4. Weaknesses", r.weaknesses, "No defects found in the submitted code."),
     ]:
-        parts += [f"\n\n{title}\n", bullets(items) or when_empty]
+        parts += [f"\n\n{title}\n\n", bullets(items) or when_empty]
 
-    parts += ["\n\n5. Complexity\n", r.complexity.strip()]
+    parts += ["\n\n5. Complexity\n\n", r.complexity.strip()]
 
     for title, items, when_empty in [
         ("6. Security", r.security, "This code has no security surface: no input crosses a trust boundary."),
         ("7. Edge Cases", r.edge_cases, "No input was found that produces wrong output."),
         ("8. Refactoring", r.refactors, "No change would pay for the risk of making it."),
     ]:
-        parts += [f"\n\n{title}\n", bullets(items) or when_empty]
+        parts += [f"\n\n{title}\n\n", bullets(items) or when_empty]
 
     if r.patches:
-        parts.append("\n\n9. Improved Code\n")
+        parts.append("\n\n9. Improved Code\n\n")
         for patch in r.patches:
             body = patch.strip()
             # The model occasionally fences anyway; do not double wrap it.
@@ -463,7 +463,7 @@ def _render_code_report(r: "CodeAudit") -> str:
             else:
                 parts.append(f"```{lang}\n{body}\n```\n\n")
 
-    parts += ["\n\n10. Recommendations\n", bullets(r.recommendations)]
+    parts += ["\n\n10. Recommendations\n\n", bullets(r.recommendations)]
     return "".join(parts)
 
 
@@ -604,8 +604,8 @@ def _render_tester_report(r: "PersonaTest") -> str:
     def bullets(items):
         return "\n".join(f"\u2022 {i}" for i in items) if items else ""
 
-    parts = ["1. Core Prompt Interpretation\n", r.interpretation.strip(),
-             "\n\n2. PersonaBench Matrix\n"]
+    parts = ["1. Core Prompt Interpretation\n\n", r.interpretation.strip(),
+             "\n\n2. PersonaBench Matrix\n\n"]
 
     for p in r.personas:
         parts.append(f"\n{p.name.strip()}\n\n")
@@ -613,19 +613,19 @@ def _render_tester_report(r: "PersonaTest") -> str:
         parts.append(f"\u2022 Strength: {p.strength.strip()}\n")
         parts.append(f"\u2022 Weakness: {p.weakness.strip()}\n")
 
-    parts.append("\n\n3. Persona Level Deepening\n")
+    parts.append("\n\n3. Persona Level Deepening\n\n")
     deepened = [f"{p.name.strip()}\n\n" + bullets(p.risks) for p in r.personas if p.risks]
     parts.append("\n\n".join(deepened) if deepened
                  else "Every persona read this prompt the same way. Nothing diverged worth reporting.")
 
     parts += [
-        "\n\n4. Cross Persona Comparison\n", r.cross_persona.strip(),
+        "\n\n4. Cross Persona Comparison\n\n", r.cross_persona.strip(),
         f"\n\n5. Prompt Quality Score\n\nPrompt Quality Score: {r.quality_score}/10\n\n",
         r.quality_reasoning.strip(),
         f"\n\n6. Persona Divergence Score\n\nPersona Divergence Score: {r.divergence_score}/10\n\n",
         r.divergence_reasoning.strip(),
-        "\n\n7. Improvement Suggestions\n", bullets(r.improvements),
-        "\n\n8. Improved Prompt Variant\n",
+        "\n\n7. Improvement Suggestions\n\n", bullets(r.improvements),
+        "\n\n8. Improved Prompt Variant\n\n",
         "```\n" + r.improved_prompt.strip() + "\n```",
     ]
     return "".join(parts)
@@ -2462,13 +2462,13 @@ def _render_risk_report(r: "RiskInterpretation", figures: str) -> str:
         return "\n".join(f"\u2022 {i}" for i in items) if items else ""
 
     return "".join([
-        "1. Verdict\n", r.verdict.strip(),
+        "1. Verdict\n\n", r.verdict.strip(),
         "\n\n2. Simulation Results\n\n", figures.strip(),
-        "\n\n3. Downside\n", bullets(r.downside),
-        "\n\n4. Upside\n", bullets(r.upside),
-        "\n\n5. Drawdown\n", r.drawdown_reading.strip(),
-        "\n\n6. Model Assumptions\n", bullets(r.assumptions),
-        "\n\n7. Parameter Notes\n", bullets(r.parameter_notes),
+        "\n\n3. Downside\n\n", bullets(r.downside),
+        "\n\n4. Upside\n\n", bullets(r.upside),
+        "\n\n5. Drawdown\n\n", r.drawdown_reading.strip(),
+        "\n\n6. Model Assumptions\n\n", bullets(r.assumptions),
+        "\n\n7. Parameter Notes\n\n", bullets(r.parameter_notes),
     ])
 
 
@@ -2667,14 +2667,14 @@ def _render_contract_report(r: "ContractIntel", blob: dict, scores: dict) -> str
         return "\n".join(f"\u2022 {i}" for i in items) if items else empty
 
     parts = [
-        "1. High Level Summary\n", r.summary.strip(),
-        "\n\n2. Contract Identity and Role\n", r.identity.strip(),
-        "\n\n3. Technical Profile\n", r.technical.strip(),
+        "1. High Level Summary\n\n", r.summary.strip(),
+        "\n\n2. Contract Identity and Role\n\n", r.identity.strip(),
+        "\n\n3. Technical Profile\n\n", r.technical.strip(),
         "\n\nThreat Vectors\n\n",
         bullets(r.threat_vectors, "\u2022 No dangerous capability was found in the evidence for this contract."),
-        "\n\n4. Token and Market Snapshot\n", r.market.strip(),
+        "\n\n4. Token and Market Snapshot\n\n", r.market.strip(),
         "\n\n", contract_report.holder_table(blob),
-        "\n\n5. Permission and Control Surface\n",
+        "\n\n5. Permission and Control Surface\n\n",
         bullets(r.control_surface, "\u2022 No control powers were visible in this scan."),
         "\n\nLP Lock Status\n\n", r.lp_assessment.strip(),
         "\n\n6. Risk Assessment\n\n",
@@ -2684,7 +2684,7 @@ def _render_contract_report(r: "ContractIntel", blob: dict, scores: dict) -> str
         f"Data Completeness Score: {scores['data_completeness']}/10\n\n",
         bullets(r.risk_discussion, ""),
         "\n\n", contract_report.signals(blob),
-        "\n\n7. Recommendations\n", bullets(r.recommendations, ""),
+        "\n\n7. Recommendations\n\n", bullets(r.recommendations, ""),
     ]
     return "".join(parts)
 

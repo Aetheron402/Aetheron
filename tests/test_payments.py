@@ -597,3 +597,59 @@ def test_a_fence_language_tag_is_not_treated_as_content():
     assert strip_fence("```\nYou are an analyst.\nDo it.\n```").startswith("You are")
     # Blank lines inside are preserved.
     assert strip_fence("```\na\n\nb\n```") == "a\n\nb"
+
+
+def test_a_section_title_is_its_own_block():
+    """
+    Titles are detected per block, and the whole block is drawn in the heading
+    style. A title emitted with a single trailing newline kept its content in
+    the same block, so an entire bullet list rendered as one bold run-on
+    heading. Every renderer has to leave a blank line after the title.
+    """
+    import celery_worker as w
+    from pdf_utils import split_blocks
+
+    r = w.OptimizedPrompt(
+        optimized_prompt="# Role\nBe an analyst.",
+        what_changed=["First change.", "Second change."],
+        analysis="Some analysis.",
+        failure_modes=["A failure."],
+        variants=[],
+        usage_notes=["A note."],
+    )
+    blocks = [b.strip() for b in split_blocks(w._render_optimizer_report(r, "an agent"))]
+
+    for title in ["1. Optimized Prompt", "2. What Changed", "3. Prompt Analysis",
+                  "4. Failure Modes", "5. Variants", "6. Using It"]:
+        assert title in blocks, f"{title} is not a block of its own"
+
+    # The bullets must be a separate block, not absorbed into the heading.
+    assert any(b.startswith("• First change.") for b in blocks)
+
+
+def test_every_renderer_separates_titles_from_content():
+    import re
+    import celery_worker as w
+    from pdf_utils import split_blocks
+
+    persona = w.Persona(name="P", interpretation="i", strength="s", weakness="wk", risks=["r"])
+    cases = [
+        w._render_tester_report(w.PersonaTest(
+            interpretation="x", personas=[persona], cross_persona="c",
+            quality_score=5, quality_reasoning="q",
+            divergence_score=5, divergence_reasoning="d",
+            improvements=["imp"], improved_prompt="better prompt")),
+        w._render_code_report(w.CodeAudit(
+            language="python", summary="s", how_it_works="h",
+            strengths=["st"], weaknesses=["wk"], complexity="c",
+            security=["sec"], edge_cases=["ec"], refactors=["rf"],
+            patches=["print(1)"], recommendations=["rec"])),
+        w._render_risk_report(w.RiskInterpretation(
+            verdict="v", downside=["d"], upside=["u"], drawdown_reading="dd",
+            assumptions=["a"], parameter_notes=["p"]), "Parameters:\n• Runs: 10"),
+    ]
+    for md in cases:
+        for block in split_blocks(md):
+            t = block.strip()
+            if re.match(r"^\d+\.\s", t) and not t.startswith("```"):
+                assert "\n" not in t, f"title carries content: {t[:60]!r}"
