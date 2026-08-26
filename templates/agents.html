@@ -494,24 +494,123 @@ document.querySelectorAll("input[name='payment_method']")
 </script>
 
 <script>
+// Ask for the few settings the agent needs, then send them with the purchase
+// so config.json arrives filled in. A buyer previously had to open that file
+// and replace ADD_YOUR_WALLET_HERE before anything would run.
+async function collectAgentConfig(agentId) {
+  let setup;
+  try {
+    const r = await fetch(`/api/agents/${agentId}/setup`);
+    if (!r.ok) return {};
+    setup = await r.json();
+  } catch (e) {
+    return {};                       // never block a paid download on this
+  }
+  if (!setup.fields || !setup.fields.length) return {};
+  return await new Promise(resolve => showSetupForm(agentId, setup, resolve));
+}
+
+function showSetupForm(agentId, setup, resolve) {
+  const bg = document.getElementById("agent-setup-bg");
+  const body = document.getElementById("agent-setup-body");
+  const err = document.getElementById("agent-setup-error");
+
+  document.getElementById("agent-setup-title").textContent = `Set up ${agentId}`;
+  err.textContent = "";
+  body.innerHTML = "";
+
+  for (const f of setup.fields) {
+    const wrap = document.createElement("div");
+    wrap.className = "mb-4";
+
+    const label = document.createElement("label");
+    label.className = "block text-sm text-gray-300 mb-1";
+    label.textContent = f.label + (f.required ? "" : "  (optional)");
+    wrap.appendChild(label);
+
+    const input = document.createElement("input");
+    input.className = "w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200";
+    input.dataset.key = f.key;
+    input.placeholder = f.kind === "url" ? "https://..." : "";
+    wrap.appendChild(input);
+
+    if (f.help) {
+      const help = document.createElement("p");
+      help.className = "text-xs text-gray-500 mt-1";
+      help.textContent = f.help;
+      wrap.appendChild(help);
+    }
+    body.appendChild(wrap);
+  }
+
+  // Credentials we deliberately do not accept through a web form.
+  if (setup.local_only && setup.local_only.length) {
+    const note = document.createElement("div");
+    note.className = "mt-4 p-3 rounded-lg border border-amber-400/30 bg-amber-400/5";
+    const head = document.createElement("p");
+    head.className = "text-amber-300 text-sm font-semibold mb-1";
+    head.textContent = "You will set these yourself, in config.json";
+    note.appendChild(head);
+    for (const item of setup.local_only) {
+      const line = document.createElement("p");
+      line.className = "text-xs text-gray-400";
+      line.textContent = item.path + ": " + item.why;
+      note.appendChild(line);
+    }
+    body.appendChild(note);
+  }
+
+  const finish = (value) => {
+    bg.style.display = "none";
+    document.getElementById("agent-setup-go").onclick = null;
+    document.getElementById("agent-setup-skip").onclick = null;
+    resolve(value);
+  };
+
+  document.getElementById("agent-setup-go").onclick = () => {
+    const out = {};
+    for (const input of body.querySelectorAll("input[data-key]")) {
+      const v = input.value.trim();
+      if (v) out[input.dataset.key] = v;
+    }
+    const missing = setup.fields.filter(f => f.required && !out[f.key]);
+    if (missing.length) {
+      err.textContent = missing[0].label + " is required.";
+      return;
+    }
+    finish(out);
+  };
+  document.getElementById("agent-setup-skip").onclick = () => finish({});
+
+  bg.style.display = "flex";
+}
+
 async function downloadAgent(agentId) {
   if (!window.currentWallet) {
     alert("Connect wallet first.");
     return;
   }
 
+  // Asked before paying, so a typo costs nothing to correct.
+  const config = await collectAgentConfig(agentId);
+
   const method =
     document.querySelector('input[name="payment_method"]:checked')?.value || "USDC";
 
   showLoading();
 
+  const send = (sig) => fetch(`/api/download_agent/${agentId}`, {
+    method: "POST",
+    headers: Object.assign({
+      "Content-Type": "application/json",
+      "X-USER-WALLET": window.currentWallet,
+      "X-PAYMENT-METHOD": method
+    }, sig ? { "X-TX-SIG": sig } : {}),
+    body: JSON.stringify({ config })
+  });
+
   try {
-    let res = await fetch(`/api/download_agent/${agentId}`, {
-      headers: {
-        "X-USER-WALLET": window.currentWallet,
-        "X-PAYMENT-METHOD": method
-      }
-    });
+    let res = await send(null);
 
     if (res.status === 402) {
       alert(
@@ -523,13 +622,7 @@ async function downloadAgent(agentId) {
       const sig = prompt("Paste your Solana transaction signature:");
       if (!sig) return;
 
-      res = await fetch(`/api/download_agent/${agentId}`, {
-        headers: {
-          "X-USER-WALLET": window.currentWallet,
-          "X-PAYMENT-METHOD": method,
-          "X-TX-SIG": sig
-        }
-      });
+      res = await send(sig);
     }
 
     if (res.status === 409) {
@@ -557,6 +650,22 @@ async function downloadAgent(agentId) {
   }
 }
 </script>
+
+<div id="agent-setup-bg" class="modal-bg" style="display:none">
+  <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px] max-h-[80vh] overflow-y-auto">
+    <h3 id="agent-setup-title" class="text-cyan-300 text-xl font-semibold mb-1">Set up agent</h3>
+    <p class="text-sm text-gray-400 mb-5">
+      These go straight into config.json, so the agent runs as soon as you unzip it.
+      Anything you leave blank keeps its default.
+    </p>
+    <div id="agent-setup-body"></div>
+    <p id="agent-setup-error" class="text-sm text-red-400 mt-2"></p>
+    <div class="flex justify-end gap-3 mt-5">
+      <button id="agent-setup-skip" class="text-gray-400 hover:text-cyan-300 text-sm">Skip, use defaults</button>
+      <button id="agent-setup-go" class="btn">Continue</button>
+    </div>
+  </div>
+</div>
 
 <div id="loading" class="fixed inset-0 bg-black/70 hidden z-[9999] flex items-center justify-center">
   <div class="text-center">

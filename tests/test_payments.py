@@ -1149,3 +1149,145 @@ def test_a_tall_chart_still_builds_a_pdf():
                              "1. Section\n\nbody text", chart_path=path)
     buf = res[0] if isinstance(res, tuple) else res
     assert buf.getvalue().startswith(b"%PDF")
+
+
+# ── agent store: pre-configured downloads ───────────────────────────────────
+
+def _open_zip(data):
+    import io, zipfile
+    return zipfile.ZipFile(io.BytesIO(data))
+
+
+def test_the_placeholder_is_gone_from_a_configured_download():
+    """
+    The buyer previously had to open config.json and replace
+    ADD_YOUR_WALLET_HERE before anything would run.
+    """
+    import json
+    import agent_setup
+    z = _open_zip(agent_setup.build_zip("wallet-watcher", {
+        "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+    }))
+    cfg = json.loads(z.read("config.json"))
+    assert cfg["wallets_to_watch"] == ["9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"]
+    assert "ADD_YOUR_WALLET_HERE" not in json.dumps(cfg)
+
+
+def test_untouched_settings_keep_their_defaults():
+    """Only fields the buyer supplies are changed; tuning knobs are left alone."""
+    import json
+    import agent_setup
+    z = _open_zip(agent_setup.build_zip("wallet-watcher", {
+        "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+    }))
+    cfg = json.loads(z.read("config.json"))
+    assert cfg["rpc"]["poll_interval_seconds"] == 8
+    assert cfg["notifications"]["webhook_url"] == ""
+
+
+def test_every_archive_ships_a_runner():
+    import agent_setup
+    for agent_id in agent_setup.AGENT_PATHS:
+        z = _open_zip(agent_setup.build_zip(agent_id, {}))
+        names = z.namelist()
+        assert "run.sh" in names, agent_id
+        assert "run.bat" in names, agent_id
+        assert "QUICKSTART.md" in names, agent_id
+        # ./run.sh has to work without the buyer running chmod first.
+        assert z.getinfo("run.sh").external_attr >> 16 & 0o111, agent_id
+
+
+def test_the_runner_starts_the_right_entrypoint():
+    """project-planner is app.py; the rest are main.py."""
+    import agent_setup
+    planner = _open_zip(agent_setup.build_zip("project-planner", {})).read("run.sh").decode()
+    watcher = _open_zip(agent_setup.build_zip("wallet-watcher", {})).read("run.sh").decode()
+    assert "python app.py" in planner
+    assert "python main.py" in watcher
+
+
+def test_a_bad_wallet_address_is_rejected():
+    """Caught before payment, and the message says what is wrong."""
+    import agent_setup
+    with pytest.raises(agent_setup.SetupError) as exc:
+        agent_setup.build_zip("wallet-watcher", {"wallet": "not-an-address"})
+    assert "base58" in str(exc.value)
+
+
+def test_a_webhook_must_be_https():
+    import agent_setup
+    with pytest.raises(agent_setup.SetupError):
+        agent_setup.build_zip("wallet-watcher", {
+            "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+            "webhook": "http://insecure.example.com/hook",
+        })
+
+
+def test_a_required_field_left_blank_is_refused():
+    import agent_setup
+    with pytest.raises(agent_setup.SetupError) as exc:
+        agent_setup.build_zip("wallet-watcher", {"webhook": "https://example.com/h"})
+    assert "required" in str(exc.value)
+
+
+def test_private_keys_are_never_asked_for():
+    """
+    A key pasted into a web form travels through this server on the way to a
+    file the buyer could have edited themselves.
+    """
+    import agent_setup
+    keys = [f["key"] for f in agent_setup.fields_for("solana-sniper")]
+    paths = [f["path"] for f in agent_setup.fields_for("solana-sniper")]
+    assert not any("private" in k or "secret" in k for k in keys)
+    assert not any("private_key" in p for p in paths)
+    local = [p for p, _ in agent_setup.local_only_for("solana-sniper")]
+    assert "wallet.private_key" in local
+
+
+def test_the_template_config_is_never_mutated():
+    """Two buyers must not see each other's settings."""
+    import json
+    import agent_setup
+    before = json.load(open("static/agents_src/wallet-watcher/config.json"))
+    agent_setup.build_zip("wallet-watcher", {
+        "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "webhook": "https://example.com/hook",
+    })
+    after = json.load(open("static/agents_src/wallet-watcher/config.json"))
+    assert before == after
+    assert after["wallets_to_watch"] == ["ADD_YOUR_WALLET_HERE"]
+
+
+def test_caches_and_virtualenvs_are_not_shipped():
+    import agent_setup
+    for agent_id in agent_setup.AGENT_PATHS:
+        names = _open_zip(agent_setup.build_zip(agent_id, {})).namelist()
+        assert not any("__pycache__" in n or n.endswith(".pyc") for n in names), agent_id
+        assert not any(n.startswith(".venv") for n in names), agent_id
+
+
+def test_an_unknown_agent_is_refused():
+    import agent_setup
+    with pytest.raises(agent_setup.SetupError):
+        agent_setup.build_zip("../../etc", {})
+
+
+def test_skipping_setup_yields_the_template_unchanged():
+    """
+    The form offers 'Skip, use defaults'. Enforcing a required field there
+    would block a download already paid for, over a value the buyer can edit
+    in the file they just received.
+    """
+    import json
+    import agent_setup
+    z = _open_zip(agent_setup.build_zip("wallet-watcher", {}))
+    cfg = json.loads(z.read("config.json"))
+    assert cfg["wallets_to_watch"] == ["ADD_YOUR_WALLET_HERE"]
+    assert "QUICKSTART.md" in z.namelist()
+
+
+def test_a_partial_submission_still_validates_required_fields():
+    """Someone who filled the form in must not omit the field that matters."""
+    import agent_setup
+    with pytest.raises(agent_setup.SetupError):
+        agent_setup.build_zip("wallet-watcher", {"webhook": "https://example.com/h"})

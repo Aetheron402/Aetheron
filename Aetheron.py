@@ -36,6 +36,7 @@ from ledger_utils import (
 from aeth_price import calculate_required_aeth, AethPricingError
 
 import storage
+import agent_setup
 
 from celery.result import AsyncResult
 from solders.signature import Signature
@@ -813,6 +814,101 @@ def api_price_aeth(usdc_price: float, refresh: bool = False):
 def ledger_api():
     return [row_to_dict(r) for r in get_recent(limit=50)]
 
+class AgentSetup(BaseModel):
+    """Values a buyer supplies for their copy of the agent."""
+    config: dict | None = None
+
+
+def _deliver_agent(agent_id: str, request: Request, x_payment, x_payment_method, answers):
+    """Shared by both download routes: verify payment, then build the archive."""
+    payment_method = (x_payment_method or "USDC").upper()
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    payment_check = verify_payment(
+        x_payment,
+        user_wallet,
+        float(AGENT_PRICE_USDC),
+        payment_method,
+        component="agent",
+    )
+
+    if payment_check is False:
+        return payment_required(
+            "agent", "Payment required to download this agent", AGENT_PRICE_USDC
+        )
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(
+            status_code=402,
+            content={
+                "status": 402,
+                "message": "Partial payment received",
+                "paid": payment_check["paid"],
+                "remaining": payment_check["remaining"],
+                "currency": "AETH",
+                "agent_id": agent_id,
+            },
+        )
+
+    if agent_id not in agent_setup.AGENT_PATHS:
+        raise HTTPException(status_code=404, detail="Invalid agent ID")
+
+    try:
+        data = agent_setup.build_zip(agent_id, answers or {})
+    except agent_setup.SetupError as exc:
+        # A bad wallet address is the buyer's typo, not a server fault, and
+        # they can fix it without paying again.
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # Held in memory: an archive carrying someone's endpoints has no reason to
+    # be written to this server's disk, and a shared path raced between two
+    # concurrent downloads of the same agent.
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{agent_id}.zip"'},
+    )
+
+
+@app.get("/api/agents/{agent_id}/setup")
+def agent_setup_fields(agent_id: str):
+    """
+    What this agent needs before it can run. Public, so the shop can show the
+    form before payment rather than after.
+    """
+    if agent_id not in agent_setup.AGENT_PATHS:
+        raise HTTPException(status_code=404, detail="Invalid agent ID")
+    return {
+        "agent_id": agent_id,
+        "fields": agent_setup.fields_for(agent_id),
+        "local_only": [
+            {"path": path, "why": why}
+            for path, why in agent_setup.local_only_for(agent_id)
+        ],
+    }
+
+
+@app.post("/api/download_agent/{agent_id}")
+def download_agent_configured(
+    agent_id: str,
+    request: Request,
+    payload: AgentSetup | None = None,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    """Download with the buyer's settings already written into config.json."""
+    try:
+        return _deliver_agent(
+            agent_id, request, x_payment, x_payment_method,
+            (payload.config if payload else None),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/download_agent/{agent_id}")
 def download_agent(
     agent_id: str,
@@ -820,75 +916,19 @@ def download_agent(
     x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
     x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
 ):
+    """
+    Download with defaults. Kept so existing clients and the SDK still work;
+    settings are not accepted on a GET because they would be logged in the
+    query string.
+    """
     try:
-        payment_method = (x_payment_method or "USDC").upper()
-        user_wallet = request.headers.get("X-USER-WALLET")
-
-        payment_check = verify_payment(
-            x_payment,
-            user_wallet,
-            float(AGENT_PRICE_USDC),
-            payment_method,
-            component=f"agent:{agent_id}",
-        )
-
-        if payment_check is False:
-            response = payment_required(
-                f"agent:{agent_id}",
-                "Payment required for agent download",
-                AGENT_PRICE_USDC,
-            )
-            return response
-
-        if isinstance(payment_check, dict):
-            return JSONResponse(
-                status_code=402,
-                content={
-                    "status": 402,
-                    "message": "Partial payment received",
-                    "paid": payment_check["paid"],
-                    "remaining": payment_check["remaining"],
-                    "currency": "AETH",
-                    "agent_id": agent_id,
-                },
-            )
-
-        agent_paths = {
-            "solana-sniper": "static/agents_src/solana-sniper",
-            "wallet-watcher": "static/agents_src/wallet-watcher",
-            "discord-helper": "static/agents_src/discord-helper",
-            "pumpfun-launcher": "static/agents_src/pumpfun-launcher",
-            "solana-trading-assistant": "static/agents_src/solana-trading-assistant",
-            "market-tracker": "static/agents_src/market-tracker",
-            "prediction-market": "static/agents_src/prediction-market",
-            "alpha-scanner": "static/agents_src/alpha-scanner",
-            "project-planner": "static/agents_src/project-planner",
-        }
-
-        if agent_id not in agent_paths:
-            raise HTTPException(status_code=404, detail="Invalid agent ID")
-
-        src_folder = agent_paths[agent_id]
-        if not os.path.exists(src_folder):
-            raise HTTPException(status_code=404, detail="Agent source folder not found")
-
-        # A fixed path per agent meant two concurrent downloads raced: one
-        # deleted the archive while the other was still streaming it.
-        zip_base = f"/tmp/{agent_id}-{secrets.token_hex(8)}"
-        shutil.make_archive(zip_base, "zip", src_folder)
-        zip_path = f"{zip_base}.zip"
-
-        return FileResponse(
-            zip_path,
-            filename=f"{agent_id}.zip",
-            media_type="application/zip",
-        )
-
+        return _deliver_agent(agent_id, request, x_payment, x_payment_method, None)
     except HTTPException:
         raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/agents")
 def list_agents():
