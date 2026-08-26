@@ -250,7 +250,10 @@ def _render_optimizer_report(r: "OptimizedPrompt", target_label: str) -> str:
 
     parts = [
         "1. Optimized Prompt\n",
-        r.optimized_prompt.strip(),
+        # Fenced so it survives rendering intact. Unfenced, its own markdown
+        # headings were read as report sections and its line breaks were
+        # reflowed away, which ruins the one part meant to be copied and run.
+        "```\n" + r.optimized_prompt.strip() + "\n```",
         "\n\n2. What Changed\n",
         bullets(r.what_changed),
         "\n\n3. Prompt Analysis\n",
@@ -622,7 +625,8 @@ def _render_tester_report(r: "PersonaTest") -> str:
         f"\n\n6. Persona Divergence Score\n\nPersona Divergence Score: {r.divergence_score}/10\n\n",
         r.divergence_reasoning.strip(),
         "\n\n7. Improvement Suggestions\n", bullets(r.improvements),
-        "\n\n8. Improved Prompt Variant\n", r.improved_prompt.strip(),
+        "\n\n8. Improved Prompt Variant\n",
+        "```\n" + r.improved_prompt.strip() + "\n```",
     ]
     return "".join(parts)
 

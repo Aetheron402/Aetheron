@@ -539,3 +539,61 @@ def test_invalid_simulation_inputs_are_rejected():
                  (10, 10, 0.05, 0.4, 0.0), (10, 10, 0.05, -0.1, 1.0)]:
         with pytest.raises(ValueError):
             rm.simulate(*args)
+
+
+# ── PDF rendering of a copy-pasteable deliverable ───────────────────────────
+
+def test_a_fenced_prompt_is_one_block_not_many_sections():
+    """
+    The optimizer's deliverable is a prompt that itself contains markdown
+    headings. Splitting on blank lines tore its fence apart, so every
+    '# Heading' inside it was read as a report section: a six section report
+    rendered as fourteen, with the real sections renumbered after the
+    fragments, and the line breaks that made it copy-pasteable reflowed away.
+    """
+    import celery_worker as w
+    from pdf_utils import split_blocks
+
+    r = w.OptimizedPrompt(
+        optimized_prompt="# Role\nYou are an analyst.\n\n# Task\nDo the thing.",
+        what_changed=["Named the role."],
+        analysis="The original was vague.",
+        failure_modes=["Invents a competitor set."],
+        variants=[],
+        usage_notes=["Fill the inputs first."],
+    )
+    blocks = split_blocks(w._render_optimizer_report(r, "an agent"))
+
+    fenced = [b for b in blocks if b.strip().startswith("```")]
+    assert len(fenced) == 1, "the prompt must survive as exactly one block"
+    assert "# Role" in fenced[0] and "# Task" in fenced[0]
+
+    # Nothing outside the fence may start with a heading marker taken from
+    # inside the prompt, which is what became a spurious section.
+    outside = [b for b in blocks if not b.strip().startswith("```")]
+    assert not any(b.lstrip().startswith("# Task") for b in outside)
+
+    titles = [b.strip() for b in outside if b.strip()[:2] in
+              ("1.", "2.", "3.", "4.", "5.", "6.", "7.")]
+    numbers = sorted({t[0] for t in titles})
+    assert numbers == ["1", "2", "3", "4", "5", "6"], numbers
+
+
+def test_a_fence_survives_a_blank_line_inside_it():
+    from pdf_utils import split_blocks
+    blocks = split_blocks("1. Heading\n\n```\nline one\n\nline three\n```\n\n2. Second")
+    fenced = [b for b in blocks if b.strip().startswith("```")]
+    assert len(fenced) == 1
+    assert "line one" in fenced[0] and "line three" in fenced[0]
+
+
+def test_a_fence_language_tag_is_not_treated_as_content():
+    from pdf_utils import strip_fence
+    assert strip_fence("```python\nprint(1)\n```") == "print(1)"
+    # No tag: the first line is content, even when it looks like one word.
+    assert strip_fence("```\nprint(1)\n```") == "print(1)"
+    assert strip_fence("```\n#!/bin/sh\necho hi\n```") == "#!/bin/sh\necho hi"
+    # Prose first lines survive too.
+    assert strip_fence("```\nYou are an analyst.\nDo it.\n```").startswith("You are")
+    # Blank lines inside are preserved.
+    assert strip_fence("```\na\n\nb\n```") == "a\n\nb"

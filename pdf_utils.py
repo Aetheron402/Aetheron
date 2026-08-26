@@ -144,6 +144,44 @@ def add_radar_chart(values, labels, size=200):
 
     return d
 
+def split_blocks(text: str) -> list[str]:
+    """
+    Split a report into rendering blocks, keeping fenced regions whole.
+
+    Splitting the whole document on blank lines tore fences apart, and the
+    orphaned remainder was then parsed as ordinary markdown. For the prompt
+    optimizer that was severe: the rewritten prompt contains its own '# Role'
+    and '# Task' headings, each of which became a numbered report section, so a
+    six section report rendered as fourteen with the real sections renumbered
+    after the fragments. The line breaks that make a prompt copy-pasteable were
+    reflowed away at the same time. Code patches hit the same fault.
+    """
+    parts = re.split(r"(```.*?```)", text, flags=re.S)
+    blocks = []
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            blocks.append(part)          # a fence, kept intact
+        else:
+            blocks.extend(re.split(r"\n\s*\n", part))
+    return [b for b in blocks if b.strip()]
+
+
+def strip_fence(block: str) -> str:
+    """
+    Return the code inside a fence, without the fence or its info string.
+
+    The info string is whatever follows the opening backticks on that same
+    line, which is the only thing that distinguishes it from content. Guessing
+    instead, by treating any first line without a space as a language tag, ate
+    the first line of every block that opened with a bare call like print(1).
+    """
+    m = re.match(r"^\s*```([^\n]*)\n?(.*?)\n?\s*```\s*$", block, flags=re.S)
+    if m:
+        return m.group(2).strip("\n")
+    # Not a well formed fence: strip what backticks there are and keep the rest.
+    return block.strip().strip("`").strip("\n")
+
+
 def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, chart_path=None):
 
     buffer = io.BytesIO()
@@ -208,7 +246,7 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
             cleaned.append(line)
     text = "\n".join(cleaned)
 
-    blocks = re.split(r"\n\s*\n", text)
+    blocks = split_blocks(text)
 
     def add_para(txt, style="Body"):
         if txt.strip():
@@ -292,9 +330,14 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
             continue
 
         if block.startswith("```"):
-            code = block.strip("`").strip()
-            safe = escape_reportlab(code)
-            add_para(safe.replace("\n", "<br/>"), "CodeBlock")
+            safe = escape_reportlab(strip_fence(block))
+            # Leading spaces collapse in flowed text, and indentation is most of
+            # what makes a prompt or a patch readable.
+            safe = "<br/>".join(
+                line.replace(" ", "&nbsp;") if line[:1] == " " else line
+                for line in safe.split("\n")
+            )
+            add_para(safe, "CodeBlock")
             continue
 
         if "|" in block and "---" in block:
