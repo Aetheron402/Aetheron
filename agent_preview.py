@@ -104,7 +104,7 @@ def run(agent_id: str, seconds: int = MAX_SECONDS) -> dict:
             with open(config_path, "w") as handle:
                 json.dump(config, handle, indent=2)
 
-        entrypoint = "app.py" if os.path.exists(os.path.join(workdir, "app.py")) else "main.py"
+        entrypoint = agent_setup.entrypoint_for(workdir)
 
         # Its own process group, so the deadline kills the agent and anything
         # it spawned rather than leaving orphans on the worker.

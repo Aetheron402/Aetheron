@@ -14,7 +14,7 @@ from utils.helpers import (
     pretty_print_analysis,
     send_webhook_notification,
 )
-from utils.rpc import SolanaRPCClient, BirdeyeClient
+from utils.rpc import SolanaRPCClient, BirdeyeClient, DexScreenerClient
 
 
 class SolanaTradingAssistant:
@@ -55,13 +55,28 @@ class SolanaTradingAssistant:
             logger=self.logger,
         )
 
-        # Initialize Birdeye API Client
-        self.birdeye_client = BirdeyeClient(
-            api_key=birdeye_cfg.get("api_key", ""),
-            base_url=birdeye_cfg.get("base_url", "https://public-api.birdeye.so"),
-            timeout_seconds=birdeye_cfg.get("timeout_seconds", 10),
-            logger=self.logger,
-        )
+        # Market data. Birdeye when a key is configured, DexScreener otherwise,
+        # which needs none. Without this fallback an agent shipped without a key
+        # produced only request failures, and the endpoints it was written
+        # against have since been retired anyway.
+        birdeye_key = (birdeye_cfg.get("api_key") or "").strip()
+        if birdeye_key and not birdeye_key.upper().startswith("YOUR_"):
+            self.birdeye_client = BirdeyeClient(
+                api_key=birdeye_key,
+                base_url=birdeye_cfg.get("base_url", "https://public-api.birdeye.so"),
+                timeout_seconds=birdeye_cfg.get("timeout_seconds", 10),
+                logger=self.logger,
+            )
+            self.logger.info("Market data source: Birdeye.")
+        else:
+            self.birdeye_client = DexScreenerClient(
+                timeout_seconds=birdeye_cfg.get("timeout_seconds", 10),
+                logger=self.logger,
+            )
+            self.logger.info(
+                "Market data source: DexScreener, no API key required. "
+                "Add birdeye.api_key to config.json to use Birdeye instead."
+            )
 
         # Notification System
         self.notifications_enabled = bool(notifications_cfg.get("enabled", False))
@@ -143,3 +158,10 @@ if __name__ == "__main__":
 
     config = load_config(config_path)
     logger = setup_logger(config.get("logging", {}))
+
+    # This block stopped here. The class above was fully written and never
+    # instantiated, so running main.py loaded a config, built a logger and
+    # exited zero without printing anything, which is indistinguishable from
+    # an agent that is broken.
+    assistant = SolanaTradingAssistant(config, logger)
+    assistant.run()

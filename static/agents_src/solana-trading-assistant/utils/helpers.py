@@ -61,7 +61,11 @@ def analyze_token(
     trend_scores = {}
 
     for tf, candle_data in candles.items():
-        if not candle_data or len(candle_data) < 2:
+        # One candle is enough: the calculation below reads only the newest
+        # one. Requiring two silently zeroed the trend for any source that
+        # returns a single candle per window, which is every source that
+        # serves a percentage move rather than a series.
+        if not candle_data:
             trend_scores[tf] = 0
             continue
 
@@ -79,8 +83,11 @@ def analyze_token(
     price_trend_score = sum(trend_scores.values()) / max(len(trend_scores), 1)
 
     # Volume acceleration: compare 5m candle to older candles
+    # Needs a series to compare against. With a single candle per window there
+    # is nothing to accelerate away from, so this stays at zero rather than
+    # reporting a flat reading it did not measure.
     vol_accel = 0
-    if "5m" in candles and candles["5m"]:
+    if len(candles.get("5m") or []) >= 2:
         recent_vol = candles["5m"][-1]["v"]
         older_vols = [c["v"] for c in candles["5m"][-5:] if "v" in c]
         avg_old_vol = sum(older_vols[:-1]) / max(len(older_vols) - 1, 1)

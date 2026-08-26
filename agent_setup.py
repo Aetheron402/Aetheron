@@ -304,6 +304,23 @@ python {entrypoint}
 """
 
 
+def entrypoint_for(directory: str) -> str:
+    """
+    The file that starts an agent.
+
+    main.py across every agent in this store. project-planner also has an
+    app.py, but that is the module defining the application, not a way to run
+    it: preferring it produced a run script that started nothing and exited
+    zero, which looks exactly like an agent that is broken.
+    """
+    import os as _os
+    if _os.path.exists(_os.path.join(directory, "main.py")):
+        return "main.py"
+    if _os.path.exists(_os.path.join(directory, "app.py")):
+        return "app.py"
+    return "main.py"
+
+
 def build_zip(agent_id: str, answers: dict) -> bytes:
     """
     Build the archive: the agent, its filled-in config, and the run scripts.
@@ -324,7 +341,7 @@ def build_zip(agent_id: str, answers: dict) -> bytes:
             source_config = json.load(handle)
 
     config, applied = apply_config(agent_id, source_config, answers)
-    entrypoint = "app.py" if os.path.exists(os.path.join(src, "app.py")) else "main.py"
+    entrypoint = entrypoint_for(src)
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
