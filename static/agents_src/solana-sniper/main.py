@@ -16,6 +16,7 @@ class SniperAgent:
 
         self.auto_buy_enabled = config["sniper"]["auto_buy_enabled"]
         self.max_positions = config["wallet"]["max_open_positions"]
+        self.max_hold_seconds = config["sniper"].get("max_hold_seconds", 300)
         self.open_positions = []
 
         self.logger.info("SniperAgent initialized.")
@@ -30,6 +31,12 @@ class SniperAgent:
 
         while True:
             try:
+                # Before looking for anything new, retire what is already held.
+                # Positions were only ever appended, so with the default of two
+                # the agent stopped acting after its second token and logged
+                # "max open positions reached" for every one after that.
+                self.review_positions()
+
                 opportunities = self.client.fetch_new_opportunities()
 
                 if opportunities:
@@ -75,6 +82,17 @@ class SniperAgent:
         This function simulates a position entry and is the extension point
         for integrating your preferred DEX or routing solution.
         """
+        # The caller checks this too, but the limit belongs with the action it
+        # limits: anything calling execute_buy directly could otherwise exceed
+        # max_open_positions, and this is the function a buyer replaces with a
+        # real order.
+        if len(self.open_positions) >= self.max_positions:
+            self.logger.info(
+                f"Entry skipped for {token['mint']}: "
+                f"{len(self.open_positions)}/{self.max_positions} positions already open."
+            )
+            return
+
         spend_amount = self.config["wallet"]["max_spend_sol"]
         self.logger.info(
             f"Executing entry signal for {token['mint']} | Spend up to {spend_amount} SOL."
@@ -88,7 +106,42 @@ class SniperAgent:
             "timestamp": time.time()
         })
 
-        self.logger.info(f"Position opened for {token['mint']} (simulation entry).")
+        self.logger.info(
+            f"Position opened for {token['mint']} (simulation entry), "
+            f"{len(self.open_positions)}/{self.max_positions} slots used, "
+            f"holding up to {self.max_hold_seconds}s."
+        )
+
+    def review_positions(self):
+        """
+        Close simulated positions that have reached the hold limit.
+
+        A real integration exits on a target, a stop or a trailing rule. This
+        exits on time alone, which is the least interesting rule but an honest
+        one, and it keeps the slot accounting correct so the loop keeps
+        working past the first few tokens.
+        """
+        if not self.open_positions:
+            return
+
+        now = time.time()
+        still_open = []
+
+        for position in self.open_positions:
+            held = now - position["timestamp"]
+            if held < self.max_hold_seconds:
+                still_open.append(position)
+                continue
+
+            entry = position.get("entry_price")
+            self.logger.info(
+                f"Position closed for {position['mint']} after {held:.0f}s "
+                f"(simulation exit)"
+                + (f", entry price {entry}" if entry is not None else
+                   ", no entry price was recorded")
+            )
+
+        self.open_positions = still_open
 
 
 def main():
