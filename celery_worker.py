@@ -694,8 +694,10 @@ class Persona(BaseModel):
     predicted_output: str = Field(
         description="An abbreviated sample of what this persona would actually return: the "
                     "opening line or two, or the shape of the deliverable. Short, a few lines "
-                    "at most. Showing the divergence is the point, since a reader can compare "
-                    "samples and see the prompt splitting, where a description only asserts it."
+                    "at most. Use real line breaks, never the characters backslash and n, which "
+                    "render literally. Showing the divergence is the point, since a reader can "
+                    "compare samples and see the prompt splitting, where a description only "
+                    "asserts it."
     )
     risks: list[str] = Field(
         default_factory=list,
@@ -755,6 +757,23 @@ class PersonaTest(BaseModel):
     )
 
 
+def _unescape_sample(text: str) -> str:
+    """
+    Turn a sample the model escaped into one with real line breaks.
+
+    Models sometimes write the two characters backslash and n inside a field
+    instead of an actual newline, which then renders literally in the report.
+
+    Only applied when the text has no real newlines at all, which is the
+    signature of the whole thing being escaped. Text that is already formatted
+    is left alone, so a legitimate backslash-n inside a code sample survives.
+    """
+    body = (text or "").strip()
+    if "\n" in body or "\\n" not in body:
+        return body
+    return body.replace("\\n", "\n")
+
+
 IMPACT_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
@@ -795,7 +814,8 @@ def _render_tester_report(r: "PersonaTest") -> str:
         if p.predicted_output.strip():
             # Shown rather than described: two samples side by side settle
             # whether the prompt splits far better than a sentence saying so.
-            parts.append(f"\u2022 Would return:\n\n```\n{p.predicted_output.strip()}\n```\n")
+            sample = _unescape_sample(p.predicted_output)
+            parts.append(f"\u2022 Would return:\n\n```\n{sample}\n```\n")
 
     parts.append("\n\n4. Persona Level Deepening\n\n")
     deepened = [f"{p.name.strip()}\n\n" + bullets(p.risks) for p in r.personas if p.risks]

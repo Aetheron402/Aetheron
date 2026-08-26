@@ -810,3 +810,16 @@ def test_readings_stay_on_separate_lines():
     assert section.count("- reads as:") == 4
     for line in section.splitlines():
         assert line.count("reads as:") <= 1, f"readings collapsed onto one line: {line[:80]}"
+
+
+def test_an_escaped_sample_gets_real_line_breaks():
+    """Models sometimes write backslash-n instead of a newline; it renders literally."""
+    import celery_worker as w
+    assert w._unescape_sample(r"TL;DR: decide\nOwners: ...") == "TL;DR: decide\nOwners: ..."
+
+
+def test_an_already_formatted_sample_is_left_alone():
+    """A real backslash-n inside a formatted code sample must survive."""
+    import celery_worker as w
+    original = 'print("a\\nb")\nprint("done")'
+    assert w._unescape_sample(original) == original
