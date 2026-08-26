@@ -1349,3 +1349,29 @@ def test_an_unpreviewable_agent_is_refused_cleanly():
     result = agent_preview.run("discord-helper", seconds=5)
     assert result["ok"] is False
     assert "no live preview" in result["reason"]
+
+
+def test_every_previewable_agent_has_a_button():
+    """
+    The preview function and its modal shipped without anything calling them,
+    so the feature was unreachable dead code on a page that looked finished.
+    """
+    import re
+    import agent_preview
+    from fastapi.testclient import TestClient
+    import Aetheron
+
+    html = TestClient(Aetheron.app).get("/agents").text
+    wired = set(re.findall(r"previewAgent\('([a-z-]+)'\)", html))
+    assert wired == agent_preview.PREVIEWABLE, agent_preview.PREVIEWABLE ^ wired
+
+
+def test_agents_without_a_preview_have_no_button():
+    """A button that always errors is worse than no button."""
+    import re
+    from fastapi.testclient import TestClient
+    import Aetheron
+    html = TestClient(Aetheron.app).get("/agents").text
+    wired = set(re.findall(r"previewAgent\('([a-z-]+)'\)", html))
+    for agent in ("discord-helper", "solana-trading-assistant", "project-planner"):
+        assert agent not in wired

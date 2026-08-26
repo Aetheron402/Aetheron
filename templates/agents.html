@@ -86,11 +86,15 @@
         <div class="mt-6 flex justify-between items-center">
           <span class="text-cyan-300 font-semibold">4.99 USDC</span>
 
-          <button class="btn buy-agent-btn"
+          <div class="flex items-center gap-2">
+            <button type="button" class="preview-agent-btn" onclick="previewAgent('pumpfun-launcher')"
+                    title="Run it for a few seconds on live data, no payment">Watch it run</button>
+            <button class="btn buy-agent-btn"
             data-id="pumpfun-launcher"
             data-price="4.99">
             Buy
           </button>
+          </div>
         </div>
       </div>
 
@@ -112,11 +116,15 @@
         <div class="mt-6 flex justify-between items-center">
           <span class="text-cyan-300 font-semibold">4.99 USDC</span>
 
-          <button class="btn buy-agent-btn"
+          <div class="flex items-center gap-2">
+            <button type="button" class="preview-agent-btn" onclick="previewAgent('solana-sniper')"
+                    title="Run it for a few seconds on live data, no payment">Watch it run</button>
+            <button class="btn buy-agent-btn"
             data-id="solana-sniper"
             data-price="4.99">
             Buy
           </button>
+          </div>
         </div>
       </div>
 
@@ -156,11 +164,15 @@
           <div class="mt-6 flex justify-between items-center">
             <span class="text-cyan-300 font-semibold">4.99 USDC</span>
 
+            <div class="flex items-center gap-2">
+            <button type="button" class="preview-agent-btn" onclick="previewAgent('alpha-scanner')"
+                    title="Run it for a few seconds on live data, no payment">Watch it run</button>
             <button class="btn buy-agent-btn"
               data-id="alpha-scanner"
               data-price="4.99">
               Buy
             </button>
+          </div>
           </div>
         </div>
 
@@ -182,11 +194,15 @@
           <div class="mt-6 flex justify-between items-center">
             <span class="text-cyan-300 font-semibold">4.99 USDC</span>
 
+            <div class="flex items-center gap-2">
+            <button type="button" class="preview-agent-btn" onclick="previewAgent('prediction-market')"
+                    title="Run it for a few seconds on live data, no payment">Watch it run</button>
             <button class="btn buy-agent-btn"
               data-id="prediction-market"
               data-price="4.99">
               Buy
             </button>
+          </div>
           </div>
         </div>
     
@@ -208,11 +224,15 @@
           <div class="mt-6 flex justify-between items-center">
             <span class="text-cyan-300 font-semibold">4.99 USDC</span>
 
+            <div class="flex items-center gap-2">
+            <button type="button" class="preview-agent-btn" onclick="previewAgent('market-tracker')"
+                    title="Run it for a few seconds on live data, no payment">Watch it run</button>
             <button class="btn buy-agent-btn"
               data-id="market-tracker"
               data-price="4.99">
               Buy
             </button>
+          </div>
           </div>
         </div>
 
@@ -234,11 +254,15 @@
           <div class="mt-6 flex justify-between items-center">
             <span class="text-cyan-300 font-semibold">4.99 USDC</span>
 
+            <div class="flex items-center gap-2">
+            <button type="button" class="preview-agent-btn" onclick="previewAgent('wallet-watcher')"
+                    title="Run it for a few seconds on live data, no payment">Watch it run</button>
             <button class="btn buy-agent-btn"
               data-id="wallet-watcher"
               data-price="4.99">
               Buy
             </button>
+          </div>
           </div>
         </div>
       
@@ -666,6 +690,19 @@ async function downloadAgent(agentId) {
     </div>
   </div>
 </div>
+
+<style>
+  /* Secondary to Buy: this is the thing to try first, not the thing to click. */
+  .preview-agent-btn {
+    padding: .35rem .75rem;
+    font-size: .75rem; font-weight: 600;
+    color: #67e8f9; background: rgba(103,232,249,.07);
+    border: 1px solid rgba(103,232,249,.3); border-radius: .5rem;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  .preview-agent-btn:hover { background: rgba(103,232,249,.18); color: #a5f3fc; }
+</style>
 
 <div id="agent-preview-bg" class="modal-bg" style="display:none">
   <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[680px] max-h-[80vh] overflow-y-auto">
