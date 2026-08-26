@@ -7,6 +7,35 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script>
+    // Point Tailwind's own font classes at Geist, so every existing
+    // font-sans and font-mono in the markup picks it up without being touched.
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* These two pages do not load style.css, so the family is set here too.
+       Tailwind's preflight puts its own stack on html, and a page that only
+       inherits would fall back to the system font. */
+    :root, html, body { font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; }
+    button, input, select, textarea { font-family: inherit; }
+    code, pre, kbd, samp { font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace; }
+  </style>
+
+
   <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="96x96" href="/static/favicon/favicon-96x96.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">

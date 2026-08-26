@@ -17,3 +17,31 @@
 ul li.roadmap-done {
   padding-left: 0.25rem;
 }
+
+/* ── typography ──────────────────────────────────────────────────────────
+   Geist everywhere, including elements that never carried a Tailwind font
+   class. Set on the root rather than only on body, so anything rendered
+   outside it inherits too. Falls back to the system stack while the webfont
+   loads, which is why display=swap is on the link.
+   ───────────────────────────────────────────────────────────────────────── */
+:root,
+html,
+body {
+  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Buttons and form controls do not inherit the page font on their own. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+code,
+pre,
+kbd,
+samp,
+.font-mono {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
