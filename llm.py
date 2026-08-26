@@ -13,6 +13,8 @@ the user has already paid for.
 import logging
 import os
 
+from typing import TypeVar
+
 import anthropic
 
 logger = logging.getLogger(__name__)
@@ -98,3 +100,48 @@ def complete(system_blocks, user_payload: str) -> str:
     )
 
     return "".join(b.text for b in message.content if b.type == "text")
+
+
+T = TypeVar("T")
+
+
+def complete_structured(system_blocks, user_payload: str, schema: type[T]) -> T:
+    """
+    Run one completion and return it validated against `schema`.
+
+    Where a report has known sections, asking for them as fields beats asking
+    for markdown and recovering the sections with a regex afterwards. The model
+    cannot merge two sections or rename one, so downstream rendering stops being
+    best-effort.
+
+    Non-streaming: a schema-constrained response is bounded by its fields rather
+    than free to run long, and 16k stays inside the SDK's HTTP timeout.
+    """
+    client = get_client()
+
+    system = [{"type": "text", "text": b} for b in system_blocks if b]
+    if system:
+        system[-1]["cache_control"] = {"type": "ephemeral"}
+
+    message = client.messages.parse(
+        model=MODEL,
+        max_tokens=MAX_TOKENS,
+        system=system,
+        thinking={"type": "adaptive"},
+        output_config={"effort": EFFORT},
+        output_format=schema,
+        messages=[{"role": "user", "content": user_payload}],
+    )
+
+    if message.stop_reason == "refusal":
+        detail = getattr(message.stop_details, "category", None)
+        raise RuntimeError(f"The model declined this request ({detail or 'unspecified'})")
+
+    usage = message.usage
+    logger.info(
+        "Claude %s effort=%s structured in=%s out=%s cached=%s",
+        MODEL, EFFORT, usage.input_tokens, usage.output_tokens,
+        getattr(usage, "cache_read_input_tokens", 0),
+    )
+
+    return message.parsed_output

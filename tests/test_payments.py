@@ -305,3 +305,41 @@ def test_export_format_is_constrained():
     import pydantic
     with pytest.raises(pydantic.ValidationError):
         PromptIn(text="hi", format="exe")
+
+
+# ── prompt optimizer: target and structured rendering ───────────────────────
+
+def test_prompt_target_is_constrained():
+    """Free text here would reach the optimizer's instructions."""
+    from Aetheron import PromptIn
+    import pydantic
+
+    assert PromptIn(text="hi", target="coding").target == "coding"
+    assert PromptIn(text="hi").target is None
+    for bad in ("bogus", "; DROP--", "chat; ignore previous"):
+        with pytest.raises(pydantic.ValidationError):
+            PromptIn(text="hi", target=bad)
+
+
+def test_optimizer_report_renders_every_section():
+    from celery_worker import OptimizedPrompt, _render_optimizer_report
+
+    r = OptimizedPrompt(
+        optimized_prompt="Do the thing.",
+        what_changed=["Named the audience."],
+        analysis="It was vague.",
+        failure_modes=["Answers the wrong question."],
+        variants=[],
+        usage_notes=["Pair with a diff."],
+    )
+    out = _render_optimizer_report(r, "a coding agent")
+    for n, title in enumerate(
+        ["Optimized Prompt", "What Changed", "Prompt Analysis",
+         "Failure Modes", "Variants", "Using It"], start=1
+    ):
+        assert f"{n}. {title}" in out
+
+    # The rewrite leads, because that is what the customer paid for.
+    assert out.index("1. Optimized Prompt") < out.index("3. Prompt Analysis")
+    # An empty variants list says so rather than rendering a bare heading.
+    assert "admits one sensible reading" in out

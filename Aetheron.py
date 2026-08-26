@@ -428,9 +428,15 @@ ASSET_FILENAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 ETHEREUM_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
+# What the prompt will be pointed at. Constrained rather than free text so an
+# unknown value cannot reach the optimiser's instructions.
+PromptTarget = Literal["chat", "coding", "agent", "image", "extraction"]
+
+
 class PromptIn(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_PROMPT_CHARS)
     format: ExportFormat | None = "pdf"
+    target: PromptTarget | None = None
 
 
 class ContractIntelInput(BaseModel):
@@ -1102,7 +1108,8 @@ def prompt_optimizer(
             asset_id,
             user_text,
             (payload.format or "pdf"),
-            request.headers.get("X-USER-WALLET")
+            request.headers.get("X-USER-WALLET"),
+            payload.target,
         )
     except Exception:
         traceback.print_exc()

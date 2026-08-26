@@ -151,6 +151,16 @@
         <textarea id="user-text" rows="4" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none placeholder-gray-500 text-gray-200"
           placeholder="e.g., write a short product description for a futuristic AI marketplace"></textarea>
 
+        <label class="block text-sm text-gray-400 mb-1 mt-4">What is this prompt for?</label>
+        <select id="prompt-target" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
+          <option value="">Not sure, keep it portable</option>
+          <option value="chat">Chat assistant</option>
+          <option value="coding">Coding agent</option>
+          <option value="agent">Autonomous agent with tools</option>
+          <option value="image">Image generation</option>
+          <option value="extraction">Structured data extraction</option>
+        </select>
+
         <label class="block text-sm text-gray-400 mb-1 mt-4">Output format</label>
         <select id="prompt-output-format" class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-3 py-2 outline-none text-gray-200">
           <option value="pdf" selected>Premium PDF (.pdf)</option>
@@ -743,6 +753,9 @@ document.querySelectorAll("input[name='pay_method_contract']")
 async function submitPromptOptimizer() {
   const text = document.getElementById("user-text").value.trim();
   const format = document.getElementById("prompt-output-format").value;
+  // Empty means the user did not pick one; send null rather than "" so the
+  // API's Literal check does not reject it.
+  const target = document.getElementById("prompt-target").value || null;
   const resultDiv = document.getElementById("result");
 
   if (!window.currentWallet) return alert("Connect wallet first.");
@@ -754,7 +767,7 @@ async function submitPromptOptimizer() {
   const res = await callPaidComponent({
     key: "prompt-optimizer",
     endpoint: "/api/prompt-optimizer",
-    payload: { text, format },
+    payload: { text, format, target },
     payMethodName: "pay_method_prompt",
     onQueued: d => pollJobStatus(d.task_id, resultDiv, format)
   });

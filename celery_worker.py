@@ -16,6 +16,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from celery import Celery
 from r2_client import r2_upload_bytes
+from pydantic import BaseModel, Field
+
 import llm
 from bs4 import BeautifulSoup
 
@@ -194,8 +196,60 @@ def run_llm(system_prompt, user_payload, style_note):
     )
     return clean_markdown(raw)
 
+# What the optimizer returns. Asking for named fields means a section cannot be
+# merged, renamed or dropped, so the renderer below is exact rather than a regex
+# hunting for headings in free text.
+class OptimizedPrompt(BaseModel):
+    optimized_prompt: str = Field(
+        description="The rewritten prompt, ready to paste and run. No preamble, no commentary."
+    )
+    what_changed: list[str] = Field(
+        description="Each edit made and the concrete failure it prevents. As many as the prompt warranted."
+    )
+    analysis: str = Field(
+        description="What the original aimed at, what it got right, where it was ambiguous or under-constrained."
+    )
+    failure_modes: list[str] = Field(
+        description="How the original would fail in practice: misreadings, edge cases, confidently wrong output."
+    )
+    variants: list[str] = Field(
+        default_factory=list,
+        description="Alternative rewrites serving a genuinely different goal. Empty when the prompt admits one reading.",
+    )
+    usage_notes: list[str] = Field(
+        description="Deploying the rewrite: what to watch, what to adjust per model, what to measure."
+    )
+
+
+def _render_optimizer_report(r: "OptimizedPrompt", target_label: str) -> str:
+    """Turn the structured result into the markdown the document engine expects."""
+    def bullets(items):
+        return "\n".join(f"• {i}" for i in items) if items else ""
+
+    parts = [
+        "1. Optimized Prompt\n",
+        r.optimized_prompt.strip(),
+        "\n\n2. What Changed\n",
+        bullets(r.what_changed),
+        "\n\n3. Prompt Analysis\n",
+        r.analysis.strip(),
+        "\n\n4. Failure Modes\n",
+        bullets(r.failure_modes),
+    ]
+    if r.variants:
+        parts += ["\n\n5. Variants\n", bullets(r.variants)]
+    else:
+        parts += ["\n\n5. Variants\n",
+                  "This prompt admits one sensible reading, so no alternative angle would serve it better."]
+    parts += ["\n\n6. Using It\n", bullets(r.usage_notes)]
+
+    if target_label:
+        parts.insert(0, f"Optimized for: {target_label}\n\n")
+    return "".join(parts)
+
+
 @celery.task(name="process_prompt")
-def process_prompt(asset_id, user_text, out_format, wallet):
+def process_prompt(asset_id, user_text, out_format, wallet, target=None):
     SYSTEM_PROMPT = """
     You are Aetheron. You rewrite prompts so they work, and you explain what you
     changed.
@@ -247,18 +301,32 @@ def process_prompt(asset_id, user_text, out_format, wallet):
     prose for reasoning. Do not add certification or footer text, the document
     engine handles that.
     """
+    # What the prompt is for changes what "better" means: a coding agent wants
+    # explicit constraints and formats, an image model wants concrete visual
+    # detail. Without this the model optimises for a generic chat assistant.
+    TARGETS = {
+        "chat":       "a general chat assistant",
+        "coding":     "a coding agent that will write or edit code",
+        "agent":      "an autonomous agent that plans and calls tools",
+        "image":      "an image generation model",
+        "extraction": "a structured data extraction task",
+    }
+    target_label = TARGETS.get((target or "").lower(), "")
     STYLE_NOTE = (
-        "Start section explanations on the line below the heading, "
-        "and use bullet points rather than numbered lists inside a section."
+        f"The rewritten prompt is destined for {target_label}. Optimise for how that "
+        "kind of model reads a prompt, and say in What Changed where the target drove "
+        "an edit."
+        if target_label else
+        "The target model is unspecified, so keep the rewrite portable across models "
+        "rather than tuned to one."
     )
 
-    md_clean = run_llm(
-        SYSTEM_PROMPT,
+    result = llm.complete_structured(
+        system_blocks=[HOUSE_STYLE, STYLE_NOTE, SYSTEM_PROMPT],
         user_payload=user_text,
-        style_note=STYLE_NOTE
+        schema=OptimizedPrompt,
     )
-
-    final_md = f"Prompt Quality Check: Optimization run completed.\n\n{md_clean}"
+    final_md = clean_markdown(_render_optimizer_report(result, target_label))
 
     fmt = (out_format or "pdf").lower()
 
