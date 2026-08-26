@@ -1,29 +1,7 @@
 
 {% extends "base.html" %}
 
-{% block title %}Aetheron Components
-<style>
-  /* ---- header figures ---- */
-  .shop-figure{ font-size:1.75rem; font-weight:700; color:#fff; font-variant-numeric:tabular-nums; line-height:1; }
-  .shop-figure-label{ font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:rgba(148,163,184,0.7); margin-top:.35rem; }
-
-  /* ---- search ---- */
-  .shop-search{
-    width:100%; padding:.7rem 1rem .7rem 2.4rem;
-    background:rgba(255,255,255,0.03);
-    border:1px solid rgba(255,255,255,0.09);
-    border-radius:.625rem; color:#e5e7eb; font-size:.9rem;
-    outline:none; transition:border-color .16s ease, background .16s ease;
-  }
-  .shop-search::placeholder{ color:rgba(148,163,184,0.5); }
-  .shop-search:focus{ border-color:rgba(34,211,238,0.45); background:rgba(255,255,255,0.05); }
-  .search-icon{
-    position:absolute; left:.85rem; top:50%; transform:translateY(-50%);
-    color:rgba(148,163,184,0.55); font-size:1rem; pointer-events:none;
-  }
-</style>
-
-{% endblock %}
+{% block title %}Aetheron Components{% endblock %}
 
 {% block body_class %}page-shop{% endblock %}
 
@@ -31,128 +9,96 @@
 
 <div class="page-fade">
 
-    <!-- HEADER -->
-    <section class="max-w-6xl mx-auto px-6 mb-10">
-      <p class="text-xs text-gray-500 uppercase tracking-widest mb-3">/ Aetheron / Components</p>
-      <div class="flex flex-wrap items-end justify-between gap-6">
-        <div class="max-w-2xl">
-          <h1 class="text-4xl font-bold text-white tracking-tight mb-3">Components</h1>
-          <p class="text-gray-400 leading-relaxed">
-            Paid AI work, priced per call and settled on Solana. No account and no
-            subscription: ask, pay from your own wallet, and the result is yours.
-          </p>
-        </div>
-        <div class="flex gap-8 shrink-0">
-          <div>
-            <p class="shop-figure">{{ summary.component_count }}</p>
-            <p class="shop-figure-label">components</p>
-          </div>
-          <div>
-            <p class="shop-figure">{{ summary.agent_count }}</p>
-            <p class="shop-figure-label">agents</p>
-          </div>
-          <div>
-            <p class="shop-figure">${{ summary.price_min }}</p>
-            <p class="shop-figure-label">from, per call</p>
-          </div>
-        </div>
+    <section class="max-w-5xl mx-auto mt-10 text-center">
+      <h2 class="text-3xl font-semibold mb-3 text-cyan-300">Browse Components</h2>
+      <p class="text-gray-400 mb-6">Premium AI & automation modules powered by the X402 protocol.</p>
+      <div class="max-w-xl mx-auto mb-6">
+        <input id="search" placeholder="Search components..." class="w-full bg-white/5 border border-cyan-400/20 rounded-lg px-4 py-3 outline-none"/>
+      </div>
+      <div class="filter-bar mb-8">
+        <button class="filter-chip active" data-filter-btn data-category="All">all</button>
+        <button class="filter-chip" data-filter-btn data-category="AI Tools">ai tools</button>
+        <button class="filter-chip" data-filter-btn data-category="Data & Vision">data & vision</button>
+        <button class="filter-chip" data-filter-btn data-category="Development">development</button>
       </div>
     </section>
 
-    <!-- CONTROLS -->
-    <section class="max-w-6xl mx-auto px-6 mb-8">
-      <div class="flex flex-col md:flex-row md:items-center gap-3">
-        <div class="relative flex-1">
-          <span class="search-icon">⌕</span>
-          <input id="search" placeholder="Search components"
-                 class="shop-search" autocomplete="off" />
-        </div>
-        <div class="filter-bar md:justify-end">
-          <button class="filter-chip active" data-filter-btn data-category="All">All</button>
-          {% for cat in categories %}
-          <button class="filter-chip" data-filter-btn data-category="{{ cat }}">{{ cat }}</button>
-          {% endfor %}
-        </div>
-      </div>
-    </section>
-
-    <!-- COMPONENT GRID -->
-    <main id="components-grid" class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 px-6">
+    <main id="components-grid" class="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-6">
       {% for c in components %}
-      <article class="comp"
-               data-name="{{ c.name | lower }} {{ c.tagline | lower }} {{ c.description | lower }}"
-               data-category="{{ c.category }}">
-
-        <div class="comp-top">
-          <span class="comp-glyph">{{ c.glyph }}</span>
-          <span class="comp-cat">{{ c.category }}</span>
-          <span class="comp-price">{{ c.amount }}<span class="comp-cur">{{ summary.currency }}</span></span>
-        </div>
-
-        <h2 class="comp-name">{{ c.name }}</h2>
-        <p class="comp-tagline">{{ c.tagline }}</p>
-        <p class="comp-desc">{{ c.description }}</p>
-
-        <dl class="comp-meta">
-          <div><dt>Input</dt><dd>{{ c.input }}</dd></div>
-          <div><dt>Returns</dt><dd>{{ c.returns }}</dd></div>
-        </dl>
-
-        <div class="comp-formats">
-          {% for f in c.formats %}<span class="fmt">{{ f }}</span>{% endfor %}
-        </div>
-
-        <div class="comp-foot">
-          <button class="btn comp-action"
-                  onclick="if (!requireWallet()) return;
-                           document.getElementById('{{ c.modal }}').style.display='flex';
-                           setTimeout({{ c.on_open }}, 0);">
-            {{ c.action }}
-          </button>
-          <span class="comp-note">pay per call</span>
-        </div>
-      </article>
-      {% endfor %}
-    </main>
-
-    <p id="no-results" class="hidden text-center text-gray-500 text-sm mt-10">
-      Nothing matches that search.
-    </p>
-
-    <!-- AGENTS, FROM THE SAME CATALOGUE -->
-    <section class="max-w-6xl mx-auto px-6 mt-20">
-      <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <div
+        class="card p-6 flex flex-col justify-between w-full h-full min-h-[280px] transform
+               {% if c.slug == 'prebuilt-agent-store' %} prebuilt-hover {% endif %}"
+        data-name="{{ c.name | lower }}"
+        data-category="{% if c.slug in ['prompt-optimizer','prompt-tester','contract-intel','risk-engine'] %}AI Tools{% elif c.slug == 'code-explainer' %}Development{% else %}AI Tools{% endif %}"
+      >
         <div>
-          <h2 class="text-2xl font-bold text-white tracking-tight mb-1">Agent templates</h2>
-          <p class="text-gray-400 text-sm max-w-xl">
-            {{ summary.agent_count }} complete Python projects at ${{ summary.price_max }} each. You download the
-            source and it is yours: they run on your machine and depend on nothing here.
-          </p>
+          <div class="mb-2"><span class="pill">{{ c.type }}</span></div>
+          <h2 class="text-xl font-semibold text-cyan-400">{{ c.name }}</h2>
+          <p class="text-gray-400 text-sm mt-2">{{ c.description }}</p>
         </div>
-        <a href="/agents" class="btn btn-ghost text-sm">Open the agent store</a>
-      </div>
 
-      <div class="agent-rail">
-        {% for a in agents %}
-        <a href="/agents#{{ a.id }}" class="agent-row">
-          <div class="agent-main">
-            <div class="agent-head">
-              <span class="agent-name">{{ a.title }}</span>
-              <span class="agent-cat">{{ a.category }}</span>
-            </div>
-            <p class="agent-desc">{{ a.description }}</p>
-            <div class="agent-tags">
-              {% for t in a.tags %}<span class="tag">{{ t }}</span>{% endfor %}
-            </div>
-          </div>
-          <div class="agent-side">
-            <span class="agent-price">{{ a.amount }}<span class="comp-cur">{{ summary.currency }}</span></span>
-            <span class="agent-go">View &rsaquo;</span>
-          </div>
-        </a>
+        <div class="mt-6 flex justify-between items-center">
+
+          <span class="text-cyan-300 font-semibold">{{ c.price }}</span>
+
+          {% if c.slug == "prompt-optimizer" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-bg').style.display='flex';
+              setTimeout(updatePromptPayAmount, 0);
+            ">
+              Use
+            </button>
+
+          {% elif c.slug == "code-explainer" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-code-bg').style.display='flex';
+              setTimeout(updateCodePayAmount, 0);
+            ">
+              Use
+            </button>
+
+          {% elif c.slug == "prompt-tester" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-tester-bg').style.display='flex';
+              setTimeout(updateTesterPayAmount, 0);
+            ">
+              Use
+            </button>
+
+          {% elif c.slug == "contract-intel" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-contract-bg').style.display='flex';
+              setTimeout(updateContractPayAmount, 0);
+            ">
+              Analyze
+            </button>
+
+          {% elif c.slug == "risk-engine" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              document.getElementById('modal-risk-bg').style.display='flex';
+              setTimeout(updateRiskPayAmount, 0);
+            ">
+              Simulate
+            </button>
+
+          {% elif c.slug == "agents" %}
+            <a class="btn" href="/agents">Open Store</a>
+
+          {% elif c.coming_soon %}
+            <button class="btn bg-gray-700 text-gray-400 cursor-not-allowed">Coming Soon</button>
+
+          {% else %}
+            <a class="btn" href="/buy/{{ c.id }}">Buy</a>
+          {% endif %}
+        </div>
+        </div>
         {% endfor %}
-      </div>
-    </section>
+        </main>
 
     <section id="my-assets-section" class="max-w-5xl mx-auto mt-20 hidden">
       <h2 class="text-2xl font-semibold text-cyan-300 mb-4 text-center">My Recent Assets</h2>
@@ -921,12 +867,11 @@ async function submitContractIntel() {
 
   const searchInput = document.getElementById("search");
   const filterButtons = document.querySelectorAll("[data-filter-btn]");
-  const cards = document.querySelectorAll("#components-grid .comp");
+  const cards = document.querySelectorAll("#components-grid .card");
   let activeCategory = "All";
 
    function applyFilters() {
     const term = (searchInput?.value || "").trim().toLowerCase();
-    let shown = 0;
 
     cards.forEach((card) => {
       const name = (card.dataset.name || "").toLowerCase();
@@ -936,13 +881,12 @@ async function submitContractIntel() {
       const matchesCategory =
         activeCategory === "All" || cat === activeCategory;
 
-      const show = matchesSearch && matchesCategory;
-      card.style.display = show ? "flex" : "none";
-      if (show) shown++;
+      if (matchesSearch && matchesCategory) {
+        card.style.display = "flex";
+      } else {
+        card.style.display = "none";
+      }
     });
-
-    const empty = document.getElementById("no-results");
-    if (empty) empty.classList.toggle("hidden", shown > 0);
   }
 
   document.addEventListener("DOMContentLoaded", () => {

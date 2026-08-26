@@ -28,52 +28,289 @@
   </p>
 </section>
 
-<main class="max-w-6xl mx-auto px-6 mt-14">
+<main class="max-w-6xl mx-auto px-6 mt-16 space-y-24">
 
-  <!-- Rendered from catalog.py, the same source the shop and the API read, so
-       an agent added there appears in all three without a second edit. -->
-  {% for cat, items in agents | groupby("category") %}
-  <section class="mb-14">
-    <div class="flex items-baseline gap-3 mb-5">
-      <h3 class="text-lg font-semibold text-white tracking-tight">{{ cat }}</h3>
-      <span class="text-xs text-gray-500">{{ items | length }}</span>
-      <span class="agent-rule"></span>
-    </div>
+  <!-- Trading & Execution -->
+  <section class="border-t border-cyan-400/10 pt-12">
+    <h3 class="text-2xl font-semibold text-cyan-300 mb-2">
+      Trading & Execution
+    </h3>
+    <p class="text-gray-400 text-sm mb-8">
+      High-speed agents designed for sniping, launches, and active trade execution.
+    </p>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-      {% for a in items %}
-      <article id="{{ a.id }}" class="comp">
-        <div class="comp-top">
-          <span class="comp-glyph">⬡</span>
-          <span class="comp-cat">{{ a.category }}</span>
-          <span class="comp-price">{{ a.amount }}<span class="comp-cur">USDC</span></span>
+    <div id="folder-trading"
+         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+
+      <!-- Solana Trading Assistant -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
         </div>
 
-        <h2 class="comp-name">{{ a.title }}</h2>
-        <p class="comp-desc">{{ a.description }}</p>
-
-        <div class="comp-formats">
-          {% for t in a.tags %}<span class="fmt">{{ t }}</span>{% endfor %}
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Solana Trading Assistant
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Analyze tokens, detect trends, and make on-chain insights actionable. Provides quick summaries to guide fast decision-making.
+          </p>
         </div>
 
-        <dl class="comp-meta">
-          <div><dt>Delivery</dt><dd>Full Python source as a ZIP</dd></div>
-          <div><dt>Licence</dt><dd>Yours to run and modify</dd></div>
-        </dl>
+        <div class="mt-6 flex justify-between items-center">
+           <span class="text-cyan-300 font-semibold">4.99 USDC</span>
 
-        <div class="comp-foot">
-          <button class="btn comp-action buy-agent-btn"
-                  data-id="{{ a.id }}"
-                  data-price="{{ a.amount }}">
+          <button class="btn buy-agent-btn"
+            data-id="solana-trading-assistant"
+            data-price="4.99">
             Buy
           </button>
-          <span class="comp-note">one-time</span>
         </div>
-      </article>
-      {% endfor %}
+      </div>
+
+      <!-- Pump.fun Launch Assistant -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Pump.fun Launch Assistant
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Track new launches, liquidity events, and early-signal opportunities with automated intelligence.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="pumpfun-launcher"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+      <!-- Sniper Trade Agent -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Sniper Trade Agent
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Real-time memecoin sniper bot with safety rules, blacklist protection and adjustable auto-buy triggers.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="solana-sniper"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- Market Intelligence -->
+  <section class="border-t border-cyan-400/10 pt-12">
+    <h3 class="text-2xl font-semibold text-cyan-300 mb-2">
+      Market Intelligence
+    </h3>
+    <p class="text-gray-400 text-sm mb-8">
+      Monitoring, analytics, and signal-extraction agents for informed decisions.
+    </p>
+
+    <div id="folder-intelligence"
+           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+
+        <!-- Alpha Scanner Agent -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Alpha Scanner Agent
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Agent template that scans social, on-chain, and market signals
+              to detect emerging narratives, cross-signal confirmation, and ranked alpha
+              opportunities before they become consensus.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="alpha-scanner"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <!-- Prediction Market Agent -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Prediction Market Agent
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Analyzes prediction markets, implied probabilities, sentiment, and mispricing across events and outcomes.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="prediction-market"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+    
+        <!-- Market Tracker Agent -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Market Tracker Agent
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Tracks market regimes using risk, volatility, liquidity, correlation, and psychology signals to help interpret overall market conditions before taking action.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="market-tracker"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <!-- Wallet Watcher Bot -->
+        <div class="card flex flex-col justify-between">
+          <div class="w-fit mb-3">
+            <span class="pill">download</span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-semibold text-cyan-400">
+              Wallet Watcher Bot
+            </h2>
+            <p class="text-gray-400 text-sm mt-2">
+              Monitor any wallet in real-time. Transfers, NFT actions, swap/liquidity signals with alerting. With optional filters for what you want to follow.
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-between items-center">
+            <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+            <button class="btn buy-agent-btn"
+              data-id="wallet-watcher"
+              data-price="4.99">
+              Buy
+            </button>
+          </div>
+        </div>
+      
     </div>
   </section>
-  {% endfor %}
+
+  <!-- Community & Operations -->
+  <section class="border-t border-cyan-400/10 pt-12">
+    <h3 class="text-2xl font-semibold text-cyan-300 mb-2">
+      Community & Operations
+    </h3>
+    <p class="text-gray-400 text-sm mb-8">
+      Automation agents for Discord, moderation, and operational workflows.
+    </p>
+
+    <div id="folder-ops"
+         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+
+      <!-- Discord Support Agent -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Discord Support Agent
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Automated AI Discord assistant. Responses, moderation, commands, and intelligent support features.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="discord-helper"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+      <!-- Project Planner Agent -->
+      <div class="card flex flex-col justify-between">
+        <div class="w-fit mb-3">
+          <span class="pill">download</span>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-cyan-400">
+            Project Planner Agent
+          </h2>
+          <p class="text-gray-400 text-sm mt-2">
+            Modular project coordination framework for managing tasks, notes, milestones, reminders, cleanup automation, and structured summaries in a configurable workflow system.
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+          <span class="text-cyan-300 font-semibold">4.99 USDC</span>
+
+          <button class="btn buy-agent-btn"
+            data-id="project-planner"
+            data-price="4.99">
+            Buy
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
 </main>
 

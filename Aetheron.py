@@ -35,8 +35,6 @@ from ledger_utils import (
 )
 from aeth_price import calculate_required_aeth, AethPricingError
 
-import catalog
-
 from celery.result import AsyncResult
 from solders.signature import Signature
 
@@ -592,28 +590,69 @@ def status_page(request: Request):
 
 @app.get("/shop", response_class=HTMLResponse)
 def shop(request: Request):
-    return templates.TemplateResponse(
-        "shop.html",
+    components = [
         {
-            "request": request,
-            "components": catalog.components(),
-            "agents": catalog.agents(),
-            "categories": catalog.categories(),
-            "summary": catalog.summary(),
+            "id": 1,
+            "slug": "prompt-optimizer",
+            "name": "AI Prompt Optimizer",
+            "description": "Turn rough notes or unstructured ideas into polished, high-quality prompts with clear goals, context, and formatting.",
+            "price": f"{PROMPT_OPTIMIZER_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
         },
-    )
+        {
+            "id": 2,
+            "slug": "code-explainer",
+            "name": "LLM-Powered Code Explainer",
+            "description": "Get readable explanations of any code snippet, including logic breakdowns, complexity insights, and suggested improvements.",
+            "price": f"{CODE_EXPLAINER_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+        {
+            "id": 3,
+            "slug": "prompt-tester",
+            "name": "Smart Prompt Tester (PersonaSim)",
+            "description": "Test your prompt against multiple AI personas, Developer, Skeptic, Hacker-to uncover blind spots, weaknesses, and ways to strengthen it.",
+            "price": f"{PROMPT_TESTER_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+        {
+            "id": 4,
+            "slug": "contract-intel",
+            "name": "Contract Intelligence Analyzer",
+            "description": "Input Ethereum or Solana contract address and get metadata, function counts, and known issues.",
+            "price": "1.00 USDC",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+        {
+            "id": 5,
+            "slug": "agents",
+            "name": "Prebuilt Agent Store",
+            "description": "Access prebuilt automation agents like trading bots, Discord/Telegram helpers, wallet watchers and monitoring scripts, all delivered ready to deploy.",
+            "price": "4.99 USDC",
+            "type": "download",
+            "coming_soon": False,
+        },
+        {
+            "id": 6,
+            "slug": "risk-engine",
+            "name": "Agent Risk & Simulation Engine",
+            "description": "Run Monte Carlo-style simulations with configurable runs/steps/mu/sigma and export the report.",
+            "price": f"{RISK_ENGINE_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
+    ]
+
+    return templates.TemplateResponse("shop.html", {"request": request, "components": components})
 
 
 @app.get("/agents", response_class=HTMLResponse)
 def agents_page(request: Request):
-    return templates.TemplateResponse(
-        "agents.html",
-        {
-            "request": request,
-            "agents": catalog.agents(),
-            "summary": catalog.summary(),
-        },
-    )
+    return templates.TemplateResponse("agents.html", {"request": request})
 
 @app.get("/learn", response_class=HTMLResponse)
 def learn_page(request: Request):
@@ -756,7 +795,17 @@ def download_agent(
                 },
             )
 
-        agent_paths = catalog.agent_paths()
+        agent_paths = {
+            "solana-sniper": "static/agents_src/solana-sniper",
+            "wallet-watcher": "static/agents_src/wallet-watcher",
+            "discord-helper": "static/agents_src/discord-helper",
+            "pumpfun-launcher": "static/agents_src/pumpfun-launcher",
+            "solana-trading-assistant": "static/agents_src/solana-trading-assistant",
+            "market-tracker": "static/agents_src/market-tracker",
+            "prediction-market": "static/agents_src/prediction-market",
+            "alpha-scanner": "static/agents_src/alpha-scanner",
+            "project-planner": "static/agents_src/project-planner",
+        }
 
         if agent_id not in agent_paths:
             raise HTTPException(status_code=404, detail="Invalid agent ID")
@@ -785,9 +834,64 @@ def download_agent(
 
 @app.get("/api/agents")
 def list_agents():
-    return catalog.agents()
-
-
+    agents = [
+        {
+            "id": "solana-sniper",
+            "title": "Solana Sniper Bot",
+            "description": "Snipes new Pump.fun tokens instantly with adjustable timing, filters, and blacklist protection.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "wallet-watcher",
+            "title": "Wallet Watcher (Whale Tracker)",
+            "description": "Tracks any wallet in real-time and alerts on buys, sells, transfers, approvals, and liquidity changes.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "discord-helper",
+            "title": "Discord AI Helper Bot",
+            "description": "A customizable AI bot for Discord, moderation, auto-replies, chat, commands, and wallet verification.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "pumpfun-launcher",
+            "title": "Pump.fun Launch Assistant",
+            "description": "Monitors new Pump.fun launches, liquidity events, and early momentum signals.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "solana-trading-assistant",
+            "title": "Solana Trading Assistant",
+            "description": "Analyzes Solana tokens, identifies trends, volume shifts, and supports trading decisions.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "market-tracker",
+            "title": "Market Tracker Agent (Template)",
+            "description": "Tracks market regimes using risk, volatility, liquidity, correlation, and psychology signals.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "prediction-market",
+            "title": "Prediction Market Agent (Template)",
+            "description": "Analyzes prediction markets, implied probabilities, sentiment, and mispricing opportunities",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "alpha-scanner",
+            "title": "Alpha Scanner Agent (Template)",
+            "description": "Scans social, on-chain, and market signals to detect emerging narratives and ranked alpha opportunities.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
+            "id": "project-planner",
+            "title": "Project Planner Agent (Template)",
+            "description": "A modular project coordination framework for managing tasks, notes, milestones, reminders, cleanup, and structured project summaries.",
+            "price": AGENT_PRICE_USDC,
+        },
+    ]
+    return {"agents": agents}  
+    
 @app.get("/my-assets/{wallet}", response_class=HTMLResponse)
 def my_assets_page(request: Request, wallet: str):
     try:
