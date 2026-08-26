@@ -40,8 +40,11 @@ PREVIEWABLE = {
 # that the output shows the agent doing its job rather than idling.
 DEMO_CONFIG = {
     "wallet-watcher": {
-        # A large, permanently busy account, so activity appears quickly.
-        "wallets_to_watch": ["9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"],
+        # Raydium's AMM authority: its balances actually change on nearly
+        # every transaction, so the preview shows real transfers within
+        # seconds. An exchange hot wallet looks busier but is mostly only
+        # mentioned by transactions rather than moved by them.
+        "wallets_to_watch": ["5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1"],
         "rpc": {"poll_interval_seconds": 3},
         "notifications": {"enabled": False, "webhook_url": ""},
     },
