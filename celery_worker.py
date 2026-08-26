@@ -15,6 +15,7 @@ from PIL import Image
 from datetime import datetime
 from dotenv import load_dotenv
 from celery import Celery
+from celery.worker.control import control_command
 from storage import store_asset
 from pydantic import BaseModel, Field
 
@@ -81,6 +82,25 @@ celery.conf.update(
     worker_prefetch_multiplier=1,
     task_acks_late=False,
 )
+
+
+@control_command()
+def storage_backend(state):
+    """
+    Report which store this worker writes finished reports to.
+
+    The worker and the web process are separate containers with separate
+    environments, so one can be pointed at Postgres while the other quietly
+    falls back to its own SQLite file. Nothing fails when that happens: the
+    worker generates the report, the customer is charged, and the file lands
+    somewhere the process serving /download cannot read it from.
+
+    Answering over the control channel the status page already pings lets it
+    compare the two backends instead of assuming they match.
+    """
+    import storage
+    return {"backend": storage.backend_name()}
+
 
 client = None
 

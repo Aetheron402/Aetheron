@@ -125,14 +125,47 @@ def check_ledger(ledger_utils):
 
 
 def check_workers():
-    """Ask Celery which workers answer. Zero means queued jobs will not run."""
+    """
+    Ask the workers to identify themselves and say where they store reports.
+
+    Zero replies means queued jobs will never run. A reply naming a different
+    store than this process uses is worse than that, because it fails silently:
+    jobs complete, payments settle, and only the download 404s.
+    """
     def probe():
+        import storage
         from celery_worker import celery
-        replies = celery.control.inspect(timeout=1.2).ping() or {}
+
+        replies = celery.control.broadcast(
+            "storage_backend", reply=True, timeout=2.0
+        ) or []
         count = len(replies)
+
         if count == 0:
+            # An older worker will not know the command. Fall back to a plain
+            # ping so a version skew reads as "cannot verify" and not "down".
+            if celery.control.inspect(timeout=1.2).ping():
+                return DEGRADED, "responding, but too old to report its storage"
             return DOWN, "no workers responding"
-        return OK, f"{count} worker{'s' if count != 1 else ''} responding"
+
+        ours = storage.backend_name()
+        theirs = {
+            backend
+            for reply in replies
+            for result in reply.values()
+            if (backend := (result or {}).get("backend"))
+        }
+        plural = "s" if count != 1 else ""
+
+        mismatched = theirs - {ours}
+        if mismatched:
+            return DEGRADED, (
+                f"{count} worker{plural} responding, but storing reports in "
+                f"{', '.join(sorted(mismatched))} while downloads are served "
+                f"from {ours}; paid reports would 404"
+            )
+
+        return OK, f"{count} worker{plural} responding, sharing {ours}"
     return _timed(probe)
 
 
