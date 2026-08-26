@@ -144,6 +144,50 @@ def add_radar_chart(values, labels, size=200):
 
     return d
 
+def _markdown_table(rows, styles, available_width):
+    """
+    Lay a parsed markdown table out as a real table.
+
+    Column widths are proportional to the widest cell in each column, so a
+    column of 44 character Solana addresses gets the room it needs and a Rank
+    column does not. Cells are paragraphs so long values wrap instead of
+    overflowing the page.
+    """
+    cell = ParagraphStyle(
+        "TableCell", parent=styles["Body"], fontName="Helvetica",
+        fontSize=7.5, leading=10, spaceBefore=0, spaceAfter=0,
+    )
+    head = ParagraphStyle("TableHead", parent=cell, fontName="Helvetica-Bold")
+
+    width = max(len(r) for r in rows)
+    rows = [r + [""] * (width - len(r)) for r in rows]
+
+    weights = [
+        max(len(escape_reportlab(r[i])) for r in rows) or 1
+        for i in range(width)
+    ]
+    total = sum(weights)
+    col_widths = [available_width * w / total for w in weights]
+
+    data = [[Paragraph(escape_reportlab(c), head if i == 0 else cell) for c in row]
+            for i, row in enumerate(rows)]
+
+    table = Table(data, colWidths=col_widths, hAlign="LEFT", repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), CARD_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), TEXT_MAIN),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.6, BORDER),
+        ("GRID", (0, 0), (-1, -1), 0.25, BORDER),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, CODE_BG]),
+    ]))
+    return table
+
+
 def split_blocks(text: str) -> list[str]:
     """
     Split a report into rendering blocks, keeping fenced regions whole.
@@ -341,13 +385,18 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
             continue
 
         if "|" in block and "---" in block:
-            lines = [r.strip() for r in block.splitlines() if "|" in r]
-            if len(lines) >= 2:
-                header = lines[0].replace("|", " ").strip()
-                add_para(f"<b>{header}</b>", "Body")
-                for ln in lines[2:]:
-                    cols = [c.strip() for c in ln.split("|") if c.strip()]
-                    add_para(" • ".join(cols), "Body")
+            # A real table rather than bullet-joined text. The holder
+            # concentration table is the main quantitative display in the
+            # contract report, and reading it as "1 • 9WzDX... • 8.17%" made
+            # ranks and percentages impossible to scan down a column.
+            rows = []
+            for line in block.splitlines():
+                if "|" not in line or set(line.strip()) <= set("|-: "):
+                    continue
+                rows.append([c.strip() for c in line.strip().strip("|").split("|")])
+            if rows:
+                story.append(_markdown_table(rows, styles, doc.width))
+                story.append(Spacer(1, 0.15 * inch))
             continue
 
         lines = block.splitlines()

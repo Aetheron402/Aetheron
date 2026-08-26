@@ -953,3 +953,69 @@ def test_present_names_handles_every_container_shape():
     assert cr._present_names(["a", "b"]) == ["a", "b"]
     assert cr._present_names(None) == []
     assert cr._present_names("nonsense") == []
+
+
+# ── markdown tables in the PDF ──────────────────────────────────────────────
+
+def test_a_markdown_table_becomes_a_real_table():
+    """
+    The holder concentration table is the main quantitative display in the
+    contract report. Joining its cells with bullets made ranks and percentages
+    impossible to scan down a column.
+    """
+    from reportlab.platypus import Table
+    from pdf_utils import build_aetheron_pdf
+    import pdf_utils
+
+    captured = []
+    original = Table.__init__
+
+    def spy(self, data, *a, **kw):
+        captured.append(data)
+        return original(self, data, *a, **kw)
+
+    Table.__init__ = spy
+    try:
+        build_aetheron_pdf("T", "2026-01-01", "w", "t", "s", (
+            "1. Holders\n\n"
+            "| Rank | Wallet | % |\n"
+            "|---|---|---|\n"
+            "| 1 | AAA | 8.17% |\n"
+            "| 2 | BBB | not available |\n"
+        ))
+    finally:
+        Table.__init__ = original
+
+    grids = [d for d in captured if len(d) == 3 and len(d[0]) == 3]
+    assert grids, "the markdown table did not reach a Table flowable"
+    rendered = " ".join(cell.text for row in grids[0] for cell in row)
+    assert "AAA" in rendered and "8.17%" in rendered
+    assert "not available" in rendered
+    assert "Rank" in rendered
+
+
+def test_table_columns_are_sized_by_their_widest_cell():
+    """A 44 character Solana address needs the room; a Rank column does not."""
+    from reportlab.lib.styles import StyleSheet1, ParagraphStyle
+    from pdf_utils import _markdown_table
+
+    styles = StyleSheet1()
+    styles.add(ParagraphStyle(name="Body", fontName="Helvetica", fontSize=11))
+    table = _markdown_table(
+        [["Rank", "Wallet Address", "%"],
+         ["1", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", "8.17%"]],
+        styles, 468,
+    )
+    rank, wallet, pct = table._argW
+    assert wallet > rank * 3, (rank, wallet)
+    assert wallet > pct * 3
+    assert abs(sum(table._argW) - 468) < 1
+
+
+def test_a_ragged_table_row_does_not_crash():
+    from reportlab.lib.styles import StyleSheet1, ParagraphStyle
+    from pdf_utils import _markdown_table
+    styles = StyleSheet1()
+    styles.add(ParagraphStyle(name="Body", fontName="Helvetica", fontSize=11))
+    table = _markdown_table([["A", "B", "C"], ["1", "2"]], styles, 400)
+    assert len(table._cellvalues[1]) == 3
