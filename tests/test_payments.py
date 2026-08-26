@@ -655,7 +655,8 @@ def test_every_renderer_separates_titles_from_content():
             recommendations=["rec"])),
         w._render_risk_report(w.RiskInterpretation(
             verdict="v", downside=["d"], upside=["u"], drawdown_reading="dd",
-            assumptions=["a"], parameter_notes=["p"]), "Parameters:\n• Runs: 10"),
+            assumptions=["a"], parameter_notes=["p"]),
+            "Parameters:\n• Runs: 10", "| Change | Median |\n|---|---|\n| As entered | 1.0 |"),
     ]
     for md in cases:
         for block in split_blocks(md):
@@ -1019,3 +1020,57 @@ def test_a_ragged_table_row_does_not_crash():
     styles.add(ParagraphStyle(name="Body", fontName="Helvetica", fontSize=11))
     table = _markdown_table([["A", "B", "C"], ["1", "2"]], styles, 400)
     assert len(table._cellvalues[1]) == 3
+
+
+# ── risk engine: sensitivity and time underwater ────────────────────────────
+
+def test_sensitivity_shows_which_input_the_answer_rests_on():
+    """
+    The report told readers the conclusion depended on sigma. That was a claim
+    about a model we are holding, and checking it costs a few thousand paths.
+    """
+    import risk_metrics as rm
+    grid = rm.sensitivity(0.15, 0.9, 60, 1.0, seed=42, runs=800)
+    rows = [r for r in grid.splitlines() if r.startswith("|") and "---" not in r]
+
+    assert rows[0].startswith("| Change |")
+    labels = [r.split("|")[1].strip() for r in rows[1:]]
+    assert labels[0] == "As entered"
+    assert any("Sigma half" in l for l in labels)
+    assert any("Mu double" in l for l in labels)
+
+    def median_of(label):
+        row = next(r for r in rows[1:] if label in r)
+        return float(row.split("|")[2].strip())
+
+    # Halving volatility must move the median more than doubling drift does,
+    # which is the claim the table exists to substantiate.
+    base = median_of("As entered")
+    assert median_of("Sigma half") - base > median_of("Mu double") - base
+
+
+def test_sensitivity_rows_are_comparable_to_each_other():
+    """A shared seed means differences between rows come from the inputs."""
+    import risk_metrics as rm
+    a = rm.sensitivity(0.1, 0.5, 30, 1.0, seed=7, runs=500)
+    b = rm.sensitivity(0.1, 0.5, 30, 1.0, seed=7, runs=500)
+    assert a == b
+
+
+def test_time_underwater_is_tracked():
+    """A brief dip and a whole horizon below entry give the same max drawdown."""
+    import risk_metrics as rm
+    s = rm.simulate(2000, 60, 0.0, 0.8, 1.0, seed=3)
+    assert 0.0 <= s["median_time_underwater"] <= 1.0
+    assert s["p95_time_underwater"] >= s["median_time_underwater"]
+
+    # Strong upward drift with no volatility never goes underwater at all.
+    calm = rm.simulate(50, 20, 0.5, 0.0, 1.0, seed=1)
+    assert calm["median_time_underwater"] == 0.0
+
+
+def test_drawdowns_are_available_for_charting():
+    import risk_metrics as rm
+    s = rm.simulate(500, 30, 0.05, 0.4, 1.0, seed=2)
+    assert len(s["drawdowns"]) == 500
+    assert all(0.0 <= d <= 1.0 for d in s["drawdowns"])

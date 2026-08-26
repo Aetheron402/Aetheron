@@ -71,11 +71,13 @@ def simulate(runs, steps, mu, sigma, start_price, seed=None, keep_paths=20):
     final_prices = []
     drawdowns = []       # deepest fall from a running peak, per path
     troughs = []         # lowest price reached, per path
+    underwater = []      # share of the horizon spent below the entry price
     sample_paths = []
 
     for i in range(runs):
         price = peak = trough = start_price
         worst_drawdown = 0.0
+        steps_below = 0
         path = [price] if i < keep_paths else None
 
         for _ in range(steps):
@@ -91,10 +93,13 @@ def simulate(runs, steps, mu, sigma, start_price, seed=None, keep_paths=20):
             fall = (peak - price) / peak
             if fall > worst_drawdown:
                 worst_drawdown = fall
+            if price < start_price:
+                steps_below += 1
 
         final_prices.append(price)
         drawdowns.append(worst_drawdown)
         troughs.append(trough)
+        underwater.append(steps_below / steps)
         if path is not None:
             sample_paths.append(path)
 
@@ -155,6 +160,13 @@ def simulate(runs, steps, mu, sigma, start_price, seed=None, keep_paths=20):
         "prob_drawdown_50": sum(1 for d in drawdowns if d >= 0.50) / n,
         "median_trough": _percentile(sorted(troughs), 0.50),
 
+        # How long the position sits below entry, which is the dimension a
+        # single deepest-fall number cannot express: a brief dip and a year
+        # spent underwater produce the same maximum drawdown.
+        "median_time_underwater": _percentile(sorted(underwater), 0.50),
+        "p95_time_underwater": _percentile(sorted(underwater), 0.95),
+
+        "drawdowns": drawdowns,
         "final_prices": final_prices,
         "sample_paths": sample_paths,
     }
@@ -199,6 +211,8 @@ Drawdown, the fall from peak along the way:
 • Deepest Drawdown Observed: {pct(s['worst_drawdown'])}
 • Probability of a 20% Drawdown: {pct(s['prob_drawdown_20'])}
 • Probability of a 50% Drawdown: {pct(s['prob_drawdown_50'])}
+• Median Share of the Horizon Spent Below Entry: {pct(s['median_time_underwater'])}
+• 95th Percentile Share Spent Below Entry: {pct(s['p95_time_underwater'])}
 
 Probability Metrics:
 • Probability of Loss: {pct(s['prob_loss'])}
@@ -206,3 +220,41 @@ Probability Metrics:
 • Probability of >50% Loss: {pct(s['prob_loss_50'])}
 • Probability of >50% Gain: {pct(s['prob_gain_50'])}
 """
+
+
+def sensitivity(mu, sigma, steps, start_price, seed=None, runs=1500):
+    """
+    Re-run the simulation across nearby inputs and tabulate what moves.
+
+    The report already told readers the conclusion rests mostly on sigma. That
+    was an assertion about a model we are holding, and checking it costs a few
+    thousand cheap paths, so it should be shown rather than claimed. It also
+    answers the question a reader actually has, which is how wrong the answer
+    gets if the volatility they typed in was a guess.
+
+    Deliberately fewer runs than the headline simulation. This grid is for
+    direction and rough magnitude, and the seed is fixed across rows so
+    differences between them come from the inputs rather than from sampling.
+    """
+    rows = [["Change", "Median", "P5", "Median Drawdown", "Chance of Loss"]]
+
+    def row(label, m, sg):
+        s = simulate(runs, steps, m, sg, start_price, seed=seed, keep_paths=0)
+        rows.append([
+            label,
+            f"{s['p50']:.4f}",
+            f"{s['p5']:.4f}",
+            f"{s['median_drawdown'] * 100:.1f}%",
+            f"{s['prob_loss'] * 100:.1f}%",
+        ])
+
+    row("As entered", mu, sigma)
+    for factor, name in ((0.5, "half"), (1.5, "one and a half times")):
+        row(f"Sigma {name} ({sigma * factor:.3g})", mu, sigma * factor)
+    for factor, name in ((0.0, "zero"), (2.0, "double")):
+        row(f"Mu {name} ({mu * factor:.3g})", mu * factor, sigma)
+
+    body = "\n".join("| " + " | ".join(r) + " |" for r in rows[1:])
+    header = "| " + " | ".join(rows[0]) + " |"
+    divider = "|" + "|".join(["---"] * len(rows[0])) + "|"
+    return f"{header}\n{divider}\n{body}"

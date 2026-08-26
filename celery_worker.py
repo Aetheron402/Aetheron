@@ -2681,7 +2681,7 @@ class RiskInterpretation(BaseModel):
     )
 
 
-def _render_risk_report(r: "RiskInterpretation", figures: str) -> str:
+def _render_risk_report(r: "RiskInterpretation", figures: str, grid: str) -> str:
     def bullets(items):
         return "\n".join(f"\u2022 {i}" for i in items) if items else ""
 
@@ -2691,8 +2691,13 @@ def _render_risk_report(r: "RiskInterpretation", figures: str) -> str:
         "\n\n3. Downside\n\n", bullets(r.downside),
         "\n\n4. Upside\n\n", bullets(r.upside),
         "\n\n5. Drawdown\n\n", r.drawdown_reading.strip(),
-        "\n\n6. Model Assumptions\n\n", bullets(r.assumptions),
-        "\n\n7. Parameter Notes\n\n", bullets(r.parameter_notes),
+        "\n\n6. If The Inputs Were Wrong\n\n",
+        "Volatility and drift are usually estimated, often guessed. These are "
+        "the same simulation re-run with each one moved, so the reader can see "
+        "which input the conclusion actually rests on.\n\n",
+        grid,
+        "\n\n7. Model Assumptions\n\n", bullets(r.assumptions),
+        "\n\n8. Parameter Notes\n\n", bullets(r.parameter_notes),
     ])
 
 
@@ -2719,6 +2724,10 @@ def process_risk_engine(
     """
     stats = risk_metrics.simulate(runs, steps, mu, sigma, start_price, seed)
     figures = risk_metrics.summary_markdown(stats)
+
+    # Re-run across nearby inputs, so "the answer depends on sigma" is shown
+    # rather than asserted. Cheap: a few thousand extra paths, no model call.
+    grid = risk_metrics.sensitivity(mu, sigma, steps, start_price, seed=seed)
 
     # Sample Path Chart
     sample_chart_path = f"/tmp/{asset_id}_paths.png"
@@ -2748,18 +2757,36 @@ def process_risk_engine(
     plt.savefig(distribution_chart_path)
     plt.close()
 
-    # Combine both charts vertically
+    # Drawdown Distribution Chart. The report's headline finding is about the
+    # fall along the way, and nothing pictured it: both existing charts show
+    # where paths end up.
+    drawdown_chart_path = f"/tmp/{asset_id}_drawdown.png"
+
+    plt.figure(figsize=(6,4))
+    plt.hist([d * 100 for d in stats["drawdowns"]], bins=40)
+    plt.axvline(stats["median_drawdown"] * 100, linestyle="dashed", linewidth=1)
+    plt.axvline(stats["p95_drawdown"] * 100, linestyle="dashed", linewidth=1)
+    plt.title("Maximum Drawdown Distribution")
+    plt.xlabel("Deepest fall from peak (%)")
+    plt.ylabel("Frequency")
+    plt.tight_layout()
+    plt.savefig(drawdown_chart_path)
+    plt.close()
+
+    # Combine the charts vertically
     combined_chart_path = f"/tmp/{asset_id}_combined.png"
 
-    img1 = Image.open(sample_chart_path).convert("RGB")
-    img2 = Image.open(distribution_chart_path).convert("RGB")
+    panels = [Image.open(p).convert("RGB") for p in
+              (sample_chart_path, distribution_chart_path, drawdown_chart_path)]
 
-    width = max(img1.width, img2.width)
-    height = img1.height + img2.height
+    width = max(p.width for p in panels)
+    height = sum(p.height for p in panels)
 
     combined = Image.new("RGB", (width, height), "white")
-    combined.paste(img1, (0, 0))
-    combined.paste(img2, (0, img1.height))
+    offset = 0
+    for panel in panels:
+        combined.paste(panel, (0, offset))
+        offset += panel.height
     combined.save(combined_chart_path)
 
     chart_path = combined_chart_path
@@ -2795,6 +2822,13 @@ even for crypto, and drift far from zero is an assumption doing most of the
 work in the result. Say which input the conclusion depends on most, since a
 reader who chose it arbitrarily should know that.
 
+A sensitivity table is computed for you and printed in the report, showing the
+same simulation re-run with volatility halved and raised, and with drift zeroed
+and doubled. Read your claims about input sensitivity off that table rather
+than reasoning about what would probably happen, and where a row contradicts
+what you were about to say, the row is right. Do not reproduce the table, it is
+already there.
+
 Give no financial advice. Describe the distribution and what it implies, and
 leave the decision to the reader.
 """
@@ -2809,7 +2843,7 @@ leave the decision to the reader.
         schema=RiskInterpretation,
     )
 
-    summary_md = clean_markdown(_render_risk_report(interpretation, figures))
+    summary_md = clean_markdown(_render_risk_report(interpretation, figures, grid))
 
     fmt = (out_format or "pdf").lower()
 
@@ -2830,7 +2864,8 @@ leave the decision to the reader.
     finally:
         # The charts are rendered before this branch regardless of format, so
         # cleaning up only on the PDF path leaked three files per non-PDF run.
-        for tmp_path in (sample_chart_path, distribution_chart_path, combined_chart_path):
+        for tmp_path in (sample_chart_path, distribution_chart_path,
+                         drawdown_chart_path, combined_chart_path):
             try:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
