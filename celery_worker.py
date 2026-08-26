@@ -371,136 +371,160 @@ def process_prompt(asset_id, user_text, out_format, wallet, target=None):
         "format": fmt
     }
 
+# What the code auditor returns. Named fields rather than headings the renderer
+# has to find in free text, so a section cannot be merged, renamed or dropped.
+class CodeAudit(BaseModel):
+    language: str = Field(
+        description="The language the submitted code is written in, as its markdown fence tag, "
+                    "for example python, javascript, typescript, go, rust, sql. Read it from the "
+                    "code itself. Use 'text' only when it genuinely cannot be identified."
+    )
+    summary: str = Field(
+        description="What this code is for, what it does, and the state it is in. "
+                    "Written for someone deciding whether to trust it."
+    )
+    how_it_works: str = Field(
+        description="Execution flow, how inputs are processed, how outputs are produced, "
+                    "and what it depends on."
+    )
+    strengths: list[str] = Field(
+        description="What the code genuinely does well, and why that matters here. "
+                    "Only real strengths. An empty list beats invented praise."
+    )
+    weaknesses: list[str] = Field(
+        description="Defects, fragile patterns and maintainability problems. Each one names "
+                    "the specific construct at fault, not a general principle."
+    )
+    complexity: str = Field(
+        description="Time and space behaviour, the bottleneck if there is one, and what "
+                    "actually drives cost as input grows."
+    )
+    security: list[str] = Field(
+        description="Concrete vulnerabilities and unsafe assumptions, each with the input or "
+                    "condition that triggers it. Empty when the code has no security surface."
+    )
+    edge_cases: list[str] = Field(
+        description="Inputs or states that produce wrong output or a crash. Give the input "
+                    "and the resulting behaviour, not a category name."
+    )
+    refactors: list[str] = Field(
+        description="Changes worth making: what to change, and the failure or cost it removes."
+    )
+    patches: list[str] = Field(
+        default_factory=list,
+        description="Improved code, each entry a complete replacement for one construct. "
+                    "Raw code only, no fences and no commentary; both are added on render.",
+    )
+    recommendations: list[str] = Field(
+        description="What to do first, in order of what carries the most risk."
+    )
+
+
+def _render_code_report(r: "CodeAudit") -> str:
+    """Turn the structured audit into the markdown the document engine expects."""
+    def bullets(items):
+        return "\n".join(f"\u2022 {i}" for i in items) if items else ""
+
+    lang = (r.language or "text").strip().lower() or "text"
+
+    parts = [
+        "1. Summary\n", r.summary.strip(),
+        "\n\n2. How It Works\n", r.how_it_works.strip(),
+    ]
+    # Sections that can be genuinely empty say so, rather than being padded to
+    # a quota. A clean function with no security surface should report that.
+    for title, items, when_empty in [
+        ("3. Strengths", r.strengths, "Nothing here rises above ordinary competence."),
+        ("4. Weaknesses", r.weaknesses, "No defects found in the submitted code."),
+    ]:
+        parts += [f"\n\n{title}\n", bullets(items) or when_empty]
+
+    parts += ["\n\n5. Complexity\n", r.complexity.strip()]
+
+    for title, items, when_empty in [
+        ("6. Security", r.security, "This code has no security surface: no input crosses a trust boundary."),
+        ("7. Edge Cases", r.edge_cases, "No input was found that produces wrong output."),
+        ("8. Refactoring", r.refactors, "No change would pay for the risk of making it."),
+    ]:
+        parts += [f"\n\n{title}\n", bullets(items) or when_empty]
+
+    if r.patches:
+        parts.append("\n\n9. Improved Code\n")
+        for patch in r.patches:
+            body = patch.strip()
+            # The model occasionally fences anyway; do not double wrap it.
+            if body.startswith("```"):
+                parts.append(body + "\n\n")
+            else:
+                parts.append(f"```{lang}\n{body}\n```\n\n")
+
+    parts += ["\n\n10. Recommendations\n", bullets(r.recommendations)]
+    return "".join(parts)
+
+
 @celery.task(name="process_code")
 def process_code(asset_id, code_text, out_format, wallet, features=None):
     SYSTEM_PROMPT = """
-    You are Aetheron, a senior AI code auditor.
+You are a senior engineer auditing code someone is about to depend on.
 
-    Produce a *deep Code Intelligence Report* (target 5-9 PDF pages) with expanded engineering detail. Use this structure:
+Report what is actually there. The previous version of this brief asked for a
+fixed number of bullets per section, which meant a clean function still had to
+be given six weaknesses, so the real one was buried among five invented ones.
+Do not do that. Every section takes as many findings as the code warrants and
+no more, and several may legitimately be empty. A short accurate audit is worth
+more than a long one, and the reader is paying for judgement, not volume.
 
-    1. Executive Summary
+What separates this from a summary anyone could write:
 
-       Provide 2-3 paragraphs summarizing:
-       • Code purpose  
-       • High-level behavior  
-       • Strengths  
-       • Risks or unclear logic  
-       • Maintainability overview  
+- Name the construct. "The bare except on the retry loop swallows KeyboardInterrupt"
+  is a finding. "Error handling could be improved" is not.
+- Give the trigger. An edge case is an input plus the behaviour it causes, so
+  the reader can reproduce it. A category name is not an edge case.
+- Say what breaks. A weakness the reader cannot connect to a consequence reads
+  as style preference and will be ignored.
+- Distinguish what is wrong from what you would have written differently. Only
+  the first belongs in weaknesses.
+- Mutable default arguments, unbounded growth, swallowed exceptions, unvalidated
+  input reaching a query or a filesystem path, and integer or precision
+  assumptions are worth checking every time, but only report them when present.
 
-    2. Code Purpose and Logic
-
-       Write 2-4 paragraphs explaining:
-       • The function of the code  
-       • The flow of execution  
-       • Major internal dependencies  
-       • How inputs are processed  
-       • How outputs are produced  
-
-    3. Strengths
-
-       Provide 5-8 bullet points.  
-       Each bullet should contain 2-3 sentences explaining why the strength matters.
-
-    4. Weaknesses
-
-       Provide 5-8 bullets identifying:
-       • Logical issues  
-       • Poor patterns  
-       • Fragile structures  
-       • Hidden risks  
-       • Maintainability concerns  
-
-    5. Efficiency & Complexity Overview
-
-       Provide 1-2 paragraphs explaining:
-       • Time/space complexity  
-       • Bottlenecks  
-       • Data-structure behavior  
-       • Optimization opportunities  
-
-    6. Security Considerations
-
-       Provide 4-7 bullets describing:
-       • Vulnerabilities  
-       • Risk factors  
-       • Unsafe assumptions  
-       • Input-validation issues  
-
-    7. Edge Cases & Failure Predictions
-
-       Provide 5-7 bullets identifying:
-       • Edge cases  
-       • Blind spots  
-       • Failure patterns  
-       • Unexpected behavior  
-
-    8. Refactoring Suggestions
-
-       Provide 5-8 bullets with 2-3 sentences each explaining:
-       • The suggested change  
-       • Why it improves the code  
-       • Expected impact  
-
-    9. Improved Snippets or Patches
-
-       Provide improved code blocks using proper fenced code formatting.  
-       Add short commentary below each block (NOT inline).
-
-    10. Final Recommendations
-
-        Provide 3-6 bullet points summarizing the most important changes.
-
-    RULES:
-    • Never use markdown headings (#, ##, ###).  
-    • Only the section titles may use numbers.  
-    • Use bullet lists inside sections, never numbered lists.  
-    • Add a blank line after each section title.  
-    • Keep content technical, structured, and high-value.  
-    • Do not add certification text.  
-    """
+For patches, give the replacement code raw, with no fences and no commentary.
+Both are added when the report is assembled, and the language is taken from the
+language field, so identify it from the code rather than assuming.
+"""
     STYLE_NOTE = (
-        "Use a clean, hierarchical, markdown-first format. "
-        "Keep the writing formal, technical, and concise. "
-        "Always put code in fenced code blocks using triple backticks with 'python' as the language. "
-        "Section titles must be short. "
-        "Never include explanation text on the same line as a numbered section heading. "
-        "Never place punctuation like a colon (:) after section titles. "
-        "Always put explanations on a new line under the heading. "
-        "Inside each section, never use numbered lists (1., 2., 3.). Always use bullet points (•) for lists, steps, or items. "
+        "Write for an experienced engineer. Be specific and concise. "
+        "Prose sections are paragraphs, not bullet lists."
     )
 
+    # Front-end code fails in ways a language-agnostic read misses, so when the
+    # caller detected these, name the extra ground to cover.
     features = features or {}
-
-    extra_context = ""
-
+    hints = []
     if features.get("contains_jsx"):
-        extra_context += (
-            "\nThe code includes JSX or component-style syntax. "
-            "Explain component boundaries, rendering flow, props/state usage, "
-            "and how logic interleaves with markup.\n"
+        hints.append(
+            "This includes JSX or component syntax. Cover component boundaries, "
+            "render flow, props and state, and what triggers a re-render."
         )
-
     if features.get("contains_html"):
-        extra_context += (
-            "\nThe code includes embedded HTML markup. "
-            "Explain structural layout separately from program logic.\n"
+        hints.append(
+            "This includes HTML markup. Treat structure separately from program logic."
         )
-
     if features.get("contains_dom"):
-        extra_context += (
-            "\nThe code interacts with the DOM. "
-            "Explain side effects, lifecycle timing, and browser execution context.\n"
+        hints.append(
+            "This touches the DOM. Cover side effects, lifecycle timing, and what "
+            "assumes the document is already parsed."
         )
+    if hints:
+        SYSTEM_PROMPT += "\n\n" + "\n".join(hints) + "\n"
 
-    SYSTEM_PROMPT = SYSTEM_PROMPT + extra_context
-
-    md_clean = run_llm(
-        SYSTEM_PROMPT,
+    audit = llm.complete_structured(
+        system_blocks=[HOUSE_STYLE, STYLE_NOTE, SYSTEM_PROMPT],
         user_payload=f"Code for analysis:\n```\n{code_text}\n```",
-        style_note=STYLE_NOTE
+        schema=CodeAudit,
     )
 
-    final_md = f"Prompt Quality Check: Code audit completed.\n\n{md_clean}"
+    final_md = clean_markdown(_render_code_report(audit))
 
     fmt = (out_format or "pdf").lower()
 
