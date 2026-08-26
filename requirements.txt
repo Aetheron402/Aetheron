@@ -1,7 +1,7 @@
 fastapi==0.115.2
 uvicorn==0.30.3
 python-dotenv==1.0.1
-openai==1.50.0
+anthropic==1.0.0
 
 solana==0.32.0
 solders==0.20.0

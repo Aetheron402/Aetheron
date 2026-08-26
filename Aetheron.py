@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Literal
 
 from dotenv import load_dotenv
-from openai import OpenAI
 from solana.rpc.api import Client
 from datetime import datetime
 from solders.pubkey import Pubkey
@@ -61,7 +60,7 @@ def _require_env(name: str, why: str) -> str:
     return value
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
 REDIS_URL = os.getenv("REDIS_URL")
 
@@ -73,15 +72,6 @@ AETH_MINT = (os.getenv("AETH_MINT_ADDRESS") or "").strip() or None
 SOLANA_RPC = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
 solana_client = Client(SOLANA_RPC)
 
-client = None
-
-def get_openai_client():
-    global client
-    if client is None:
-        if not OPENAI_API_KEY:
-            raise RuntimeError("OPENAI_API_KEY not set")
-        client = OpenAI(api_key=OPENAI_API_KEY)
-    return client
 
 # Canonical SPL USDC mint on Solana mainnet. Overridable so the stack can be
 # pointed at devnet, but the default is a public network constant, not config.

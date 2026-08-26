@@ -15,8 +15,8 @@ from PIL import Image
 from datetime import datetime
 from dotenv import load_dotenv
 from celery import Celery
-from openai import OpenAI
 from r2_client import r2_upload_bytes
+import llm
 from bs4 import BeautifulSoup
 
 from pdf_utils import build_aetheron_pdf
@@ -52,7 +52,6 @@ def load_last_snapshot(address, network):
 print("CELERY WORKER LOADING UPDATED FILE")
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
 
@@ -83,13 +82,6 @@ celery.conf.update(
 
 client = None
 
-def get_openai_client():
-    global client
-    if client is None:
-        if not OPENAI_API_KEY:
-            raise RuntimeError("OPENAI_API_KEY not set")
-        client = OpenAI(api_key=OPENAI_API_KEY)
-    return client
 
 # MARKDOWN CLEANER
 # Written as escapes, not literal characters, so a search-and-replace over this
@@ -193,22 +185,13 @@ HOUSE_STYLE = (
 
 def run_llm(system_prompt, user_payload, style_note):
     """
-    Unified LLM invoker, consistent temperature, length, structure.
+    Unified invoker. Instructions are ordered stable first so the prefix caches
+    across every call to the same component.
     """
-    client = get_openai_client()
-
-    resp = client.chat.completions.create(
-        model="gpt-4o",
-        temperature=0.6,
-        max_tokens=5000,
-        messages=[
-            {"role": "system", "content": HOUSE_STYLE},
-            {"role": "system", "content": style_note},
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_payload},
-        ],
+    raw = llm.complete(
+        system_blocks=[HOUSE_STYLE, style_note, system_prompt],
+        user_payload=user_payload,
     )
-    raw = resp.choices[0].message.content or ""
     return clean_markdown(raw)
 
 @celery.task(name="process_prompt")

@@ -7,7 +7,7 @@ page that invents an uptime percentage is worth less than no status page at
 all, because the first person to catch it stops believing the rest.
 
 Where something genuinely cannot be checked cheaply, it is reported as
-configured or not configured rather than dressed up as a live check. An OpenAI
+configured or not configured rather than dressed up as a live check. A model
 probe would cost money on every page load, so the page says the key is present,
 which is the honest claim.
 """
@@ -109,8 +109,8 @@ def check_storage():
 def check_inference():
     """Configuration only. Probing it would bill a request per page view."""
     def probe():
-        if not os.getenv("OPENAI_API_KEY"):
-            return UNCONFIGURED, "OPENAI_API_KEY is not set"
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            return UNCONFIGURED, "ANTHROPIC_API_KEY is not set"
         return OK, "credentials present"
     return _timed(probe)
 
