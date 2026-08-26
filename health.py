@@ -215,22 +215,47 @@ def check_inference():
     return _timed(probe)
 
 
-def _configured(name, label):
+def _configured(name, label, missing, key_optional=False):
+    """
+    Report a data provider, and say what its absence actually costs.
+
+    `missing` describes the consequence rather than repeating the variable
+    name, because "not set" alone gives no way to judge whether it matters.
+
+    `key_optional` marks a provider that works unauthenticated, where a key
+    only raises the rate limit. Showing those as awaiting setup claims a
+    feature is unavailable when it is running.
+    """
     present = bool(os.getenv(name))
-    return {
-        "status": OK if present else UNCONFIGURED,
-        "detail": "key present" if present else f"{name} is not set",
-        "label": label,
-    }
+    if present:
+        return {"status": OK, "detail": "key present", "label": label}
+    if key_optional:
+        return {"status": OK, "detail": missing, "label": label}
+    return {"status": UNCONFIGURED, "detail": missing, "label": label}
 
 
 def integrations():
     """Optional data providers. Absent ones degrade a feature, not the service."""
     return [
-        _configured("HELIUS_API_KEY", "Helius RPC"),
-        _configured("ETHERSCAN_API_KEY", "Etherscan"),
-        _configured("HONEYPOT_API_KEY", "Honeypot.is"),
-        _configured("BIRDEYE_API_KEY", "Birdeye"),
+        _configured(
+            "HELIUS_API_KEY", "Helius RPC",
+            "falls back to the public Solana RPC, which is heavily rate limited",
+        ),
+        _configured(
+            "ETHERSCAN_API_KEY", "Etherscan",
+            "Ethereum contract source and ABI unavailable, so admin risk and "
+            "exploit surface are skipped on ETH addresses",
+        ),
+        _configured(
+            "HONEYPOT_API_KEY", "Honeypot.is",
+            "running unauthenticated; a key only raises the rate limit",
+            key_optional=True,
+        ),
+        _configured(
+            "BIRDEYE_API_KEY", "Birdeye",
+            "Solana token metadata and one holder source fall back to Helius "
+            "and DexScreener",
+        ),
     ]
 
 
