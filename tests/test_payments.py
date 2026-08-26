@@ -1074,3 +1074,54 @@ def test_drawdowns_are_available_for_charting():
     s = rm.simulate(500, 30, 0.05, 0.4, 1.0, seed=2)
     assert len(s["drawdowns"]) == 500
     assert all(0.0 <= d <= 1.0 for d in s["drawdowns"])
+
+
+def test_a_chart_keeps_its_aspect_ratio():
+    """
+    The chart was placed at a fixed 5.7 by 3.8 inches whatever shape it was.
+    Three stacked panels are twice as tall as they are wide, so a landscape box
+    squashed them threefold and clipped every panel title.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from reportlab.lib.units import inch
+    from pdf_utils import _fitted_image
+    import tempfile, os
+
+    path = os.path.join(tempfile.mkdtemp(), "tall.png")
+    fig = plt.figure(figsize=(4, 10))
+    plt.plot([1, 2, 3])
+    fig.savefig(path)
+    plt.close(fig)
+
+    img = _fitted_image(path, 5.7 * inch, 8.2 * inch)
+    assert abs(img.drawWidth / img.drawHeight - 4 / 10) < 0.02
+    assert img.drawHeight <= 8.2 * inch + 1
+    assert img.drawWidth <= 5.7 * inch + 1
+
+
+def test_a_wide_chart_is_bounded_by_width():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from reportlab.lib.units import inch
+    from pdf_utils import _fitted_image
+    import tempfile, os
+
+    path = os.path.join(tempfile.mkdtemp(), "wide.png")
+    fig = plt.figure(figsize=(12, 3))
+    plt.plot([1, 2, 3])
+    fig.savefig(path)
+    plt.close(fig)
+
+    img = _fitted_image(path, 5.7 * inch, 8.2 * inch)
+    assert abs(img.drawWidth - 5.7 * inch) < 1
+    assert abs(img.drawWidth / img.drawHeight - 4.0) < 0.05
+
+
+def test_an_unreadable_image_does_not_crash_the_report():
+    from reportlab.lib.units import inch
+    from pdf_utils import _fitted_image
+    img = _fitted_image("/nonexistent/chart.png", 5.7 * inch, 8.2 * inch)
+    assert img is not None

@@ -144,6 +144,29 @@ def add_radar_chart(values, labels, size=200):
 
     return d
 
+def _fitted_image(path, max_width, max_height):
+    """
+    Place an image at its own proportions, scaled to fit.
+
+    The chart was drawn at a fixed 5.7 by 3.8 inches whatever shape it actually
+    was. A stack of three stacked panels is roughly twice as tall as it is
+    wide, so forcing it into a landscape box squashed it vertically by about
+    three times and clipped every panel title into the axis labels above it.
+    """
+    from reportlab.lib.utils import ImageReader
+
+    try:
+        width_px, height_px = ImageReader(path).getSize()
+    except Exception:
+        return Image(path, width=max_width, height=max_height)
+
+    if not width_px or not height_px:
+        return Image(path, width=max_width, height=max_height)
+
+    scale = min(max_width / width_px, max_height / height_px)
+    return Image(path, width=width_px * scale, height=height_px * scale)
+
+
 def _markdown_table(rows, styles, available_width):
     """
     Lay a parsed markdown table out as a real table.
@@ -421,7 +444,7 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
         story.append(Spacer(1, 0.2 * inch))
         story.append(Paragraph("Simulation Distribution", styles["SectionTitle"]))
         story.append(Spacer(1, 0.12 * inch))
-        story.append(Image(chart_path, width=5.7 * inch, height=3.8 * inch))
+        story.append(_fitted_image(chart_path, 5.7 * inch, 8.2 * inch))
         story.append(Spacer(1, 0.25 * inch))
 
     story.append(HRFlowable(width="100%", thickness=0.8, color=BORDER))
