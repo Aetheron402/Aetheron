@@ -110,7 +110,7 @@ def check_inference():
     """Configuration only. Probing it would bill a request per page view."""
     def probe():
         if not os.getenv("OPENAI_API_KEY"):
-            return DOWN, "OPENAI_API_KEY is not set"
+            return UNCONFIGURED, "OPENAI_API_KEY is not set"
         return OK, "credentials present"
     return _timed(probe)
 
@@ -167,20 +167,34 @@ def uptime():
     return {"seconds": seconds, "text": text}
 
 
+# An environment that has not been given its credentials is not a broken one.
+# Reporting "service disruption" for a missing key trains people to ignore the
+# banner, so incomplete setup gets its own verdict.
+INCOMPLETE = "incomplete"
+
+
 def overall(services):
-    """Worst state wins, but an unconfigured optional piece is not an outage."""
+    """
+    Worst genuine failure wins.
+
+    down       something configured is not answering
+    degraded   something configured is answering badly
+    incomplete only missing configuration, nothing is actually failing
+    """
     states = [s["status"] for s in services.values()]
     if DOWN in states:
         return DOWN
     if DEGRADED in states:
         return DEGRADED
+    if UNCONFIGURED in states:
+        return INCOMPLETE
     return OK
 
 
 # Every page polls this from its header, and a snapshot reaches out to Solana,
 # DexScreener and the worker pool. Without a short cache, opening three tabs
 # would triple the outbound traffic for no extra information.
-_CACHE_TTL = 8.0
+_CACHE_TTL = 10.0
 _cached = None
 _cached_at = 0.0
 
@@ -207,7 +221,7 @@ def _build_snapshot(solana_client, ledger_utils, redis_url):
         "ai":      check_inference(),
     }
     return {
-        "ok": overall(services) != DOWN,
+        "ok": overall(services) in (OK, INCOMPLETE),
         "overall": overall(services),
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "uptime": uptime(),

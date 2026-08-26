@@ -16,14 +16,16 @@
       <h1 id="banner-title" class="text-2xl font-bold text-white tracking-tight">Checking systems</h1>
       <p id="banner-sub" class="text-sm text-gray-400 mt-0.5">Running live probes against every dependency.</p>
     </div>
-    <button id="refresh" class="btn btn-ghost ml-auto text-xs px-3 py-1.5" title="Re-run every probe">
-      Refresh
-    </button>
+    <div class="ml-auto text-right">
+      <div class="live-tag"><span class="live-dot"></span>Live</div>
+      <p class="text-xs text-gray-500 mt-1" id="next-check">updating…</p>
+    </div>
   </div>
 
   <p class="text-xs text-gray-500 mb-10">
-    Every value on this page is measured when the page loads. Latencies are the real
-    round trip to each dependency, and the counts come from the ledger.
+    Every value is measured when it is read. Latencies are the real round trip to each
+    dependency and the counts come from the ledger, so nothing here is estimated or
+    remembered. This page re-probes on its own every 15 seconds.
     <span id="checked-at"></span>
   </p>
 
@@ -121,7 +123,7 @@
   <div class="divider pt-6 text-sm text-gray-500">
     The same data is available as JSON at
     <a href="/api/status" class="text-cyan-300 hover:text-cyan-200 transition">/api/status</a>.
-    Nothing on this page is cached for longer than eight seconds.
+    Probe results are shared for ten seconds, so several open tabs do not multiply the outbound checks.
   </div>
 
 </section>
@@ -141,6 +143,21 @@
   .banner-ok    .banner-dot{ background:#34d399; box-shadow:0 0 0 4px rgba(52,211,153,0.18); }
   .banner-degr  .banner-dot{ background:#fbbf24; box-shadow:0 0 0 4px rgba(251,191,36,0.18); }
   .banner-down  .banner-dot{ background:#f87171; box-shadow:0 0 0 4px rgba(248,113,113,0.18); }
+
+  .live-tag{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-size:.7rem; letter-spacing:.06em; text-transform:uppercase;
+    color:rgba(148,163,184,0.9);
+  }
+  .live-dot{
+    width:6px; height:6px; border-radius:9999px; background:#34d399;
+    animation:liveBlink 2.4s ease-in-out infinite;
+  }
+  @keyframes liveBlink{
+    0%,100%{ box-shadow:0 0 0 0 rgba(52,211,153,0.5); }
+    70%    { box-shadow:0 0 0 5px rgba(52,211,153,0); }
+  }
+  @media (prefers-reduced-motion: reduce){ .live-dot{ animation:none; } }
 
   .stat{
     border:1px solid rgba(255,255,255,0.07);
@@ -189,7 +206,9 @@
 </style>
 
 <script>
-  const OK = "operational", DEGR = "degraded", DOWN = "down", NC = "not configured";
+  const OK = "operational", DEGR = "degraded", DOWN = "down",
+        NC = "not configured", INC = "incomplete";
+  const REFRESH_MS = 15000;
 
   const SERVICE_LABELS = {
     api:     ["Web API",            "Serves the site and every endpoint"],
@@ -216,31 +235,40 @@
   function chipFor(status) {
     if (status === OK)   return ["chip chip-ok",   "operational"];
     if (status === DEGR) return ["chip chip-warn", "degraded"];
-    if (status === NC)   return ["chip chip-warn", "not configured"];
+    if (status === NC)   return ["chip chip-warn", "awaiting setup"];
     return ["chip chip-down", "unavailable"];
   }
   function dotColour(status) {
     if (status === OK)   return "#34d399";
-    if (status === DEGR || status === NC) return "#fbbf24";
+    if (status === DEGR || status === NC || status === INC) return "#fbbf24";
     return "#f87171";
   }
 
   function render(d) {
     // headline
     const banner = document.getElementById("banner");
-    banner.className = "status-banner mb-3 " +
-      (d.overall === OK ? "banner-ok" : d.overall === DEGR ? "banner-degr" : "banner-down");
-    document.getElementById("banner-title").textContent =
-      d.overall === OK ? "All systems operational"
-      : d.overall === DEGR ? "Partially degraded"
-      : "Service disruption";
+    const cls = d.overall === OK ? "banner-ok"
+              : d.overall === INC ? "banner-degr"
+              : d.overall === DEGR ? "banner-degr" : "banner-down";
+    banner.className = "status-banner mb-3 " + cls;
 
-    const bad = Object.entries(d.services)
+    document.getElementById("banner-title").textContent =
+        d.overall === OK   ? "All systems operational"
+      : d.overall === INC  ? "Operational, setup incomplete"
+      : d.overall === DEGR ? "Partially degraded"
+      :                      "Service disruption";
+
+    const failing = Object.entries(d.services)
       .filter(([, s]) => s.status === DOWN || s.status === DEGR)
       .map(([k]) => (SERVICE_LABELS[k] || [k])[0]);
+    const pending = Object.entries(d.services)
+      .filter(([, s]) => s.status === NC)
+      .map(([k]) => (SERVICE_LABELS[k] || [k])[0]);
+
     document.getElementById("banner-sub").textContent =
-      bad.length ? bad.join(", ") + (bad.length === 1 ? " is affected" : " are affected")
-                 : "Every probe returned healthy.";
+        failing.length ? failing.join(", ") + (failing.length === 1 ? " is affected" : " are affected")
+      : pending.length ? "Everything configured is responding. Awaiting credentials for " + pending.join(", ") + "."
+      : "Every probe returned healthy.";
 
     document.getElementById("checked-at").textContent =
       "Last checked " + new Date(d.checked_at).toLocaleTimeString() + ".";
@@ -279,7 +307,8 @@
     for (const [name, price, deps, needs] of COMPONENTS) {
       const states = deps.map(k => d.services[k] ? d.services[k].status : DOWN);
       const worst = states.includes(DOWN) ? DOWN
-                  : states.some(s => s === DEGR || s === NC) ? DEGR : OK;
+                  : states.includes(DEGR)  ? DEGR
+                  : states.includes(NC)    ? NC : OK;
       const [cls, text] = chipFor(worst);
       const tr = document.createElement("tr");
       tr.innerHTML =
@@ -335,8 +364,21 @@
     }
   }
 
-  document.getElementById("refresh").addEventListener("click", load);
-  load();
-  setInterval(load, 20000);
+  let nextAt = 0;
+  async function cycle() {
+    await load();
+    nextAt = Date.now() + REFRESH_MS;
+  }
+
+  // A visible countdown, so the page reads as live rather than as a snapshot
+  // somebody forgot to reload.
+  setInterval(() => {
+    const left = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+    const el = document.getElementById("next-check");
+    if (el) el.textContent = left ? "next check in " + left + "s" : "checking…";
+  }, 1000);
+
+  cycle();
+  setInterval(cycle, REFRESH_MS);
 </script>
 {% endblock %}
