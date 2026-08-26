@@ -1291,3 +1291,61 @@ def test_a_partial_submission_still_validates_required_fields():
     import agent_setup
     with pytest.raises(agent_setup.SetupError):
         agent_setup.build_zip("wallet-watcher", {"webhook": "https://example.com/h"})
+
+
+# ── agent preview ───────────────────────────────────────────────────────────
+
+def test_preview_never_takes_configuration_from_the_request():
+    """
+    A webhook URL supplied by a visitor would make this endpoint fetch whatever
+    they pointed it at from inside our network. The demo config is fixed here.
+    """
+    import inspect
+    import agent_preview
+    src = inspect.getsource(agent_preview.run)
+    assert "request" not in src
+    for agent, cfg in agent_preview.DEMO_CONFIG.items():
+        notif = cfg.get("notifications", {})
+        assert not notif.get("enabled", False), agent
+        assert not notif.get("webhook_url"), agent
+
+
+def test_only_agents_the_worker_can_actually_run_are_previewable():
+    """discord.py, PyNaCl and jsonschema are not installed for a preview."""
+    import agent_preview
+    assert not agent_preview.is_previewable("discord-helper")
+    assert not agent_preview.is_previewable("solana-trading-assistant")
+    assert not agent_preview.is_previewable("project-planner")
+    assert agent_preview.is_previewable("wallet-watcher")
+
+
+def test_a_preview_is_bounded_in_time():
+    """These agents loop forever by design, so the deadline is what ends it."""
+    import time
+    import agent_preview
+    started = time.time()
+    result = agent_preview.run("wallet-watcher", seconds=6)
+    elapsed = time.time() - started
+    assert elapsed < 25, elapsed
+    assert result["stopped_on_deadline"] is True
+    assert result["ok"] is True
+
+
+def test_hitting_the_deadline_is_not_reported_as_failure():
+    import agent_preview
+    result = agent_preview.run("wallet-watcher", seconds=5)
+    assert result["ok"] is True
+    assert "not the agent" in result["reason"]
+
+
+def test_a_preview_cannot_be_asked_to_run_forever():
+    import agent_preview
+    result = agent_preview.run("wallet-watcher", seconds=99999)
+    assert result["seconds"] <= agent_preview.MAX_SECONDS
+
+
+def test_an_unpreviewable_agent_is_refused_cleanly():
+    import agent_preview
+    result = agent_preview.run("discord-helper", seconds=5)
+    assert result["ok"] is False
+    assert "no live preview" in result["reason"]

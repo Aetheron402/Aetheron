@@ -3241,3 +3241,15 @@ should still have the most important fact.
     finalize_asset(asset_id, filename)
 
     return {"download_url": url, "filename": filename, "format": fmt}
+
+@celery.task(name="preview_agent")
+def preview_agent(agent_id, seconds=20):
+    """
+    Run one store agent briefly and return what it printed.
+
+    Kept in the worker rather than the web process because it spawns a
+    subprocess that makes outbound calls, and the web process should stay
+    responsive while that happens.
+    """
+    import agent_preview
+    return agent_preview.run(agent_id, seconds)

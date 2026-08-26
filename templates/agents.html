@@ -667,6 +667,70 @@ async function downloadAgent(agentId) {
   </div>
 </div>
 
+<div id="agent-preview-bg" class="modal-bg" style="display:none">
+  <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[680px] max-h-[80vh] overflow-y-auto">
+    <div class="flex justify-between items-start mb-2">
+      <h3 id="agent-preview-title" class="text-cyan-300 text-xl font-semibold">Live run</h3>
+      <button onclick="document.getElementById('agent-preview-bg').style.display='none'"
+              class="text-gray-400 hover:text-cyan-300 text-lg">&times;</button>
+    </div>
+    <p id="agent-preview-status" class="text-sm text-gray-400 mb-4">Starting...</p>
+    <pre id="agent-preview-output" style="
+        background:#0b1220; border:1px solid rgba(34,211,238,.15); border-radius:.6rem;
+        padding:1rem; font-size:.72rem; line-height:1.45; color:#cbd5e1;
+        white-space:pre-wrap; word-break:break-word; max-height:52vh; overflow-y:auto;"></pre>
+  </div>
+</div>
+
+<script>
+// Run the agent for a few seconds and show what it prints, so a buyer sees it
+// working before paying rather than after.
+async function previewAgent(agentId) {
+  const bg = document.getElementById("agent-preview-bg");
+  const out = document.getElementById("agent-preview-output");
+  const status = document.getElementById("agent-preview-status");
+
+  document.getElementById("agent-preview-title").textContent = agentId + ", live run";
+  out.textContent = "";
+  status.textContent = "Starting the agent...";
+  bg.style.display = "flex";
+
+  let started;
+  try {
+    const r = await fetch(`/api/agents/${agentId}/preview`, { method: "POST" });
+    if (r.status === 429) {
+      status.textContent = (await r.json()).detail;
+      return;
+    }
+    if (!r.ok) {
+      status.textContent = (await r.json()).detail || "Preview unavailable.";
+      return;
+    }
+    started = await r.json();
+  } catch (e) {
+    status.textContent = "Could not reach the server.";
+    return;
+  }
+
+  status.textContent = `Running for ${started.seconds} seconds against live data...`;
+
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    let d;
+    try {
+      d = await (await fetch(`/api/agents/preview/${started.task_id}`)).json();
+    } catch (e) { continue; }
+    if (!d.ready) continue;
+
+    out.textContent = d.output || "(no output)";
+    status.textContent = d.reason || (d.ok ? "Finished." : "The agent exited with an error.");
+    status.style.color = d.ok ? "#34d399" : "#f87171";
+    return;
+  }
+  status.textContent = "The preview timed out.";
+}
+</script>
+
 <div id="loading" class="fixed inset-0 bg-black/70 hidden z-[9999] flex items-center justify-center">
   <div class="text-center">
     <div class="animate-spin h-10 w-10 border-4 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>

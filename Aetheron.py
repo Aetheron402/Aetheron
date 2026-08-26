@@ -870,6 +870,75 @@ def _deliver_agent(agent_id: str, request: Request, x_payment, x_payment_method,
     )
 
 
+PREVIEW_COOLDOWN_SECONDS = int(os.getenv("AGENT_PREVIEW_COOLDOWN", "20"))
+_preview_last_seen: dict[str, float] = {}
+
+
+def _preview_allowed(request: Request) -> bool:
+    """
+    One preview at a time per caller.
+
+    This route spawns a process on demand without payment, so without a limit
+    a single visitor holding the button could occupy every worker slot and
+    stall the paid queue behind it.
+    """
+    caller = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    caller = caller or (request.client.host if request.client else "unknown")
+
+    now = time.time()
+    # Opportunistic sweep, so the map does not grow for the process lifetime.
+    for key, seen in list(_preview_last_seen.items()):
+        if now - seen > PREVIEW_COOLDOWN_SECONDS * 10:
+            _preview_last_seen.pop(key, None)
+
+    if now - _preview_last_seen.get(caller, 0) < PREVIEW_COOLDOWN_SECONDS:
+        return False
+    _preview_last_seen[caller] = now
+    return True
+
+
+@app.post("/api/agents/{agent_id}/preview")
+def start_agent_preview(agent_id: str, request: Request):
+    """Run the agent for a few seconds so a buyer can watch it before paying."""
+    import agent_preview
+
+    if agent_id not in agent_setup.AGENT_PATHS:
+        raise HTTPException(status_code=404, detail="Invalid agent ID")
+    if not agent_preview.is_previewable(agent_id):
+        raise HTTPException(status_code=400, detail="This agent has no live preview.")
+    if not _preview_allowed(request):
+        raise HTTPException(
+            status_code=429,
+            detail=f"One preview every {PREVIEW_COOLDOWN_SECONDS} seconds. Try again shortly.",
+        )
+
+    try:
+        from celery_worker import preview_agent
+        task = preview_agent.delay(agent_id, agent_preview.MAX_SECONDS)
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=503, detail="Preview is unavailable right now.")
+
+    return JSONResponse(status_code=202, content={
+        "task_id": task.id,
+        "agent_id": agent_id,
+        "seconds": agent_preview.MAX_SECONDS,
+    })
+
+
+@app.get("/api/agents/preview/{task_id}")
+def agent_preview_result(task_id: str):
+    """Poll a preview run."""
+    from celery_worker import celery as celery_app
+    res = AsyncResult(task_id, app=celery_app)
+    if not res.ready():
+        return {"ready": False, "state": res.state}
+    if res.failed():
+        return {"ready": True, "ok": False, "reason": "The preview failed to run."}
+    payload = res.result if isinstance(res.result, dict) else {}
+    return {"ready": True, **payload}
+
+
 @app.get("/api/agents/{agent_id}/setup")
 def agent_setup_fields(agent_id: str):
     """
