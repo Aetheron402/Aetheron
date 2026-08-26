@@ -2779,14 +2779,17 @@ def process_risk_engine(
     panels = [Image.open(p).convert("RGB") for p in
               (sample_chart_path, distribution_chart_path, drawdown_chart_path)]
 
+    # Butted directly together, each panel's x axis label collided with the
+    # title of the panel below it and both became unreadable.
+    GAP = 26
     width = max(p.width for p in panels)
-    height = sum(p.height for p in panels)
+    height = sum(p.height for p in panels) + GAP * (len(panels) - 1)
 
     combined = Image.new("RGB", (width, height), "white")
     offset = 0
     for panel in panels:
-        combined.paste(panel, (0, offset))
-        offset += panel.height
+        combined.paste(panel, ((width - panel.width) // 2, offset))
+        offset += panel.height + GAP
     combined.save(combined_chart_path)
 
     chart_path = combined_chart_path
