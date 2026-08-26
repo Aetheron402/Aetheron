@@ -3,6 +3,12 @@ from datetime import datetime
 
 from schemas.signal import Signal
 from schemas.narrative import Narrative
+from utils.decay import time_decay
+
+# How long a narrative keeps half its strength without new signals. Short,
+# because these are intraday moves: a token that stopped trading two hours ago
+# is not a live opportunity.
+HALF_LIFE_SECONDS = 1800
 
 
 class NarrativeEngine:
@@ -20,6 +26,12 @@ class NarrativeEngine:
         Returns unique updated narratives only.
         """
         touched_ids = set()
+
+        # Age everything first, including narratives no signal arrived for.
+        # Without this a narrative kept whatever strength it accumulated and
+        # never left the ranking, so the board filled with tokens that had
+        # stopped moving hours earlier.
+        self._age(timestamp)
 
         for signal in signals:
             narrative_id = self._resolve_narrative_id(signal)
@@ -75,24 +87,50 @@ class NarrativeEngine:
         Update narrative metrics with a new signal.
         """
         narrative.signals.append(signal)
+
+        # Only the recent signals matter, and an unbounded list grows for the
+        # lifetime of the process.
+        if len(narrative.signals) > 50:
+            narrative.signals = narrative.signals[-50:]
+
+        # Weighted by confidence, so a strong reading from a thin pair counts
+        # for less than the same reading from a deep one.
+        narrative.strength += signal.value * signal.confidence
         narrative.last_updated = timestamp
 
-        # simple aggregate strength update (v1)
-        narrative.strength += signal.value
-
-        # momentum and freshness are placeholders for now
         narrative.momentum = self._compute_momentum(narrative)
-        narrative.freshness = self._compute_freshness(narrative, timestamp)
+        narrative.freshness = 1.0        # just updated, by definition
+
+    def _age(self, now: datetime) -> None:
+        """
+        Decay every narrative toward zero, and drop the ones that got there.
+
+        utils.decay.time_decay already existed and was never called, while
+        freshness was computed immediately after last_updated had been set to
+        the same timestamp, so it evaluated to exactly 1.0 every time and
+        nothing ever aged.
+        """
+        for narrative_id, narrative in list(self._narratives.items()):
+            factor = time_decay(narrative.last_updated, now, HALF_LIFE_SECONDS)
+            narrative.strength *= factor
+            narrative.freshness = factor
+
+            # Below this it cannot rank, and keeping it only grows the store.
+            if narrative.strength < 0.01:
+                del self._narratives[narrative_id]
 
     def _compute_momentum(self, narrative: Narrative) -> float:
-        # placeholder: refine later
-        return narrative.strength / max(len(narrative.signals), 1)
+        """
+        Whether recent signals are stronger than the ones before them.
 
-    def _compute_freshness(
-        self,
-        narrative: Narrative,
-        timestamp: datetime
-    ) -> float:
-        # placeholder decay logic
-        age_seconds = (timestamp - narrative.last_updated).total_seconds()
-        return max(0.0, 1.0 - age_seconds / 3600)
+        The mean of every signal ever seen is a level, not momentum: it moves
+        less the longer a narrative has existed, which is backwards.
+        """
+        values = [s.value for s in narrative.signals]
+        if len(values) < 4:
+            return 0.0
+
+        half = len(values) // 2
+        earlier = sum(values[:half]) / half
+        recent = sum(values[half:]) / (len(values) - half)
+        return max(-1.0, min(1.0, recent - earlier))

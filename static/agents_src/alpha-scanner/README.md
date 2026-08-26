@@ -76,10 +76,10 @@ When running, the agent will:
 
 - start in **continuous scan mode**
 - clearly log each scan stage
-- use **placeholder signals only**
-- explain exactly where real logic should be added
+- read **live market and on-chain data** from DexScreener
+- state plainly that social signals are off until you connect a source
 
-No APIs. No wallets. Safe by default.
+No API keys. No wallets. Read only.
 
 Stop execution with `Ctrl+C`.
 
@@ -226,11 +226,21 @@ No core logic changes required.
 
 ------------------------------------------------------------------------
 
-# 7. Implementing Real Signal Logic
+# 7. Signal Sources
 
-The template ships with **placeholder signal generators**.
+Two of the three generators run against live data with no API key:
 
-To go live, users replace logic in:
+- `signals/market.py` reads price change, volume and liquidity per pair, and
+  weights confidence by pair depth, since the same move is easier to
+  manufacture on a thin pair.
+- `signals/onchain.py` reads the 24h buy and sell counts for those same pairs
+  and scores the imbalance, with confidence rising as trade count rises.
+
+`signals/social.py` emits nothing and says so once in the output. Every source
+worth reading needs a paid key this template does not ship with, and a
+fabricated signal would fuse and rank exactly like a measured one.
+
+To extend or replace them:
 
 ## `signals/social.py`
 Examples:

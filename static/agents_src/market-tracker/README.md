@@ -320,20 +320,26 @@ market-tracker-agent/
 
 ## 14. Data Layer
 
-All data enters via `utils/data.py`.
+All data enters via `utils/data.py`, which fetches live values from public
+endpoints that need no API key: CoinGecko for the majors and stablecoin supply,
+alternative.me for the Fear and Greed index, Binance for funding, positioning
+and candles, and Deribit for the DVOL implied volatility index.
 
-Defaults are placeholders.
+A source that does not respond returns `None`. The module reading it reports
+the input as unavailable and lowers its own confidence rather than substituting
+a number.
 
 ---
 
-## 15. Making the Agent Real
+## 15. Adding Your Own Sources
 
-Replace placeholder values with real data:
-- REST APIs
-- on-chain feeds
-- internal databases
+Broad equity momentum has no keyless source, so `get_equity_momentum()` returns
+`None` and the risk module scores on crypto alone and says so. If you have a
+market data subscription, that is the first function to fill in.
 
-Normalize to `-1 → +1`.
+Any getter you add should return a value normalized to `-1 → +1`, or `None`
+when its source is unavailable, so the module can report the gap instead of
+scoring around it.
 
 ---
 
