@@ -121,13 +121,32 @@
       position: absolute;
       inset: -25%;
       background:
-        radial-gradient(75% 45% at 50% -6%, rgba(34,211,238,0.13), transparent 70%);
+        radial-gradient(65% 50% at 18% 18%, rgba(34,211,238,0.18), transparent 60%),
+        radial-gradient(60% 50% at 82% 22%, rgba(56,189,248,0.16), transparent 62%),
+        radial-gradient(65% 60% at 50% 88%, rgba(34,211,238,0.14), transparent 65%);
+      filter: blur(14px);
       opacity: 1;
     }
 
-    .scanlines { display: none; }
+    .scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.035) 0,
+        rgba(255,255,255,0.035) 1px,
+        transparent 2px,
+        transparent 5px
+      );
+      opacity: 0.35;
+    }
 
-    .vignette { display: none; }
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,0.65) 100%);
+      opacity: 0.8;
+    }
 
     .particle {
       position: absolute;
@@ -180,30 +199,35 @@
        these read as cheap. Flat fill, tighter radius, lighter weight. */
     .btn{
       position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .5rem;
-      background: var(--cyan);
+      background: linear-gradient(180deg, var(--cyan-2), var(--cyan));
       color: #001018;
-      font-weight: 600;
-      font-size: .875rem;
-      line-height: 1.25rem;
-      padding: .6rem 1.1rem;
-      border: 1px solid transparent;
-      border-radius: .625rem;
-      transition: background .16s ease, opacity .16s ease;
-      cursor: pointer;
+      font-weight: 700;
+      padding: .55rem 1.05rem;
+      border-radius: .85rem;
+      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+      box-shadow:
+        0 10px 30px rgba(34,211,238,0.18),
+        inset 0 1px 0 rgba(255,255,255,0.35);
     }
-    .btn:hover{ background: var(--cyan-2); }
-    .btn:active{ background: #22b8cf; }
-    .btn:disabled, .btn[disabled]{ opacity: .45; cursor: not-allowed; }
+    .btn:hover{
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+      box-shadow:
+        0 14px 40px rgba(34,211,238,0.22),
+        inset 0 1px 0 rgba(255,255,255,0.42);
+    }
+    .btn:active{ transform: translateY(0px) scale(0.99); }
 
-    /* Secondary action: cyan outline, no fill. */
-    .btn-ghost{
-      background: transparent;
-      color: var(--cyan-2);
-      border: 1px solid var(--border-strong);
+    .modal-bg{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.68);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index: 70;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
     .btn-ghost:hover{
       background: rgba(34,211,238,0.08);
@@ -225,24 +249,29 @@
     .modal{
       background: linear-gradient(180deg, rgba(11,18,32,0.92), rgba(2,6,23,0.92));
       border: 1px solid var(--border-strong);
-      border-radius: 1rem;
+      border-radius: 1.25rem;
       width: min(520px, 92vw);
-      padding: 1.5rem;
-      box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+      padding: 1.25rem;
+      box-shadow:
+        0 30px 90px rgba(0,0,0,0.55),
+        0 0 0 1px rgba(34,211,238,0.10);
     }
 
     /* Flat surface. Hover lifts by brightening the border rather than by
        translating the card under a coloured glow. */
     .card{
-      background: rgba(15,23,42,0.55);
+      background: linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.72));
       border: 1px solid var(--border);
-      border-radius: 1rem;
+      border-radius: 1.25rem;
       padding: 1.5rem;
-      transition: border-color .18s ease, background .18s ease;
+      transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
     }
     .card:hover{
-      border-color: rgba(34,211,238,0.42);
-      background: rgba(15,23,42,0.75);
+      transform: translateY(-4px);
+      border-color: rgba(34,211,238,0.40);
+      box-shadow:
+        0 18px 60px rgba(0,0,0,0.38),
+        0 0 30px rgba(34,211,238,0.12);
     }
 
     .pill{
@@ -281,9 +310,11 @@
     }
 
     .filter-chip:hover{
+      transform: translateY(-1px);
       color: rgba(229,231,235,0.95);
       background: rgba(255,255,255,0.06);
       border-color: rgba(34,211,238,0.36);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.28);
     }
 
     .filter-chip.active{
@@ -433,6 +464,7 @@
       border: 1px solid rgba(34,211,238,0.30);
       border-radius: .625rem;
       transition: background .16s ease, border-color .16s ease, color .16s ease;
+      white-space: nowrap;
       cursor: pointer;
     }
     .wallet-btn:hover {
@@ -502,7 +534,7 @@
   <div class="app-shell">
 
     <!-- PAGE CONTENT -->
-    <main class="px-6 py-14 md:py-16 max-w-6xl mx-auto w-full">
+    <main class="p-6">
       {% block content %}{% endblock %}
     </main>
 
