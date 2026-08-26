@@ -549,134 +549,134 @@ language field, so identify it from the code rather than assuming.
         "format": fmt
     }
 
+# One simulated reader of the prompt. Nested so a persona cannot lose its
+# weakness field, which is the half that carries the finding.
+class Persona(BaseModel):
+    name: str = Field(description="Who this reader is, in a few words, for example 'Literal-minded junior engineer'.")
+    interpretation: str = Field(description="What this persona takes the prompt to be asking for.")
+    strength: str = Field(description="What this persona would handle well, and why.")
+    weakness: str = Field(description="Where this persona misreads, overfits or fills a gap with an assumption.")
+    risks: list[str] = Field(
+        default_factory=list,
+        description="Specific ways this persona goes wrong: the edge case, the assumption made silently, "
+                    "the reasoning path that diverges. Empty when this persona reads the prompt cleanly.",
+    )
+
+
+class PersonaTest(BaseModel):
+    interpretation: str = Field(
+        description="What the prompt is really asking for, what it leaves unsaid, and which gaps "
+                    "different readers would fill differently."
+    )
+    personas: list[Persona] = Field(
+        description="Readers chosen to expose how this specific prompt splits. As many as reveal "
+                    "genuine divergence and no more: a tightly specified prompt needs few."
+    )
+    cross_persona: str = Field(
+        description="Where the personas agree, where they genuinely conflict, and which readings "
+                    "are stable against which are unpredictable."
+    )
+    quality_score: int = Field(ge=0, le=10, description="How well specified the prompt is, 0 to 10.")
+    quality_reasoning: str = Field(description="What earns and what costs the prompt those points.")
+    divergence_score: int = Field(
+        ge=0, le=10,
+        description="How far the personas' readings spread, 0 to 10. High means the same prompt "
+                    "produces materially different work depending on who reads it.",
+    )
+    divergence_reasoning: str = Field(
+        description="Which words or omissions cause the spread, and what that costs in practice."
+    )
+    improvements: list[str] = Field(
+        description="Changes that would close the gaps found above. Each names the ambiguity it removes."
+    )
+    improved_prompt: str = Field(
+        description="The rewritten prompt, ready to paste and run. No preamble, no commentary."
+    )
+
+
+def _render_tester_report(r: "PersonaTest") -> str:
+    """Turn the structured persona test into the markdown the document engine expects."""
+    def bullets(items):
+        return "\n".join(f"\u2022 {i}" for i in items) if items else ""
+
+    parts = ["1. Core Prompt Interpretation\n", r.interpretation.strip(),
+             "\n\n2. PersonaBench Matrix\n"]
+
+    for p in r.personas:
+        parts.append(f"\n{p.name.strip()}\n\n")
+        parts.append(f"\u2022 Interpretation: {p.interpretation.strip()}\n")
+        parts.append(f"\u2022 Strength: {p.strength.strip()}\n")
+        parts.append(f"\u2022 Weakness: {p.weakness.strip()}\n")
+
+    parts.append("\n\n3. Persona Level Deepening\n")
+    deepened = [f"{p.name.strip()}\n\n" + bullets(p.risks) for p in r.personas if p.risks]
+    parts.append("\n\n".join(deepened) if deepened
+                 else "Every persona read this prompt the same way. Nothing diverged worth reporting.")
+
+    parts += [
+        "\n\n4. Cross Persona Comparison\n", r.cross_persona.strip(),
+        f"\n\n5. Prompt Quality Score\n\nPrompt Quality Score: {r.quality_score}/10\n\n",
+        r.quality_reasoning.strip(),
+        f"\n\n6. Persona Divergence Score\n\nPersona Divergence Score: {r.divergence_score}/10\n\n",
+        r.divergence_reasoning.strip(),
+        "\n\n7. Improvement Suggestions\n", bullets(r.improvements),
+        "\n\n8. Improved Prompt Variant\n", r.improved_prompt.strip(),
+    ]
+    return "".join(parts)
+
+
 @celery.task(name="process_tester")
 def process_tester(asset_id, prompt, out_format, wallet):
     SYSTEM_PROMPT = """
-    You are Aetheron, PersonaSim.
+You are PersonaSim. You are given a prompt and you work out how differently
+various readers would understand it, so its author learns where it is
+ambiguous before it reaches production.
 
-    Produce a *persona-focused Prompt Intelligence Report* (target 5-9 PDF pages), following this exact structure:
+Two rules matter more than the rest.
 
-    1. Core Prompt Interpretation
+First, the scores are measurements. The same prompt must receive the same score
+every time. An earlier version of this brief demanded the score vary between
+runs, which made it a random number wearing the costume of an assessment: a
+user running twice saw 6/10 and then 8/10 for identical input and correctly
+concluded the number meant nothing. Score what is in front of you. If two
+prompts are equally specified they get equal scores, and a well specified
+prompt scoring 9 twice is the system working.
 
-       Write 3-5 sentences explaining:
-       • What the prompt is truly asking for  
-       • The intent and implied objective  
-       • Any hidden assumptions or missing constraints  
-       • Potential ambiguities that different personas may interpret differently  
+Second, choose personas that expose how this particular prompt splits. Not a
+fixed roster, and not a fixed count. A prompt with a single sensible reading
+needs two personas to demonstrate that agreement. A vague prompt may need five
+before the disagreements stop being new. Pick readers whose differences the
+prompt actually causes: someone who reads instructions literally against someone
+who infers intent, a domain expert against a newcomer, someone optimising for
+speed against someone optimising for completeness. The persona is a probe, so
+if it does not reveal anything the others missed, leave it out.
 
-    2. PersonaBench Matrix (4-6 personas)
+What makes a finding useful:
 
-       For each persona, use this strict format:
+- Quote the words responsible. "'Make it good' gives no measurable target" beats
+  "the prompt is vague."
+- A weakness is what this persona would actually produce, not a personality
+  description.
+- Divergence is only worth reporting where it changes the output. Two personas
+  phrasing the same answer differently is not divergence.
+- Say what the reader silently assumed, since an unstated assumption is where
+  the output goes wrong while looking confident.
 
-       Persona Name
-
-       • Interpretation: 2-3 sentences describing how this persona understands the prompt.  
-       • Strength: 1-2 sentences explaining what this persona handles well.  
-       • Weakness: 1-2 sentences identifying where this persona may misjudge, overfit, or misinterpret.
-
-    3. Persona-Level Deepening
-
-       Provide 1-3 additional bullets per persona, focusing on:
-       • Edge cases  
-       • Risky behaviors  
-       • Divergent reasoning paths  
-       • Blind spots or misaligned assumptions  
-
-    4. Cross-Persona Comparison
-
-       Write 4-7 sentences comparing:
-       • Overlaps in interpretation  
-       • Points of strong disagreement  
-       • How assumptions differ  
-       • How risk tolerance and reasoning style diverge  
-       • Which personas respond reliably vs unpredictably  
-
-    5. Prompt Quality Score
-
-       First output a metric line in EXACTLY this format (do not include extra text on the same line):
-
-       Prompt Quality Score: X/10
-
-       Then provide 4-7 sentences explaining why:
-       • What is good about the prompt  
-       • What is unclear or risky  
-       • Whether constraints are missing  
-       • Whether the goal is specific enough  
-       • Whether the prompt is likely to cause persona divergence  
-
-       The score MUST depend on the input prompt quality and MUST vary each run.
-
-    6. Persona Divergence Score
-
-       First output a metric line in EXACTLY this format:
-
-       Persona Divergence Score: Y/10
-
-       Then write 4-7 sentences describing:
-       • Why the personas differ in interpretation  
-       • What aspects of the prompt cause divergence  
-       • Which personas diverge the most  
-       • How severe the divergence is  
-       • How this affects reliability  
-
-       The score MUST always be written as “Y/10” and MUST vary based on the prompt.
-
-    7. Improvement Suggestions
-
-       Provide 5-8 bullet points (•).  
-       Each bullet should be 1-3 sentences with clear, high-impact improvements that address:
-       • Prompt clarity  
-       • Missing constraints  
-       • Risk reduction  
-       • Better persona alignment  
-       • Stronger specificity or context  
-
-    8. Improved Prompt Variant
-
-       Provide one polished, fully improved version of the user’s prompt.  
-       It must be clean, unambiguous, enforce constraints, and be ready for deployment.
-
-    STRICT FORMATTING RULES:
-
-    • Never use markdown headings (#, ##, ###).  
-    • Section titles MUST appear only as numbered lines like “1. Title”.  
-    • A heading MUST be followed by a blank line, then content.  
-    • Inside sections, never use numbered lists, use bullet points (•) only.  
-    • Persona formatting MUST follow the Persona Name + 3 bullet structure.  
-    • Scores must always be X/10 and Y/10.  
-    • Do not add extra text after the scores on the same line.  
-    • Keep tone analytical, concise, and professional.  
-    • Finish ONLY with analytical content, never add certification or meta commentary.
-    """
-
+The improved prompt at the end must close the specific gaps you identified
+above, not be a generically longer prompt.
+"""
     STYLE_NOTE = (
-        "Use a clean, hierarchical, markdown-first format. "
-        "Section titles must be short and written ONLY as numbered headings like '1. Title'. "
-        "A section heading MUST be followed by a blank line. "
-        "Never include any other text on the same line as a section heading. "
-        "Never use markdown headings (#, ##, ###) anywhere. "
-        "Always put section explanations on a NEW line after the blank line below the heading. "
-        "Inside sections, never use numbered lists (1., 2., 3.). "
-        "Always use bullet points (•) for lists, items, or persona attributes. "
-        "For personas, each persona must be formatted as: "
-        'Persona Name\n'
-        '\n'
-        '• Interpretation: <text>\n'
-        '• Strength: <text>\n'
-        '• Weakness: <text>\n'
-        "Never merge Interpretation, Strength, or Weakness onto the same line. "
-        "Keep persona descriptions short, analytical, and clean. "
-        "For metric lines like 'Prompt Quality Score: X/10' and 'Persona Divergence Score: Y/10', "
-        "put ONLY that metric on its own line and place the explanation in a new paragraph below."
+        "Analytical and concrete. Quote the prompt's own wording when it is "
+        "the thing at fault."
     )
 
-    md_clean = run_llm(
-        SYSTEM_PROMPT,
-        user_payload=prompt,
-        style_note=STYLE_NOTE
+    result = llm.complete_structured(
+        system_blocks=[HOUSE_STYLE, STYLE_NOTE, SYSTEM_PROMPT],
+        user_payload=f"Prompt to test:\n\n{prompt}",
+        schema=PersonaTest,
     )
 
-    final_md = f"Prompt Quality Check: PersonaSim run completed.\n\n{md_clean}"
+    final_md = clean_markdown(_render_tester_report(result))
 
     fmt = (out_format or "pdf").lower()
 
