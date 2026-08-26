@@ -444,7 +444,11 @@ def build_aetheron_pdf(asset_id, timestamp, wallet, title, subtitle, md_text, ch
         story.append(Spacer(1, 0.2 * inch))
         story.append(Paragraph("Simulation Distribution", styles["SectionTitle"]))
         story.append(Spacer(1, 0.12 * inch))
-        story.append(_fitted_image(chart_path, 5.7 * inch, 8.2 * inch))
+        # Bounded by the real frame, not a guess. A flowable taller than the
+        # frame is not scaled down by reportlab, it raises and the report
+        # fails to build, and the top margin here is large enough that an
+        # eight inch ceiling does not fit.
+        story.append(_fitted_image(chart_path, doc.width, doc.height - 72))
         story.append(Spacer(1, 0.25 * inch))
 
     story.append(HRFlowable(width="100%", thickness=0.8, color=BORDER))

@@ -1125,3 +1125,27 @@ def test_an_unreadable_image_does_not_crash_the_report():
     from pdf_utils import _fitted_image
     img = _fitted_image("/nonexistent/chart.png", 5.7 * inch, 8.2 * inch)
     assert img is not None
+
+
+def test_a_tall_chart_still_builds_a_pdf():
+    """
+    Sizing the image correctly is not enough: a flowable taller than the frame
+    raises rather than shrinking, so the whole report fails to build. The risk
+    report's three stacked panels are exactly that shape.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import tempfile, os
+    from pdf_utils import build_aetheron_pdf
+
+    path = os.path.join(tempfile.mkdtemp(), "tall.png")
+    fig = plt.figure(figsize=(6, 13))
+    plt.plot([1, 2, 3])
+    fig.savefig(path)
+    plt.close(fig)
+
+    res = build_aetheron_pdf("T", "2026-01-01", "w", "t", "s",
+                             "1. Section\n\nbody text", chart_path=path)
+    buf = res[0] if isinstance(res, tuple) else res
+    assert buf.getvalue().startswith(b"%PDF")
