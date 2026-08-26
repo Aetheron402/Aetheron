@@ -114,6 +114,24 @@ templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).s
 # Exposed as globals so no template ever restates a payment address as a literal.
 # These are the values users copy and send funds to, so they must come from the
 # same source the backend verifies against, never from a second, drifting copy.
+def asset_url(path: str) -> str:
+    """
+    A static URL carrying the file's modification time.
+
+    Replacing an image keeps its URL, so browsers hold the old bytes and a
+    change looks like it never landed. Stamping the mtime changes the URL
+    whenever the file does, and not otherwise.
+    """
+    rel = path.lstrip("/")
+    try:
+        stamp = int(os.path.getmtime(rel))
+    except OSError:
+        return "/" + rel
+    return f"/{rel}?v={stamp}"
+
+
+templates.env.globals["asset_url"] = asset_url
+
 templates.env.globals["payment_wallet"] = PAYMENT_WALLET
 templates.env.globals["payment_network"] = PAYMENT_NETWORK
 templates.env.globals["aeth_enabled"] = bool(AETH_MINT)
