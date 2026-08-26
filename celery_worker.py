@@ -25,6 +25,7 @@ from bs4 import BeautifulSoup
 from pdf_utils import build_aetheron_pdf
 from export_utils import export_generic
 from asset_naming import asset_filename
+import contract_report
 from ledger_utils import finalize_asset
 
 load_dotenv()
@@ -2635,6 +2636,74 @@ Interpretation:
         "format": fmt
     }
 
+class ContractIntel(BaseModel):
+    """The judgement half of the contract report. Facts come from contract_report.py."""
+    summary: str = Field(
+        description="What this contract is, what it appears to be for, and the shape of its risk. "
+                    "Written for someone deciding whether to put money into it."
+    )
+    identity: str = Field(
+        description="What kind of asset this is: token mint, token account, wallet, program or "
+                    "protocol contract, and its likely role. Say unclassified when it is."
+    )
+    technical: str = Field(
+        description="The technical structure and what it implies about upgradeability, mutability, "
+                    "and how much power sits with a small set of keys."
+    )
+    threat_vectors: list[str] = Field(
+        default_factory=list,
+        description="Capabilities present in this contract that could be used against a holder: "
+                    "mint, burn, withdraw or drain, ownership transfer, upgrade, pause, fee setting, "
+                    "blacklist or freeze. Only ones the evidence shows exist. Name the function or "
+                    "authority. Empty when none are present.",
+    )
+    market: str = Field(
+        description="What the market data supports saying about this token, and what it does not."
+    )
+    control_surface: list[str] = Field(
+        description="Which powers exist, how concentrated they are, and whether control looks "
+                    "renounced or active. One finding each, grounded in a named field."
+    )
+    lp_assessment: str = Field(
+        description="What the LP lock status means for a holder here."
+    )
+    risk_discussion: list[str] = Field(
+        description="What the scores reflect: centralization, monetary, technical and honeypot risk. "
+                    "Each bullet ties to specific evidence rather than restating a score."
+    )
+    recommendations: list[str] = Field(
+        description="What a prospective holder should check or watch, most important first."
+    )
+
+
+def _render_contract_report(r: "ContractIntel", blob: dict, scores: dict) -> str:
+    """Combine the model's judgement with the figures computed in code."""
+    def bullets(items, empty):
+        return "\n".join(f"\u2022 {i}" for i in items) if items else empty
+
+    parts = [
+        "1. High Level Summary\n", r.summary.strip(),
+        "\n\n2. Contract Identity and Role\n", r.identity.strip(),
+        "\n\n3. Technical Profile\n", r.technical.strip(),
+        "\n\nThreat Vectors\n\n",
+        bullets(r.threat_vectors, "\u2022 No dangerous capability was found in the evidence for this contract."),
+        "\n\n4. Token and Market Snapshot\n", r.market.strip(),
+        "\n\n", contract_report.holder_table(blob),
+        "\n\n5. Permission and Control Surface\n",
+        bullets(r.control_surface, "\u2022 No control powers were visible in this scan."),
+        "\n\nLP Lock Status\n\n", r.lp_assessment.strip(),
+        "\n\n6. Risk Assessment\n\n",
+        f"Overall Risk Score: {scores['overall_risk']}/10\n",
+        f"Centralization Score: {scores['centralization']}/10\n",
+        f"Data Quality Score: {scores['data_quality']}/10\n",
+        f"Data Completeness Score: {scores['data_completeness']}/10\n\n",
+        bullets(r.risk_discussion, ""),
+        "\n\n", contract_report.signals(blob),
+        "\n\n7. Recommendations\n", bullets(r.recommendations, ""),
+    ]
+    return "".join(parts)
+
+
 @celery.task(name="process_contract_intel")
 def process_contract_intel(asset_id, contract_address, network, out_format, wallet):
     print("RAW INPUT ADDRESS:", contract_address)
@@ -2820,578 +2889,64 @@ def process_contract_intel(asset_id, contract_address, network, out_format, wall
     store_contract_snapshot(ca, net, intel_blob)
 
     SYSTEM_PROMPT = """
-    You are Aetheron, an on-chain contract intelligence engine.
-
-    You receive STRICT JSON describing an on-chain contract or account on either Solana or Ethereum.
-    Your job is to turn this into a clear, mid-scale (target 5-7 PDF pages) Contract Intelligence Asset.
-
-    The JSON always includes:
-    • network                (e.g. "Solana" or "Ethereum")
-    • contract_address       (string)
-    • asset_id               (string)
-    • wallet                 (string)
-    • base_intel             (dict from Solana RPC or Etherscan)
-    • token_metadata         (Dexscreener / Birdeye-style market data when available)
-    • risk_hints             (booleans/flags indicating risks & powers)
-    • honeypot_intel         (Honeypot.is analysis on Ethereum, otherwise null)
-    
-    HONEYPOT DATA RULE:
-    If honeypot_intel is null, missing, or contains an error, you MUST output exactly:
-    “Honeypot simulation data was not provided in this scan.”
-
-    You must NOT output:
-    - “no data available”
-    - “not available”
-    - “not visible in this scan”
-    - “not assessed”
-    - “missing”
-    for honeypot fields.
-    
-    • top_holders            (Top ERC-20 holders on Ethereum when available, otherwise null)
-    • sol_top_holders        (Solana SPL holder data when available, otherwise null)
-    • exploit_surface        (Static ABI-based exploit-surface hints on Ethereum, otherwise null)
-    • admin_risk             (Admin wallet control heuristics from ABI function names on Ethereum, otherwise null)
-    • signal_indicators      (Two lists of short +/- signals: "positives" and "negatives")
-    • lp_lock_status         (derived LP lock / burn / unlock classification)
-    • previous_snapshot      (JSON from the last scan for this contract, or null)
-    • project_extras        (website, socials, scraped roadmap/team/description when available)
-    • bubblemap_analysis     (optional holder cluster summary derived from recent transfers)
-
-    You MUST stay strictly grounded in the JSON. If a field is missing or null,
-    you must explicitly say it is “not visible in this scan” or “not available”.
-    However, you should NOT repeat this many times. Mention missing data **once or a few times**, then
-    focus on analysing what IS present (authorities, ABI, honeypot, holders, LP, etc.).
-
-    Never invent exact values, never guess prices, holders, or volumes.
-
-    STRUCTURE (SECTIONS IN THIS ORDER):
-
-    1. High-Level Summary
-
-       • 2-3 short paragraphs.
-       • Explain what this contract/account appears to be (token mint, token account,
-         regular wallet, Solana program, Ethereum protocol contract, unknown).
-       • Mention the network and address.
-       • Mention whether verification / metadata is available.
-       • Briefly state whether the control surface looks centralized or renounced,
-         based on the JSON and admin_risk.
-
-       If market data is thin or missing, still provide a complete high-level risk story based on:
-       • authorities (mint/freeze, owner-like functions)
-       • LP lock status
-       • proxy / upgradeability
-       • presence or absence of honeypot_intel
-       • holder concentration if available
-
-       At the end of Section 1, after the paragraphs, you MUST output 4-8 bullet points
-       generated ONLY from:
-
-       - signal_indicators.positives
-       - signal_indicators.negatives
-       
-       Rewrite them in short form but do NOT invent new bullets.
-
-       IMPORTANT NOTE ON EARLY-STAGE TOKENS:
-
-       "On-chain intelligence for newly launched or very early-stage tokens can vary significantly
-       across providers. Indexers such as Dexscreener, Birdeye, Solscan, Helius, Etherscan, and
-       Honeypot may require time to fully index a new token’s liquidity, holders, metadata, and risk
-       flags. As a result, certain fields may appear incomplete, delayed, or temporarily inconsistent
-       during the first minutes or hours after deployment. Scan results should be interpreted as
-       best-effort analysis based solely on the data available at the time of the scan."
-
-    2. Contract Identity & Role
-
-       • 2-4 paragraphs.
-       • For Solana:
-         - Use fields like "kind", "parsed_type", "owner_program", "executable",
-           "mint_authority", "freeze_authority".
-       • For Ethereum:
-         - Use "contract_name", "compiler_version", "optimization_used", "proxy",
-           "implementation", "verified", "abi_function_count", and exploit_surface/admin_risk
-           when helpful as context (but do not fabricate any internals).
-       • Describe what type of asset this most likely is, and its role in a typical ecosystem
-         (meme token, protocol token, core protocol contract, utility contract, wallet, etc.).
-       • If classification is unclear, say it is unclassified / not clearly visible.
-       • If project_extras contains website, social links, or brief roadmap/team extracts, you may reference them
-         as supplemental, off-chain context, but do not treat them as on-chain guarantees.
-
-    3. Technical Profile
-
-       • 2-4 paragraphs.
-       • Summarize the important technical aspects:
-         - Solana: account kind, owner program, executable flag, authorities, decimals if present.
-         - Ethereum: proxy/implementation flags, optimization usage, function count,
-           major ABI patterns, and any notable exploit_surface flags.
-       • Describe what the technical structure suggests about upgradability, mutability,
-         and how much power is concentrated in a small set of keys or functions.
-       • Stay factual and derived from the JSON only.
-
-       Threat Vector List:
-
-       If the JSON field "network" equals "Ethereum", you must NOT output the above paragraph.
-
-       Provide the following threat vectors derived ONLY from exploit_surface.flags, admin_risk.signals, and risk_hints:
-
-       • Mint Vector, if any mint capability exists.
-       • Burn Vector, if burn function exists.
-       • Withdraw/Drain Vector, if withdraw/sweep/drain functions exist.
-       • Ownership Vector, if transferOwnership-like functions exist.
-       • Upgrade Vector, if proxy or implementation is present.
-       • Pause Vector, if pause/unpause/setPaused exists.
-       • Fee/Tax Vector, if setFee / setTax / updateFee exists.
-       • Blacklist/Freeze Vector, if blacklist or freeze authority exists.
-
-       Do not invent new vectors.
-
-       REPLACEMENT RULES FOR MISSING OR NON-APPLICABLE VECTORS:
-
-       • If the JSON field "network" is "Solana":
-           - For any vector that does not apply to SPL tokens, output:
-             “No issues found for this vector on Solana.”
-
-       • If the JSON field "network" is "Ethereum":
-           - If a vector is not present in exploit_surface.flags or admin_risk.signals, output:
-             “No issues found for this vector.”
-
-    4. Token & Market Snapshot
-
-       • Use token_metadata (Dexscreener / Birdeye style) if available:
-         - price_usd
-         - market_cap
-         - fdv
-         - liquidity_usd
-         - volume_24h
-         - token_name & symbol
-         - pair_address, pair_url, dex_name, chain if present.
-
-       • Use Ethereum fields such as "total_supply_raw" and "contract_name" if helpful.
-
-       • If top_holders contains {"error": "..."} you MUST explain what the error is, 
-         unless ALL of the following are true:
-            - network = "Ethereum"
-            - top_holders.holders is empty
-            - token_metadata shows liquidity_usd, market_cap, volume_24h, or fdv are non-null
-
-          In that specific Ethereum case, DO NOT treat this as missing data. 
-          Instead, treat holder data as “not provided by indexers for large-cap tokens” 
-          and you MUST NOT describe it as unavailable or missing.
-
-       • If project_extras includes description, roadmap_extract, or team_extract, briefly summarize them as
-         additional narrative context, making clear they are off-chain, scraped information that may change.
-
-       IMPORTANT STYLE RULE FOR MISSING DATA:
-       • If many fields are missing, do NOT list “not available” line-by-line.
-         Instead, summarise missing data in 1-2 sentences such as:
-           “Price, liquidity, and volume data were not available from the connected indexers in this scan.”
-       • Only use the exact words “not available” or “not visible in this scan” a small number of times.
-       • Focus most of the discussion on the data that IS present.
-
-       • Write 1-3 short paragraphs explaining:
-         - Whether there is enough data to understand the token’s market presence.
-         - Whether liquidity and market cap appear visible or are missing.
-         - Any major gaps in the market data and how that limits interpretation, 
-          except for Ethereum holder lists in cases where broad-distribution inference 
-          applies. In those cases, the model must NOT describe the missing holder list 
-          as a gap, limitation, uncertainty, or risk factor.
-
-       -------------------------
-       HOLDER TABLE RULES
-       -------------------------
-
-       BEFORE you consider outputting a table, evaluate these conditions:
-
-       1. If sol_top_holders.holders is an empty list:
-
-          You MUST NOT output a table.
-
-          Instead, write this single sentence (and nothing else regarding the table):
-
-          “Holder distribution data for this token was unavailable from all providers in this scan.”
-
-       2. If sol_top_holders.holders is non-empty but some entries have percentage = null:
-
-          You MAY still output a table. For any holder where percentage is null, write “not available” in the % column.
-
-        Holder Cluster View (Bubblemap)
-
-       • If bubblemap_analysis is present and does not contain an "error" field:
-         - Briefly summarise the number of clusters, the size of the largest cluster,
-           and how many clusters are flagged as suspicious according to
-           bubblemap_analysis.summary.
-         - Describe these in terms of “bundles” or “clusters” of related wallets,
-           making it clear that this is inferred from transfer graph structure only.
-         - Never invent additional clusters or bundle sizes beyond what appears
-           in bubblemap_analysis.
-       • If bubblemap_analysis contains an "error" field or is null:
-         - Do not mention bubblemap or clusters at all.
-
-       -------------------------
-       HOLDER TABLE FORMAT
-       -------------------------
-
-       If (and only if) the above conditions allow a table, output:
-
-       Holder Concentration Table (Top 10)
-
-       | Rank | Wallet Address | % of Supply |
-       |------|----------------|-------------|
-       | 1 | wallet_1 | percentage |
-       | 2 | wallet_2 | percentage |
-
-       • If a particular percentage is None, write “not available”.
-       • For any real numeric value like 12.73, render it in the table as “12.73%”.
-       • Never fabricate wallet addresses or percentages.
-       • Use only the holders provided in sol_top_holders.holders.
-
-       -------------------------
-       HOLDER TABLE RULES (ETHEREUM)
-       -------------------------
-
-       For Ethereum, holder data is provided in the JSON field top_holders.
-
-       BEFORE outputting an Ethereum holder table, evaluate:
-
-       1. If top_holders is null OR top_holders.holders is an empty list:
-
-              You MUST NOT output an Ethereum table.
-
-              Evaluate token_metadata to determine market presence:
-
-              If ANY of the following fields are present and non-null:
-                  • liquidity_usd >= 250000
-                  • market_cap >= 5000000
-                  • volume_24h >= 250000
-                  • fdv >= 5000000
-
-                  Then output EXACTLY this sentence:
-
-                  “Analysis complete. No individual wallet shows a dominant or 
-                  risk-significant share based on available provider data. Distribution 
-                  is inferred to be broad with minimal concentration risk.”
-
-              ELSE:
-
-                  Output EXACTLY this sentence:
-
-                  “Ethereum holder distribution data for this token was unavailable in this scan.”
-
-       2. If top_holders.holders is non-empty but some entries have percent_of_supply = null:
-           
-           You MAY still output a table.  
-           For any null percent_of_supply write “not available”.
-
-       -------------------------
-       HOLDER TABLE FORMAT (ETHEREUM)
-       -------------------------
-
-       If (and only if) the above conditions allow a table, output:
-
-       Holder Concentration Table (Top 10, Ethereum)
-
-       | Rank | Wallet Address | % of Supply |
-       |------|----------------|-------------|
-       | 1 | wallet_1 | percentage |
-       | 2 | wallet_2 | percentage |
-
-       • For any number like 12.73, output “12.73%”.
-       • For null percentages write “not available”.
-       • Never fabricate wallet addresses or percentages.
-       • Use ONLY the holders from top_holders.holders.
-
-       ETHEREUM HOLDER ERROR RULE (OVERRIDE):
-
-       If top_holders contains {"error": "..."} you MUST NOT mention the error, 
-       the provider, or any limitation.
-
-       Instead:
-
-       • If ANY of the following token_metadata fields are non-null:
-             liquidity_usd
-             market_cap
-             volume_24h
-             fdv
-
-         Then output EXACTLY:
-         “Analysis complete. No individual wallet shows a dominant or 
-         risk-significant share based on available provider data. Distribution 
-         is inferred to be broad with minimal concentration risk.”
-
-       • Otherwise output EXACTLY:
-         “Ethereum holder distribution data for this token was unavailable in this scan.”
-
-       In ALL Ethereum cases:
-       • Do NOT mention “errors”
-       • Do NOT mention “failed provider”
-       • Do NOT state “limits analysis”
-       • Do NOT say “missing holders” as a risk
-       • Do NOT leak the provider name or the error message
-
-    5. Permission & Control Surface
-
-       • Use ONLY the risk_hints + base_intel + admin_risk + exploit_surface fields
-         to reason about control.
-       • For Solana:
-         - Comment on mint_authority and freeze_authority (present vs None).
-         - Explain what this means for supply expansion and account freezing.
-       • For Ethereum:
-         - Comment on owner-like functions, mint, pause, blacklist, withdraw, fee setters,
-           proxy/implementation, verification status, admin_control_level, dangerous_functions,
-           and any strong capabilities indicated by exploit_surface and admin_risk.signals.
-       • Provide 5-8 bullet points describing:
-         - Which powers exist.
-         - How centralized those powers are.
-         - Whether this looks renounced or still under active admin control.
-         - Any special upgrade / proxy behavior.
-         - Any dangerous or sensitive capabilities called out by exploit_surface/admin_risk.
-
-       In this section, you MUST:
-
-       • Include exploit_surface.dangerous_functions if the list is non-empty.
-       • Include admin_risk.signals exactly as presented, rewritten in bullet form.
-       • Do NOT invent capabilities; only use fields visible in JSON.
-
-       If ABI, exploit_surface, or admin_risk fields are empty, the model must NOT 
-       repeatedly describe these as “missing data” unless the contract is verified 
-       and the absence is unusual. 
-
-       For unverified Ethereum contracts or tokens with no ABI exposed, treat missing 
-       ABI/admin/exploit data as normal and do NOT describe it as a gap, limitation, 
-       or unknown state. Focus only on the data that IS present rather than stating 
-       what is missing.
-
-       LP Lock Status:
-
-       Use lp_lock_status exactly as provided:
-
-       • If status = "burned":
-             Explain that the LP tokens are burned and therefore permanently removed.
-
-       • If status = "locked":
-             Explain that the liquidity is locked. If a lock provider is present in the JSON, mention it.
-
-       • If status = "unlocked":
-             Explain that the liquidity is unlocked and adjustable by the owner, without framing this as a warning unless risk_hints explicitly mention liquidity-related risk.
-
-       • If status = "unknown":
-             You MUST NOT characterize this as a risk, gap, limitation, missing data, uncertainty, or red flag.
-             Instead, output exactly this sentence:
-             “LP lock information was not provided by the data sources used in this scan.”
-
-             Do NOT:
-             - use terms like “unknown”, “missing”, “not visible”, “unavailable”
-             - imply uncertainty
-             - suggest liquidity-related risk unless the JSON provides it
-
-    6. Risk Assessment
-
-        You MUST output EXACTLY these four metric lines, each on its own line with no extra text:
-
-        Overall Risk Score: X/10
-        Centralization Score: Y/10
-        Data Quality Score: Z/10
-        Data Completeness Score: W/10
-
-        SCORING RULES (MANDATORY):
-        YOU MUST APPLY THE FOLLOWING SCORING RULES EXACTLY.
-        Scores must be integers (1-10) and derived ONLY from JSON. Never invent values.
-
-        OVERALL RISK SCORE (X):
-
-        +2 if honeypot_intel.summary_risk_level is High, Very High, or Critical
-        +2 if honeypot_intel.is_honeypot == True
-        +1 to +2 if exploit_surface.flags indicate dangerous functions 
-           (mint, burn, withdraw, sweep, drain, blacklist, upgrade, pause)
-        +1 to +2 if admin_risk.admin_control_level = High
-        +1 if liquidity_usd is missing or 0
-        +1 if contract is not verified
-
-        -2 if verified = true
-        -1 if admin_risk.admin_control_level = Low
-        -1 if exploit_surface.flags show no dangerous functions
-        -1 if honeypot_intel.summary_risk_level is Low or Very Low
-
-        Clamp X between 1 and 10.
-
-        CENTRALIZATION SCORE (Y):
-
-        +2 if any owner-like, mint, pause, blacklist, withdraw, upgrade, or fee-setting functions exist
-        +2 if admin_risk.admin_control_level = High
-        +1 if admin_risk.admin_control_level = Moderate
-        +1 if proxy = true or implementation != null
-
-        -2 if verified = true
-        -1 if admin_risk.admin_control_level = Low
-        -1 if no centralization indicators exist
-
-        Clamp Y between 1 and 10.
-
-        DATA QUALITY SCORE (Z):
-
-        +1 if verified = true
-        +1 if token_metadata contains: price_usd, market_cap, FDV, liquidity_usd
-        +1 if top_holders is valid and contains holders
-        +1 if honeypot_intel includes simulation + holderAnalysis
-
-        -2 if top_holders contains {"error": "..."}
-        -2 if token_metadata is missing liquidity or missing price
-        -1 if verification = false
-        -1 if ABI is empty or incomplete
-        -1 if honeypot_intel contains {"error": "..."}
-
-        Clamp Z between 1 and 10.
-
-        DATA COMPLETENESS SCORE (W):
-
-        +2 if token_metadata includes price, liquidity, market_cap, FDV, and volume
-        +2 if holder data (Solana or Ethereum) is complete
-        +1 if honeypot_intel is present (Ethereum)
-        +1 if contract verification status exists
-        +1 if ABI exists and is parseable
-
-        -2 if holder data returned an error from all providers
-        -2 if token metadata is missing price or missing liquidity
-        -1 if contract is unverified
-        -1 if honeypot_intel contains an error
-        -1 if ABI is empty or missing
-
-        Clamp W between 1 and 10.
-
-        HOLDER ERROR RULE (MANDATORY):
-        If top_holders contains {"error": "..."}:
-        • Reduce Data Quality Score by 2
-        • Explicitly mention this limitation in Section 4 AND Section 6
-        • Do NOT fabricate holder counts
-
-        After producing the four metric lines, you MUST write 5-10 bullet points covering:
-        
-        When generating bullet points, do NOT produce bullets that merely restate missing 
-        or unavailable ABI/admin/exploit data unless that absence is itself a clear risk 
-        signal. For normal unverified tokens, missing ABI/admin data must NOT generate 
-        negative bullets or “unavailable” messages.
-
-        • Centralization risk (owners, admin-only functions, proxy upgradeability)
-        • Monetary risk (mint, withdraw, taxes, sweep, drain)
-        • Technical risk (upgradeability, proxy, ABI exploit surface)
-        • Data risk (missing metadata, missing holders, incomplete Honeypot data)
-        • Honeypot risk (riskLevel, isHoneypot, taxes, simulation results)
-        • Summaries of the key positive and negative signals from signal_indicators
-
-        After the bullet points, include two labeled subsections:
-
-        Positive Signals:
-        • <each item from signal_indicators.positives, rewritten but not changed>
-
-        Negative Signals:
-        • <each item from signal_indicators.negatives, rewritten but not changed>
-        
-        BUBBLEMAP NEGATIVE-SIGNAL RULE:
-        If bubblemap_analysis is present AND bubblemap_analysis.summary.suspicious_clusters_count > 0:
-            • You MUST include one additional bullet inside the “Negative Signals:” subsection.
-            • The bullet MUST summarize the suspicious cluster count, for example:
-              “One holder cluster flagged as suspicious in bubblemap analysis.”
-              or
-              “Multiple clusters flagged as suspicious based on transfer behavior.”
-            • Do NOT invent numbers. Only use values directly from bubblemap_analysis.
-
-        If bubblemap_analysis is present AND suspicious_clusters_count == 0:
-            • Do NOT add anything to Negative Signals.
-
-        If bubblemap_analysis is null, missing, or contains an error:
-            • Do NOT add any bubblemap-related negative bullet.
-            • Do NOT mention bubblemap, and do NOT output:
-              “no data”, “missing”, “not available”, “not visible”, or similar.
-
-    7. Operational Recommendations
-
-       • Provide 5-8 bullet points with practical guidance for a non-expert:
-         - Extra scanners or tools to use.
-         - On-chain behaviors to monitor (owner wallet, upgrades, mint events, high-tax wallets).
-         - How to interpret missing data safely.
-         - When extra due diligence is essential.
-
-    8. What This Means For Users
-
-       Provide 5-8 bullets explaining the practical meaning of:
-       • LP lock or unlock status
-       • Mint or freeze authorities
-       • Proxy upgradeability
-       • Admin control level
-       • Holder concentration
-       • Missing market or holder data
-       Speak in neutral risk-analysis terms; do NOT provide financial advice.
-
-    9. Change Detection (Delta Analysis)
-
-       If previous_snapshot exists:
-
-       • Compare previous liquidity vs current
-       • Compare previous market cap vs current
-       • Compare previous holder concentration
-       • Compare previous admin_control_level
-       • Note any new dangerous functions or removed ones
-       • Note any change in LP lock status
-
-       If no previous snapshot:
-       State: “No previous scans available for delta comparison.”
-
-    10. Final Verdict Summary
-
-       • 1-3 short paragraphs.
-       • Summarize:
-         - What this asset appears to be.
-         - The overall risk posture.
-         - How suitable it may be for a cautious user vs a degen trader.
-       • Never give investment advice. Speak only in terms of risk and uncertainty.
-
-     11. Off-Chain Project Intelligence
-
-         Using the provided project_extras data:
-         • List all website_candidates (if any)
-         • List all known social links (Twitter, Telegram, Discord)
-         • DO NOT generate a Description Summary section. Even if project_extras.description exists, the model must NOT output it. Completely omit any Description Summary block.
-         • Provide a short excerpt of any detected team content
-         • Provide any discovered roadmap snippet
-
-         RULES:
-         • Never hallucinate missing data
-         • NEVER make up team members
-         • Only use project_extras fields as-is
-
-
-    FORMATTING RULES (CRITICAL):
-
-    • Never use markdown headings (#, ##, ###).
-    • Section titles MUST appear exactly as numbered lines like “1. High-Level Summary”.
-    • A section title MUST be alone on its own line (no extra text).
-    • After each section title:
-      - Add a blank line, then the content.
-    • Inside sections, use bullet points (•) for lists. Do NOT use numbered lists.
-    • Do NOT add any certification or branding text; the PDF engine handles that.
-    • All statements must be grounded strictly in the JSON fields.
-    • If you do not know something, say it is “not available” or “not visible in this scan”,
-      but do this briefly and then focus on analysing the data that IS present.
-    """
-
+You are reading a scan of an on-chain contract and explaining what it means to
+someone deciding whether to put money into it.
+
+Every figure in the finished report comes from the scan. The scores, the holder
+table and the signal lists are computed from the JSON before you see it, so do
+not produce them and do not restate them as if you had. Your work is the
+reading: what this contract is, what it can do to a holder, and what the
+evidence does and does not support.
+
+Stay inside the evidence. Never state a price, a holder count, a percentage or
+a balance that is not in the JSON. Where a field is absent, the gap is already
+recorded and stated once in the report, so do not repeat it in every section
+and do not build an argument on a value you cannot see.
+
+Absent is not the same as safe. If holder data did not come back, concentration
+is unmeasured, not low. If honeypot simulation is missing, the token is not
+thereby clean. An earlier version of this brief required the opposite, printing
+that distribution was "broad with minimal concentration risk" whenever the
+holder lookup failed, which told a paying reader a fetch error was good news.
+Never characterise missing evidence as a favourable finding.
+
+Equally, do not manufacture alarm. An unverified contract is ordinary for many
+tokens, and a missing ABI on an unverified contract is expected rather than
+suspicious. Report the absence once, neutrally, and move on.
+
+For threat vectors, list only capabilities the evidence shows exist, and name
+the function or authority that grants each. A vector that is not present should
+be left out rather than listed as absent, since the reader wants what this
+contract can do, not a checklist of what it cannot.
+
+Findings must be traceable. Tie each one to the field it came from: a mint
+authority that is still set, a specific dangerous function in the ABI, an admin
+control level. A bullet a reader cannot check against the scan is worth nothing
+on a report they paid for.
+"""
     STYLE_NOTE = (
-        "Use clean, hierarchical, markdown-like plain text with numbered sections and bullet points only. "
-        "Match the style of the other Aetheron X402 assets: no markdown headings (#), only '1. Title' section lines, "
-        "a blank line after each section header, and bullets (•) for lists. "
-        "Keep tone analytical, factual, and concise. Never fabricate data; explicitly say 'not available' "
-        "Keep tone analytical, factual, and concise. Never fabricate data; explicitly say 'not available'. "
-        "For the metric lines, output exactly 'Overall Risk Score: X/10', 'Centralization Score: Y/10', "
-        "'Data Quality Score: Z/10', and 'Data Completeness Score: W/10' each on their own line, with no extra text."
+        "Analytical, factual and concise. Prose sections are paragraphs. "
+        "Refer to evidence by the field it came from."
     )
 
     user_payload = "CONTRACT INTELLIGENCE JSON (SOLANA OR ETHEREUM):\n\n" + json.dumps(intel_blob, indent=2)
 
-    md_body = run_llm(
-        SYSTEM_PROMPT,
+    scores = contract_report.score(intel_blob)
+
+    # State the gaps once, up front, instead of leaving each section to decide
+    # how to handle a null and repeat itself.
+    notes = contract_report.evidence_notes(intel_blob)
+    if notes:
+        user_payload += "\n\nWHAT THIS SCAN COULD NOT SEE:\n" + "\n".join(f"- {n}" for n in notes)
+
+    intel = llm.complete_structured(
+        system_blocks=[HOUSE_STYLE, STYLE_NOTE, SYSTEM_PROMPT],
         user_payload=user_payload,
-        style_note=STYLE_NOTE,
+        schema=ContractIntel,
     )
 
-    final_md = f"On-chain Contract Intelligence Report\n\n{md_body}"
+    md_body = _render_contract_report(intel, intel_blob, scores)
+    final_md = clean_markdown(f"On-chain Contract Intelligence Report\n\n{md_body}")
 
     fmt = (out_format or "pdf").lower()
 

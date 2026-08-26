@@ -404,3 +404,73 @@ def test_retention_drops_old_reports_only(clean_db):
     storage.purge_expired(max_age_days=30)
     assert storage.fetch_asset("ancient.pdf") is None
     assert storage.fetch_asset("recent.pdf") is not None
+
+
+# ── contract report: figures a customer pays for ────────────────────────────
+
+def test_failed_holder_fetch_is_not_reported_as_low_risk():
+    """
+    A provider error must never read as a favourable finding.
+
+    The brief this replaces required exactly that on Ethereum: when the holder
+    lookup failed it had to print that distribution was "broad with minimal
+    concentration risk" and never mention the failure, on a report someone buys
+    to assess risk.
+    """
+    import contract_report as cr
+    out = cr.holder_table({
+        "network": "ethereum",
+        "top_holders": {"error": "rate limited"},
+        "token_metadata": {"liquidity_usd": 900000, "market_cap": 4e7, "price_usd": 1.0},
+    })
+    assert "minimal concentration risk" not in out
+    assert "inferred to be broad" not in out
+    assert "unmeasured" in out
+
+
+def test_scores_are_identical_across_runs():
+    """Same scan, same numbers. A score that moves measures nothing."""
+    import contract_report as cr
+    blob = {
+        "network": "solana",
+        "risk_hints": {"mint_authority": True},
+        "token_metadata": {"price_usd": 0.01, "liquidity_usd": 5000},
+        "sol_top_holders": {"holders": [{"address": "A", "percentage": 42.5}]},
+    }
+    assert len({tuple(sorted(cr.score(blob).items())) for _ in range(25)}) == 1
+
+
+def test_scores_stay_inside_their_range():
+    import contract_report as cr
+    worst = {
+        "network": "ethereum",
+        "honeypot_intel": {"summary_risk_level": "Critical", "is_honeypot": True},
+        "exploit_surface": {"flags": ["mint"], "dangerous_functions": ["drain"]},
+        "admin_risk": {"admin_control_level": "High"},
+        "base_intel": {}, "token_metadata": {},
+    }
+    for value in cr.score(worst).values():
+        assert 1 <= value <= 10
+
+
+def test_holder_percentages_are_never_invented():
+    """Rows come from the provider; a null percentage says so."""
+    import contract_report as cr
+    table = cr.holder_table({
+        "network": "solana",
+        "sol_top_holders": {"holders": [
+            {"address": "AAA", "percentage": 42.5},
+            {"address": "BBB", "percentage": None},
+        ]},
+    })
+    assert "| 1 | AAA | 42.50% |" in table
+    assert "| 2 | BBB | not available |" in table
+
+
+def test_suspicious_clusters_always_reach_the_negative_signals():
+    import contract_report as cr
+    out = cr.signals({
+        "signal_indicators": {"positives": [], "negatives": []},
+        "bubblemap_analysis": {"summary": {"suspicious_clusters_count": 2}},
+    })
+    assert "2 holder clusters flagged as suspicious" in out
