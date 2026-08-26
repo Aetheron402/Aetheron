@@ -2847,6 +2847,11 @@ leave the decision to the reader.
 
 class ContractIntel(BaseModel):
     """The judgement half of the contract report. Facts come from contract_report.py."""
+    verdict: str = Field(
+        description="One sentence a reader can act on: what this contract is and the single "
+                    "thing that most determines whether it is safe to hold. Lead with the "
+                    "capability or the gap that dominates, not with a score."
+    )
     summary: str = Field(
         description="What this contract is, what it appears to be for, and the shape of its risk. "
                     "Written for someone deciding whether to put money into it."
@@ -2891,25 +2896,35 @@ def _render_contract_report(r: "ContractIntel", blob: dict, scores: dict) -> str
         return "\n".join(f"\u2022 {i}" for i in items) if items else empty
 
     parts = [
-        "1. High Level Summary\n\n", r.summary.strip(),
-        "\n\n2. Contract Identity and Role\n\n", r.identity.strip(),
-        "\n\n3. Technical Profile\n\n", r.technical.strip(),
+        "1. Verdict\n\n", r.verdict.strip(),
+        "\n\n2. High Level Summary\n\n", r.summary.strip(),
+        "\n\n3. Contract Identity and Role\n\n", r.identity.strip(),
+        "\n\n4. Technical Profile\n\n", r.technical.strip(),
         "\n\nThreat Vectors\n\n",
         bullets(r.threat_vectors, "\u2022 No dangerous capability was found in the evidence for this contract."),
-        "\n\n4. Token and Market Snapshot\n\n", r.market.strip(),
+        "\n\n5. Token and Market Snapshot\n\n", r.market.strip(),
         "\n\n", contract_report.holder_table(blob),
-        "\n\n5. Permission and Control Surface\n\n",
+        "\n\n6. Permission and Control Surface\n\n",
         bullets(r.control_surface, "\u2022 No control powers were visible in this scan."),
         "\n\nLP Lock Status\n\n", r.lp_assessment.strip(),
-        "\n\n6. Risk Assessment\n\n",
+        "\n\n7. Risk Assessment\n\n",
         f"Overall Risk Score: {scores['overall_risk']}/10\n",
         f"Centralization Score: {scores['centralization']}/10\n",
         f"Data Quality Score: {scores['data_quality']}/10\n",
         f"Data Completeness Score: {scores['data_completeness']}/10\n\n",
         bullets(r.risk_discussion, ""),
         "\n\n", contract_report.signals(blob),
-        "\n\n7. Recommendations\n\n", bullets(r.recommendations, ""),
+        "\n\n8. Scan Coverage\n\n", contract_report.coverage(blob),
     ]
+
+    # Only meaningful once this contract has been scanned before.
+    delta = contract_report.snapshot_delta(blob)
+    if delta:
+        parts += ["\n\n9. Changes Since Last Scan\n\n", delta,
+                  "\n\n10. Recommendations\n\n", bullets(r.recommendations, "")]
+    else:
+        parts += ["\n\n9. Recommendations\n\n", bullets(r.recommendations, "")]
+
     return "".join(parts)
 
 
@@ -3132,6 +3147,19 @@ Findings must be traceable. Tie each one to the field it came from: a mint
 authority that is still set, a specific dangerous function in the ABI, an admin
 control level. A bullet a reader cannot check against the scan is worth nothing
 on a report they paid for.
+
+Weigh capabilities by who they can be used against. A function that only
+touches the caller's own balance, burn being the usual one, is not a lever
+anyone can pull on a holder, and calling it dangerous because a heuristic
+flagged its name inflates the risk picture and trains readers to ignore the
+section. Mint, pause, blacklist, freeze, withdraw, upgrade, ownership transfer
+and fee setting are the powers that matter, because each one lets whoever holds
+the key change what a holder owns or whether they can sell.
+
+Open with the verdict. One sentence naming the thing that most determines
+whether this is safe to hold, whether that is a capability someone still
+controls or a gap in what could be checked. A reader who stops after that line
+should still have the most important fact.
 """
     STYLE_NOTE = (
         "Analytical, factual and concise. Prose sections are paragraphs. "

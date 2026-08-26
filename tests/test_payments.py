@@ -823,3 +823,88 @@ def test_an_already_formatted_sample_is_left_alone():
     import celery_worker as w
     original = 'print("a\\nb")\nprint("done")'
     assert w._unescape_sample(original) == original
+
+
+# ── contract scoring: capabilities weighed by who they can be used against ──
+
+def _eth_blob(**over):
+    blob = {
+        "network": "ethereum",
+        "base_intel": {"verified": False},
+        "exploit_surface": {"dangerous_functions": [], "flags": []},
+        "admin_risk": {"admin_control_level": "Low", "signals": []},
+        "honeypot_intel": {"summary_risk_level": "Low", "is_honeypot": False,
+                           "simulation": 1, "holderAnalysis": 1},
+        "token_metadata": {"price_usd": 5e-6, "liquidity_usd": 2.7e6,
+                           "market_cap": 3e9, "fdv": 5e9, "volume_24h": 78853},
+    }
+    blob.update(over)
+    return blob
+
+
+def test_a_self_scoped_burn_is_not_scored_as_a_risk():
+    """
+    A holder burning their own balance is no lever over anyone else. Scoring it
+    as dangerous put the arithmetic at odds with the prose: a fixed supply
+    token with no owner and immutable code came out at 7/10.
+    """
+    import contract_report as cr
+    blob = _eth_blob(exploit_surface={"dangerous_functions": ["burn(uint256)"], "flags": []})
+    assert cr._hostile_capabilities(blob) == set()
+    assert cr.score(blob)["overall_risk"] <= 3
+
+
+def test_real_powers_do_raise_the_score():
+    import contract_report as cr
+    blob = _eth_blob(
+        exploit_surface={"dangerous_functions": ["mint(address,uint256)", "blacklist(address)"],
+                         "flags": ["upgrade"]},
+        admin_risk={"admin_control_level": "High", "signals": ["owner can mint"]},
+    )
+    assert {"mint", "blacklist", "upgrade"} <= cr._hostile_capabilities(blob)
+    assert cr.score(blob)["overall_risk"] >= 8
+
+
+def test_solana_authorities_count_as_powers():
+    import contract_report as cr
+    live = {"network": "solana", "risk_hints": {"mint_authority": "SomeKey"},
+            "token_metadata": {"price_usd": 1, "liquidity_usd": 1000}}
+    revoked = {"network": "solana", "risk_hints": {"mint_authority": None},
+               "token_metadata": {"price_usd": 1, "liquidity_usd": 1000}}
+    assert "mint" in cr._hostile_capabilities(live)
+    assert cr._hostile_capabilities(revoked) == set()
+    assert cr.score(live)["overall_risk"] > cr.score(revoked)["overall_risk"]
+
+
+def test_coverage_separates_checked_from_unavailable():
+    import contract_report as cr
+    out = cr.coverage(_eth_blob(top_holders={"error": "rate limited"}))
+    assert "Holder distribution: NOT CHECKED" in out
+    assert "Market data: checked" in out
+    assert "unmeasured, not clear" in out
+
+
+def test_a_change_since_the_last_scan_is_reported():
+    import contract_report as cr
+    out = cr.snapshot_delta(_eth_blob(
+        risk_hints={"mint_authority": False},
+        lp_lock_status={"status": "unlocked"},
+        previous_snapshot={"risk_hints": {"mint_authority": True},
+                           "lp_lock_status": {"status": "locked"},
+                           "token_metadata": {"liquidity_usd": 1e7, "price_usd": 5e-6}},
+    ))
+    assert "Mint authority: True -> False" in out
+    assert "LP lock status: 'locked' -> 'unlocked'" in out
+    assert "Liquidity (USD)" in out
+
+
+def test_a_field_the_previous_scan_lacked_is_not_a_change():
+    """None -> False would cry wolf on the first rescan of every contract."""
+    import contract_report as cr
+    out = cr.snapshot_delta(_eth_blob(previous_snapshot={"token_metadata": {"price_usd": 5e-6}}))
+    assert "->" not in out
+
+
+def test_no_previous_scan_produces_no_section():
+    import contract_report as cr
+    assert cr.snapshot_delta(_eth_blob()) == ""

@@ -48,6 +48,51 @@ def _has_market_depth(blob: dict) -> bool:
     return any(m.get(k) for k in ("price_usd", "liquidity_usd", "market_cap", "fdv"))
 
 
+# Capabilities that can be used against a holder by whoever controls the
+# contract. These are what "dangerous" has to mean on a risk report.
+HOLDER_HOSTILE = (
+    "mint", "pause", "unpause", "blacklist", "whitelist", "freeze", "ban",
+    "withdraw", "sweep", "drain", "rescue", "upgrade", "implementation",
+    "transferownership", "renounce", "setfee", "settax", "updatefee",
+    "setmaxtx", "setcooldown", "excludefrom", "settrading",
+)
+
+# Capabilities that only touch the caller's own balance. A holder burning
+# their own tokens is not a risk to anyone else, and scoring it as one put the
+# arithmetic at odds with the prose: a fixed supply token with no owner, no
+# mint and immutable code came out at 7/10 because it exposed burn().
+SELF_SCOPED = ("burn", "approve", "transfer", "transferfrom", "permit")
+
+
+def _hostile_capabilities(blob: dict) -> set:
+    """Names of holder-hostile capabilities the scan actually found."""
+    exploit = blob.get("exploit_surface") or {}
+    admin = blob.get("admin_risk") or {}
+    hints = blob.get("risk_hints") or {}
+
+    found = set()
+    candidates = []
+    candidates += list(exploit.get("dangerous_functions") or [])
+    candidates += list(exploit.get("flags") or [])
+    candidates += list(admin.get("signals") or [])
+
+    for raw in candidates:
+        name = str(raw).lower().replace("_", "").replace("-", "").replace(" ", "")
+        if any(tag in name for tag in SELF_SCOPED) and not any(t in name for t in HOLDER_HOSTILE):
+            continue
+        for tag in HOLDER_HOSTILE:
+            if tag in name:
+                found.add(tag)
+                break
+
+    # Solana expresses the same powers as mint and freeze authorities.
+    if hints.get("mint_authority"):
+        found.add("mint")
+    if hints.get("freeze_authority"):
+        found.add("freeze")
+    return found
+
+
 def score(blob: dict) -> dict:
     """
     The four report scores.
@@ -80,7 +125,8 @@ def score(blob: dict) -> dict:
         risk += 2
     if hp_is:
         risk += 2
-    if flags or dangerous:
+    hostile = _hostile_capabilities(blob)
+    if hostile:
         risk += 2
     if admin_level == "high":
         risk += 2
@@ -92,14 +138,14 @@ def score(blob: dict) -> dict:
         risk -= 2
     if admin_level == "low":
         risk -= 1
-    if not flags and not dangerous:
+    if not hostile:
         risk -= 1
     if hp_level in ("low", "very low"):
         risk -= 1
 
     # ── centralization ──────────────────────────────────────────────────────
     central = 5
-    powers = bool(flags or dangerous or hints.get("mint_authority") or hints.get("freeze_authority"))
+    powers = bool(hostile)
     if powers:
         central += 2
     if admin_level == "high":
@@ -258,3 +304,107 @@ def evidence_notes(blob: dict) -> list[str]:
         notes.append("LP lock information was not provided by the data sources used in this scan.")
 
     return notes
+
+
+def coverage(blob: dict) -> str:
+    """
+    What this scan actually checked, and what it could not.
+
+    Absent data was described inside whichever section happened to need it,
+    which meant a reader had to assemble the picture from five places to work
+    out how much of the report rests on evidence. On a report bought to assess
+    risk, the boundary of what was looked at belongs in one list.
+    """
+    net = (blob.get("network") or "").lower()
+    market = _market(blob)
+    honeypot = blob.get("honeypot_intel")
+    bubble = blob.get("bubblemap_analysis")
+    base = blob.get("base_intel") or {}
+    lp = blob.get("lp_lock_status") or {}
+    extras = blob.get("project_extras") or {}
+
+    rows = [
+        ("On-chain account data", bool(base), "read from the chain"),
+        ("Market data", _has_market_depth(blob), "price, liquidity and volume"),
+        ("Holder distribution", bool(_holders_of(blob)), "top holder balances"),
+        ("Transfer graph clustering",
+         isinstance(bubble, dict) and not bubble.get("error"), "wallet cluster analysis"),
+        ("Liquidity lock", str(lp.get("status") or "").lower() not in ("", "unknown"),
+         "whether LP is locked or burned"),
+        ("Project links", bool(extras.get("website") or extras.get("twitter")),
+         "website and socials"),
+    ]
+    if net != "solana":
+        rows.append(("Contract source", bool(base.get("verified")),
+                     "published source and ABI"))
+        rows.append(("Honeypot simulation",
+                     isinstance(honeypot, dict) and not honeypot.get("error"),
+                     "simulated buy and sell"))
+
+    checked = [f"• {name}: checked, {what}" for name, ok, what in rows if ok]
+    missing = [f"• {name}: NOT CHECKED, {what} did not come back"
+               for name, ok, what in rows if not ok]
+
+    out = []
+    if checked:
+        out += ["Checked in this scan\n", "\n".join(checked)]
+    if missing:
+        out += ["\n\nNot available in this scan\n", "\n".join(missing),
+                "\n\nAn item that was not checked is unmeasured, not clear. "
+                "Nothing above should be read as evidence that the missing "
+                "check would have passed."]
+    return "".join(out) or "No data sources responded for this scan."
+
+
+def snapshot_delta(blob: dict) -> str:
+    """
+    What moved since the last scan of this contract.
+
+    A snapshot is already stored on every scan and was never read back. For
+    anyone watching a token, a revoked mint authority or an LP that quietly
+    unlocked is the whole point of scanning twice, and it is invisible in two
+    reports read side by side.
+    """
+    prev = blob.get("previous_snapshot")
+    if not isinstance(prev, dict) or not prev:
+        return ""
+
+    def dig(source, *path):
+        cur = source
+        for key in path:
+            if not isinstance(cur, dict):
+                return None
+            cur = cur.get(key)
+        return cur
+
+    watched = [
+        ("Mint authority", ("risk_hints", "mint_authority")),
+        ("Freeze authority", ("risk_hints", "freeze_authority")),
+        ("Source verified", ("base_intel", "verified")),
+        ("Proxy", ("base_intel", "proxy")),
+        ("Admin control level", ("admin_risk", "admin_control_level")),
+        ("LP lock status", ("lp_lock_status", "status")),
+        ("Honeypot verdict", ("honeypot_intel", "is_honeypot")),
+    ]
+
+    changes = []
+    for label, path in watched:
+        before, after = dig(prev, *path), dig(blob, *path)
+        # A field the previous scan never recorded is new information, not a
+        # change. Reporting None -> False as movement would cry wolf on the
+        # first rescan of every contract.
+        if before is None or after is None or before == after:
+            continue
+        changes.append(f"• {label}: {before!r} -> {after!r}")
+
+    # Money moves on its own, so only a change worth noticing is reported.
+    for label, key in [("Liquidity (USD)", "liquidity_usd"), ("Price (USD)", "price_usd")]:
+        before, after = dig(prev, "token_metadata", key), _market(blob).get(key)
+        if isinstance(before, (int, float)) and isinstance(after, (int, float)) and before:
+            move = (after - before) / before
+            if abs(move) >= 0.20:
+                changes.append(f"• {label}: {before:,.6g} -> {after:,.6g} ({move:+.0%})")
+
+    if not changes:
+        return "Nothing watched by this report has changed since the previous scan."
+    return "\n".join(changes)
