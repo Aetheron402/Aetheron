@@ -632,13 +632,19 @@ def test_every_renderer_separates_titles_from_content():
     import celery_worker as w
     from pdf_utils import split_blocks
 
-    persona = w.Persona(name="P", interpretation="i", strength="s", weakness="wk", risks=["r"])
+    persona = w.Persona(name="P", interpretation="i", strength="s", weakness="wk",
+                        predicted_output="a sample line", risks=["r"])
     cases = [
         w._render_tester_report(w.PersonaTest(
-            interpretation="x", personas=[persona], cross_persona="c",
+            interpretation="x",
+            ambiguities=[w.Ambiguity(phrase="brief", problem="no target",
+                                     readings=["one page", "five bullets"], impact="high")],
+            personas=[persona], cross_persona="c",
             quality_score=5, quality_reasoning="q",
             divergence_score=5, divergence_reasoning="d",
-            improvements=["imp"], improved_prompt="better prompt")),
+            improvements=["imp"], improved_prompt="better prompt",
+            projected_quality_score=8, projected_divergence_score=2,
+            projected_reasoning="closes the length gap")),
         w._render_code_report(w.CodeAudit(
             language="python", verdict="needs fixes before use",
             summary="s", how_it_works="h", strengths=["st"],
@@ -718,3 +724,75 @@ def test_line_numbering_width_stays_aligned_past_nine():
     out = w._numbered("\n".join(f"line{i}" for i in range(1, 12)))
     assert " 1 | line1" in out
     assert "11 | line11" in out
+
+
+# ── persona test: quoted ambiguities and a measurable before/after ──────────
+
+def _persona(name, out="sample"):
+    import celery_worker as w
+    return w.Persona(name=name, interpretation="i", strength="s",
+                     weakness="wk", predicted_output=out, risks=[])
+
+
+def _test_result(**over):
+    import celery_worker as w
+    base = dict(
+        interpretation="x",
+        ambiguities=[
+            w.Ambiguity(phrase="the important parts", problem="no purpose",
+                        readings=["what is new", "what is risky"], impact="high"),
+            w.Ambiguity(phrase="brief", problem="no target",
+                        readings=["one page", "five bullets"], impact="medium"),
+        ],
+        personas=[_persona("A", "Bullet list, 5 items"), _persona("B", "One page of prose")],
+        cross_persona="c", quality_score=2, quality_reasoning="q",
+        divergence_score=8, divergence_reasoning="d",
+        improvements=["imp"], improved_prompt="better prompt",
+        projected_quality_score=8, projected_divergence_score=2,
+        projected_reasoning="closes the length gap, leaves tone open",
+    )
+    base.update(over)
+    return w.PersonaTest(**base)
+
+
+def test_ambiguities_quote_the_prompt_and_rank_by_impact():
+    """A finding the author cannot locate in their own prompt is not actionable."""
+    import celery_worker as w
+    md = w._render_tester_report(_test_result())
+    section = md[md.index("2. Where It Splits"):md.index("3. PersonaBench")]
+    assert '"the important parts"' in section
+    assert '"brief"' in section
+    assert section.index("the important parts") < section.index("brief"), "high impact first"
+    assert "[HIGH]" in section and "[MEDIUM]" in section
+
+
+def test_a_prompt_with_no_ambiguity_says_so():
+    import celery_worker as w
+    md = w._render_tester_report(_test_result(ambiguities=[]))
+    assert "No phrase in this prompt admits more than one working reading." in md
+
+
+def test_each_persona_shows_what_it_would_return():
+    """Two samples side by side demonstrate the split; a description asserts it."""
+    import celery_worker as w
+    md = w._render_tester_report(_test_result())
+    assert "Bullet list, 5 items" in md
+    assert "One page of prose" in md
+    assert md.count("Would return:") == 2
+
+
+def test_the_rewrite_is_scored_against_the_original():
+    import celery_worker as w
+    md = w._render_tester_report(_test_result())
+    after = md[md.index("10. After The Rewrite"):]
+    assert "Prompt Quality Score: 2/10 → 8/10" in after
+    assert "Persona Divergence Score: 8/10 → 2/10" in after
+    assert "leaves tone open" in after
+
+
+def test_metric_lines_keep_their_exact_format():
+    import re
+    import celery_worker as w
+    md = w._render_tester_report(_test_result())
+    assert re.search(r"^Prompt Quality Score: 2/10$", md, re.M)
+    assert re.search(r"^Persona Divergence Score: 8/10$", md, re.M)

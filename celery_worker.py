@@ -662,6 +662,28 @@ language field, so identify it from the code rather than assuming.
         "format": fmt
     }
 
+class Ambiguity(BaseModel):
+    """
+    One phrase in the prompt that different readers resolve differently.
+
+    Quoting the words responsible is what makes the finding checkable. "The
+    prompt is vague" cannot be acted on; "'the important parts' defines
+    importance against no purpose" points at the edit.
+    """
+    phrase: str = Field(
+        description="The exact wording from the prompt, quoted verbatim. Never paraphrased."
+    )
+    problem: str = Field(description="Why this phrase fails to constrain the reader.")
+    readings: list[str] = Field(
+        description="The materially different ways it gets read. Two readings that produce "
+                    "the same work are one reading."
+    )
+    impact: str = Field(
+        description="One of high, medium, low. High means the readings produce different "
+                    "deliverables, not different phrasings of one."
+    )
+
+
 # One simulated reader of the prompt. Nested so a persona cannot lose its
 # weakness field, which is the half that carries the finding.
 class Persona(BaseModel):
@@ -669,10 +691,17 @@ class Persona(BaseModel):
     interpretation: str = Field(description="What this persona takes the prompt to be asking for.")
     strength: str = Field(description="What this persona would handle well, and why.")
     weakness: str = Field(description="Where this persona misreads, overfits or fills a gap with an assumption.")
+    predicted_output: str = Field(
+        description="An abbreviated sample of what this persona would actually return: the "
+                    "opening line or two, or the shape of the deliverable. Short, a few lines "
+                    "at most. Showing the divergence is the point, since a reader can compare "
+                    "samples and see the prompt splitting, where a description only asserts it."
+    )
     risks: list[str] = Field(
         default_factory=list,
-        description="Specific ways this persona goes wrong: the edge case, the assumption made silently, "
-                    "the reasoning path that diverges. Empty when this persona reads the prompt cleanly.",
+        description="Specific ways this persona goes wrong: the edge case, the assumption made "
+                    "silently, the reasoning path that diverges. Empty when this persona reads "
+                    "the prompt cleanly.",
     )
 
 
@@ -680,6 +709,10 @@ class PersonaTest(BaseModel):
     interpretation: str = Field(
         description="What the prompt is really asking for, what it leaves unsaid, and which gaps "
                     "different readers would fill differently."
+    )
+    ambiguities: list[Ambiguity] = Field(
+        description="The specific phrases responsible for the divergence, quoted from the prompt. "
+                    "Empty when the prompt genuinely constrains every reader the same way."
     )
     personas: list[Persona] = Field(
         description="Readers chosen to expose how this specific prompt splits. As many as reveal "
@@ -700,11 +733,29 @@ class PersonaTest(BaseModel):
         description="Which words or omissions cause the spread, and what that costs in practice."
     )
     improvements: list[str] = Field(
-        description="Changes that would close the gaps found above. Each names the ambiguity it removes."
+        description="Changes that would close the gaps found above. Each names the ambiguity it "
+                    "removes, quoting the phrase it replaces."
     )
     improved_prompt: str = Field(
         description="The rewritten prompt, ready to paste and run. No preamble, no commentary."
     )
+    projected_quality_score: int = Field(
+        ge=0, le=10,
+        description="What the rewritten prompt scores on the same scale. Score it honestly on "
+                    "its own merits rather than assuming the rewrite is perfect.",
+    )
+    projected_divergence_score: int = Field(
+        ge=0, le=10,
+        description="What the personas' spread would be on the rewritten prompt. Lower is better. "
+                    "Rarely zero: some interpretation always remains.",
+    )
+    projected_reasoning: str = Field(
+        description="Which ambiguities the rewrite actually closes, and what it leaves open. "
+                    "Name anything still unresolved rather than claiming a clean sweep."
+    )
+
+
+IMPACT_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
 def _render_tester_report(r: "PersonaTest") -> str:
@@ -712,29 +763,55 @@ def _render_tester_report(r: "PersonaTest") -> str:
     def bullets(items):
         return "\n".join(f"\u2022 {i}" for i in items) if items else ""
 
-    parts = ["1. Core Prompt Interpretation\n\n", r.interpretation.strip(),
-             "\n\n2. PersonaBench Matrix\n\n"]
+    parts = ["1. Core Prompt Interpretation\n\n", r.interpretation.strip()]
 
+    # The phrases doing the damage, worst first, quoted so the author can find
+    # them in their own prompt.
+    parts.append("\n\n2. Where It Splits\n\n")
+    if r.ambiguities:
+        ordered = sorted(
+            r.ambiguities,
+            key=lambda a: IMPACT_ORDER.get((a.impact or "").lower(), 3),
+        )
+        chunks = []
+        for a in ordered:
+            block = [f"\u2022 [{(a.impact or '').upper()}] \"{a.phrase.strip()}\""]
+            block.append(f"  {a.problem.strip()}")
+            block += [f"  \u2013 read as: {reading.strip()}" for reading in a.readings]
+            chunks.append("\n".join(block))
+        parts.append("\n".join(chunks))
+    else:
+        parts.append("No phrase in this prompt admits more than one working reading.")
+
+    parts.append("\n\n3. PersonaBench Matrix\n")
     for p in r.personas:
         parts.append(f"\n{p.name.strip()}\n\n")
         parts.append(f"\u2022 Interpretation: {p.interpretation.strip()}\n")
         parts.append(f"\u2022 Strength: {p.strength.strip()}\n")
         parts.append(f"\u2022 Weakness: {p.weakness.strip()}\n")
+        if p.predicted_output.strip():
+            # Shown rather than described: two samples side by side settle
+            # whether the prompt splits far better than a sentence saying so.
+            parts.append(f"\u2022 Would return:\n\n```\n{p.predicted_output.strip()}\n```\n")
 
-    parts.append("\n\n3. Persona Level Deepening\n\n")
+    parts.append("\n\n4. Persona Level Deepening\n\n")
     deepened = [f"{p.name.strip()}\n\n" + bullets(p.risks) for p in r.personas if p.risks]
     parts.append("\n\n".join(deepened) if deepened
                  else "Every persona read this prompt the same way. Nothing diverged worth reporting.")
 
     parts += [
-        "\n\n4. Cross Persona Comparison\n\n", r.cross_persona.strip(),
-        f"\n\n5. Prompt Quality Score\n\nPrompt Quality Score: {r.quality_score}/10\n\n",
+        "\n\n5. Cross Persona Comparison\n\n", r.cross_persona.strip(),
+        f"\n\n6. Prompt Quality Score\n\nPrompt Quality Score: {r.quality_score}/10\n\n",
         r.quality_reasoning.strip(),
-        f"\n\n6. Persona Divergence Score\n\nPersona Divergence Score: {r.divergence_score}/10\n\n",
+        f"\n\n7. Persona Divergence Score\n\nPersona Divergence Score: {r.divergence_score}/10\n\n",
         r.divergence_reasoning.strip(),
-        "\n\n7. Improvement Suggestions\n\n", bullets(r.improvements),
-        "\n\n8. Improved Prompt Variant\n\n",
+        "\n\n8. Improvement Suggestions\n\n", bullets(r.improvements),
+        "\n\n9. Improved Prompt Variant\n\n",
         "```\n" + r.improved_prompt.strip() + "\n```",
+        "\n\n10. After The Rewrite\n\n",
+        f"Prompt Quality Score: {r.quality_score}/10 \u2192 {r.projected_quality_score}/10\n",
+        f"Persona Divergence Score: {r.divergence_score}/10 \u2192 {r.projected_divergence_score}/10\n\n",
+        r.projected_reasoning.strip(),
     ]
     return "".join(parts)
 
@@ -765,10 +842,26 @@ who infers intent, a domain expert against a newcomer, someone optimising for
 speed against someone optimising for completeness. The persona is a probe, so
 if it does not reveal anything the others missed, leave it out.
 
+Quote the words at fault. Every ambiguity you report names the exact phrase
+from the prompt, copied rather than paraphrased, so the author can find it and
+edit it. An ambiguity nobody can locate in their own text is not actionable.
+
+Show the divergence, do not just assert it. For each persona, give an
+abbreviated sample of what it would actually return: an opening line, or the
+shape of the deliverable. Two samples set side by side settle the question in a
+way a paragraph of description never does, and they expose your own reasoning
+to check, since if you cannot write two genuinely different samples then the
+divergence you claimed is not there.
+
+Then score your own rewrite. Say what the improved prompt would score on the
+same two scales, and name what it leaves unresolved. Do not award it a clean
+sweep: some interpretation always remains, and a rewrite claiming to remove all
+ambiguity is either untrue or has over-constrained the task into uselessness.
+This is what turns the report from an opinion into a before and after the
+author can check by running both prompts.
+
 What makes a finding useful:
 
-- Quote the words responsible. "'Make it good' gives no measurable target" beats
-  "the prompt is vague."
 - A weakness is what this persona would actually produce, not a personality
   description.
 - Divergence is only worth reporting where it changes the output. Two personas
@@ -776,8 +869,8 @@ What makes a finding useful:
 - Say what the reader silently assumed, since an unstated assumption is where
   the output goes wrong while looking confident.
 
-The improved prompt at the end must close the specific gaps you identified
-above, not be a generically longer prompt.
+The improved prompt must close the specific ambiguities you listed, not be a
+generically longer prompt.
 """
     STYLE_NOTE = (
         "Analytical and concrete. Quote the prompt's own wording when it is "
