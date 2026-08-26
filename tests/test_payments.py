@@ -474,3 +474,68 @@ def test_suspicious_clusters_always_reach_the_negative_signals():
         "bubblemap_analysis": {"summary": {"suspicious_clusters_count": 2}},
     })
     assert "2 holder clusters flagged as suspicious" in out
+
+
+# ── risk engine: the simulation behind a paid report ────────────────────────
+
+def test_a_seeded_run_is_reproducible():
+    """The modal offers a seed field, which is a promise of repeatability."""
+    import risk_metrics as rm
+    a = rm.simulate(500, 40, 0.05, 0.4, 1.0, seed=42)
+    b = rm.simulate(500, 40, 0.05, 0.4, 1.0, seed=42)
+    assert a["final_prices"] == b["final_prices"]
+
+
+def test_seeding_survives_other_code_using_the_shared_generator():
+    import random, risk_metrics as rm
+    expected = rm.simulate(500, 40, 0.05, 0.4, 1.0, seed=42)["final_prices"]
+    random.seed(999)
+    random.gauss(0, 1)
+    assert rm.simulate(500, 40, 0.05, 0.4, 1.0, seed=42)["final_prices"] == expected
+
+
+def test_zero_volatility_is_the_deterministic_drift_curve():
+    import math, risk_metrics as rm
+    s = rm.simulate(50, 10, 0.10, 0.0, 100.0, seed=1)
+    assert abs(s["min_final"] - s["max_final"]) < 1e-9
+    assert abs(s["min_final"] - 100.0 * math.exp(0.10)) < 1e-6
+    assert s["worst_drawdown"] == 0.0
+
+
+def test_drawdown_catches_falls_the_final_price_hides():
+    """
+    A path can recover before the end. Measuring only where paths finish
+    reports that holder as untroubled, which is the omission this fixes.
+    """
+    import risk_metrics as rm
+    s = rm.simulate(3000, 100, 0.0, 0.8, 1.0, seed=7)
+    assert s["prob_drawdown_20"] >= s["prob_loss_20"]
+    assert s["worst_drawdown"] > 0
+
+
+def test_expected_shortfall_is_never_better_than_value_at_risk():
+    import risk_metrics as rm
+    s = rm.simulate(2000, 50, 0.0, 0.6, 1.0, seed=5)
+    assert s["cvar5_price"] <= s["p5"] + 1e-9
+
+
+def test_percentiles_are_ordered():
+    import risk_metrics as rm
+    s = rm.simulate(2000, 50, 0.05, 0.4, 1.0, seed=3)
+    assert s["p5"] <= s["p25"] <= s["p50"] <= s["p75"] <= s["p95"]
+
+
+def test_only_the_plotted_paths_are_retained():
+    """Keeping every path to draw twenty of them is what pressures worker memory."""
+    import risk_metrics as rm
+    s = rm.simulate(4000, 60, 0.05, 0.4, 1.0, seed=3, keep_paths=20)
+    assert len(s["sample_paths"]) == 20
+    assert len(s["final_prices"]) == 4000
+
+
+def test_invalid_simulation_inputs_are_rejected():
+    import risk_metrics as rm
+    for args in [(0, 10, 0.05, 0.4, 1.0), (10, 0, 0.05, 0.4, 1.0),
+                 (10, 10, 0.05, 0.4, 0.0), (10, 10, 0.05, -0.1, 1.0)]:
+        with pytest.raises(ValueError):
+            rm.simulate(*args)

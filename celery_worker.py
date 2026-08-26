@@ -26,6 +26,7 @@ from pdf_utils import build_aetheron_pdf
 from export_utils import export_generic
 from asset_naming import asset_filename
 import contract_report
+import risk_metrics
 from ledger_utils import finalize_asset
 
 load_dotenv()
@@ -2419,6 +2420,54 @@ def build_bubblemap_analysis(network, contract_or_mint, top_holders, sol_top_hol
 
     return None
 
+class RiskInterpretation(BaseModel):
+    """
+    The reading of a simulation. Every number comes from risk_metrics; this is
+    what those numbers mean for someone deciding whether to take the position.
+    """
+    verdict: str = Field(
+        description="What this distribution says about holding this position, in plain terms. "
+                    "Lead with what a holder would actually experience."
+    )
+    downside: list[str] = Field(
+        description="What the loss side looks like: how often, how deep, and how much of it "
+                    "happens along the way rather than at the end. Cite the figures."
+    )
+    upside: list[str] = Field(
+        description="What the gain side looks like, and how much of it depends on the tail "
+                    "rather than the typical path."
+    )
+    drawdown_reading: str = Field(
+        description="What the drawdown figures mean in practice: whether a holder would have "
+                    "had to sit through a fall large enough that most people sell first, and "
+                    "how that compares with where paths finish."
+    )
+    assumptions: list[str] = Field(
+        description="What this model assumes and where those assumptions break. Geometric "
+                    "Brownian motion has constant volatility, no jumps, no fat tails, and "
+                    "independent steps. Say what that means for trusting these numbers."
+    )
+    parameter_notes: list[str] = Field(
+        description="What the chosen inputs imply, and which of them the conclusion is most "
+                    "sensitive to. Note when a parameter looks implausible for a real asset."
+    )
+
+
+def _render_risk_report(r: "RiskInterpretation", figures: str) -> str:
+    def bullets(items):
+        return "\n".join(f"\u2022 {i}" for i in items) if items else ""
+
+    return "".join([
+        "1. Verdict\n", r.verdict.strip(),
+        "\n\n2. Simulation Results\n\n", figures.strip(),
+        "\n\n3. Downside\n", bullets(r.downside),
+        "\n\n4. Upside\n", bullets(r.upside),
+        "\n\n5. Drawdown\n", r.drawdown_reading.strip(),
+        "\n\n6. Model Assumptions\n", bullets(r.assumptions),
+        "\n\n7. Parameter Notes\n", bullets(r.parameter_notes),
+    ])
+
+
 @celery.task(name="process_risk_engine")
 def process_risk_engine(
     asset_id,
@@ -2432,83 +2481,23 @@ def process_risk_engine(
     wallet
 ):
     """
-    Monte Carlo Risk Simulation Engine
-    Runs GBM simulation and exports structured report.
+    Monte Carlo risk simulation, and a reading of what it produced.
+
+    The simulation and every statistic live in risk_metrics, so the figures are
+    computed rather than described. The model is given those figures and asked
+    what they mean, which is the part that was missing: this component used to
+    return a table and two sentences chosen by an if/else, while the other four
+    returned analysis.
     """
-
-    import math
-    import random
-
-    if seed is not None:
-        random.seed(seed)    
-
-    if not isinstance(steps, int) or steps <= 0:
-        raise ValueError("steps must be a positive integer")
-
-    if not isinstance(runs, int) or runs <= 0:
-        raise ValueError("runs must be a positive integer")
-
-    if float(start_price) <= 0:
-        raise ValueError("start_price must be > 0")
-
-    dt = 1.0 / float(steps)
-    paths = []
-
-    for _ in range(runs):
-        price = float(start_price)
-        path = [price]
-
-        for _ in range(steps):
-            z = random.gauss(0, 1)
-            price *= math.exp((mu - 0.5 * sigma ** 2) * dt + sigma * math.sqrt(dt) * z)
-            path.append(price)
-
-        paths.append(path)
-
-    final_prices = [p[-1] for p in paths]
-
-    avg_final = sum(final_prices) / len(final_prices)
-    min_final = min(final_prices)
-    max_final = max(final_prices)
-
-    returns = [((p - float(start_price)) / float(start_price)) for p in final_prices]
-
-    avg_return = sum(returns) / len(returns)
-    min_return = min(returns)
-    max_return = max(returns)
-
-    sorted_prices = sorted(final_prices)
-
-    def percentile(data, pct):
-        if not data:
-            return None
-        if len(data) == 1:
-            return data[0]
-
-        k = (len(data) - 1) * pct
-        f = int(k)
-        c = min(f + 1, len(data) - 1)
-
-        if f == c:
-            return data[f]
-
-        d0 = data[f] * (c - k)
-        d1 = data[c] * (k - f)
-        return d0 + d1
-
-    p5 = percentile(sorted_prices, 0.05)
-    p25 = percentile(sorted_prices, 0.25)
-    p50 = percentile(sorted_prices, 0.50)
-    p75 = percentile(sorted_prices, 0.75)
-    p95 = percentile(sorted_prices, 0.95)
+    stats = risk_metrics.simulate(runs, steps, mu, sigma, start_price, seed)
+    figures = risk_metrics.summary_markdown(stats)
 
     # Sample Path Chart
     sample_chart_path = f"/tmp/{asset_id}_paths.png"
-    sample_paths = paths[:20]
 
     plt.figure(figsize=(6,4))
-    for p in sample_paths:
-        plt.plot(p)
+    for path in stats["sample_paths"]:
+        plt.plot(path)
     plt.title("Sample Price Paths")
     plt.xlabel("Time Steps")
     plt.ylabel("Price")
@@ -2520,10 +2509,10 @@ def process_risk_engine(
     distribution_chart_path = f"/tmp/{asset_id}_distribution.png"
 
     plt.figure(figsize=(6,4))
-    plt.hist(final_prices, bins=40)
-    plt.axvline(p5, linestyle="dashed", linewidth=1)
-    plt.axvline(p50, linestyle="dashed", linewidth=1)
-    plt.axvline(p95, linestyle="dashed", linewidth=1)
+    plt.hist(stats["final_prices"], bins=40)
+    plt.axvline(stats["p5"], linestyle="dashed", linewidth=1)
+    plt.axvline(stats["p50"], linestyle="dashed", linewidth=1)
+    plt.axvline(stats["p95"], linestyle="dashed", linewidth=1)
     plt.title("Final Price Distribution")
     plt.xlabel("Final Price")
     plt.ylabel("Frequency")
@@ -2547,60 +2536,52 @@ def process_risk_engine(
 
     chart_path = combined_chart_path
 
-    prob_loss = sum(1 for p in final_prices if p < float(start_price)) / len(final_prices)
-    prob_loss_20 = sum(1 for p in final_prices if p < float(start_price) * 0.8) / len(final_prices)
-    prob_gain_50 = sum(1 for p in final_prices if p > float(start_price) * 1.5) / len(final_prices)
+    SYSTEM_PROMPT = """
+You are reading the output of a Monte Carlo simulation and telling someone what
+it means for the position they are considering.
 
-    if prob_loss > 0.60:
-        risk_profile = "High downside risk based on the share of simulations finishing below the starting price."
-    elif prob_loss > 0.40:
-        risk_profile = "Moderate downside risk with a fairly balanced distribution of positive and negative outcomes."
-    else:
-        risk_profile = "Lower downside risk based on this simulation sample."
+Every figure has already been computed and is given to you. Do not recompute
+anything, do not round differently, and do not state a number that is not in
+the figures. Quote them as they are written.
 
-    if max_return > 1.5:
-        upside_profile = "The simulation also shows a large upside tail, meaning some paths end materially above the starting value."
-    elif max_return > 0.5:
-        upside_profile = "The simulation shows moderate upside potential across the strongest paths."
-    else:
-        upside_profile = "Upside dispersion is relatively limited in this run."
+Lead with what a holder would live through, not with where paths finish. The
+two come apart, and the gap is the point of the report. A set of paths can
+mostly end higher while nearly all of them first fall far enough that a real
+holder would have sold. Where the drawdown figures and the final price figures
+tell different stories, say so plainly, because the ending is only available to
+someone who survived the middle.
 
-    summary_md = f"""
-Risk Simulation Completed.
+Be concrete about the tail. Value at Risk says where the worst five percent
+begins; expected shortfall says how bad it is once you are inside it. If those
+two are far apart, the loss is concentrated in a thin, severe tail, and that is
+worth saying in words.
 
-Parameters:
-• Runs: {runs}
-• Steps: {steps}
-• Mu: {mu}
-• Sigma: {sigma}
-• Start Price: {start_price}
+Be honest about the model. Geometric Brownian motion assumes constant
+volatility, independent steps, no jumps and no fat tails. Real assets gap on
+news, get more volatile as they fall, and have heavier tails than this produces,
+so these figures understate the chance of an extreme outcome. Say that clearly
+rather than presenting simulated precision as knowledge.
 
-Final Price Results:
-• Average Final Price: {avg_final:.4f}
-• Min Final Price: {min_final:.4f}
-• Max Final Price: {max_final:.4f}
+Check the inputs. Volatility above roughly 1.0 over the horizon is very high
+even for crypto, and drift far from zero is an assumption doing most of the
+work in the result. Say which input the conclusion depends on most, since a
+reader who chose it arbitrarily should know that.
 
-Return Results:
-• Average Return: {avg_return * 100:.2f}%
-• Worst Return: {min_return * 100:.2f}%
-• Best Return: {max_return * 100:.2f}%
-
-Distribution Percentiles:
-• P5: {p5:.4f}
-• P25: {p25:.4f}
-• P50 (Median): {p50:.4f}
-• P75: {p75:.4f}
-• P95: {p95:.4f}
-
-Probability Metrics:
-• Probability of Loss: {prob_loss * 100:.2f}%
-• Probability of >20% Loss: {prob_loss_20 * 100:.2f}%
-• Probability of >50% Gain: {prob_gain_50 * 100:.2f}%
-
-Interpretation:
-• {risk_profile}
-• {upside_profile}
+Give no financial advice. Describe the distribution and what it implies, and
+leave the decision to the reader.
 """
+    STYLE_NOTE = (
+        "Plain, precise and quantitative. Cite the figures you were given. "
+        "Explain what a number means rather than restating it."
+    )
+
+    interpretation = llm.complete_structured(
+        system_blocks=[HOUSE_STYLE, STYLE_NOTE, SYSTEM_PROMPT],
+        user_payload="Simulation figures:\n\n" + figures,
+        schema=RiskInterpretation,
+    )
+
+    summary_md = clean_markdown(_render_risk_report(interpretation, figures))
 
     fmt = (out_format or "pdf").lower()
 
