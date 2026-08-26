@@ -86,12 +86,39 @@ def ephemeral_sqlite() -> bool:
     return hosted and not USE_POSTGRES
 
 
+def database_env_hint() -> str:
+    """
+    Describe the database variables this process can actually see.
+
+    A platform reference like ${{Postgres.DATABASE_URL}} that names a service
+    or key which does not exist is substituted with an empty string rather than
+    rejected, so a misconfigured variable looks exactly like an unset one from
+    inside the container. Distinguishing the two is the whole diagnosis, and it
+    cannot be done from the dashboard, which shows the reference rather than
+    what it resolved to.
+
+    Names and emptiness only. Connection strings carry the database password,
+    so no value from this set is ever put in a response.
+    """
+    seen = sorted(
+        name
+        for name in os.environ
+        if name.startswith(("DATABASE", "PG", "POSTGRES")) or name.startswith("DB_")
+    )
+    if not seen:
+        return "no DATABASE/PG/DB_ variables reached this service"
+
+    parts = [f"{n}={'set' if os.environ[n].strip() else 'EMPTY'}" for n in seen]
+    return "visible: " + ", ".join(parts)
+
+
 def check_ledger(ledger_utils):
     def probe():
         ledger_utils.get_recent(limit=1)
         if ephemeral_sqlite():
             return DEGRADED, (
-                "sqlite on a disk that is wiped each deploy; DATABASE_URL is unset"
+                "sqlite on a disk that is wiped each deploy; "
+                f"DATABASE_URL is unset or empty. {database_env_hint()}"
             )
         return OK, ledger_utils.backend_name()
     return _timed(probe)
