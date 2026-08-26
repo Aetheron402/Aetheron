@@ -1198,12 +1198,30 @@ def test_every_archive_ships_a_runner():
 
 
 def test_the_runner_starts_the_right_entrypoint():
-    """project-planner is app.py; the rest are main.py."""
+    """
+    Every agent here starts from main.py. project-planner also has an app.py,
+    which is the module defining the application rather than a way to run it,
+    and preferring it produced a run script that started nothing and exited
+    zero.
+    """
     import agent_setup
-    planner = _open_zip(agent_setup.build_zip("project-planner", {})).read("run.sh").decode()
-    watcher = _open_zip(agent_setup.build_zip("wallet-watcher", {})).read("run.sh").decode()
-    assert "python app.py" in planner
-    assert "python main.py" in watcher
+    for agent_id in agent_setup.AGENT_PATHS:
+        script = _open_zip(agent_setup.build_zip(agent_id, {})).read("run.sh").decode()
+        assert "exec python main.py" in script, agent_id
+
+
+def test_an_agent_with_both_entrypoints_prefers_main():
+    import os
+    import tempfile
+    import agent_setup
+
+    directory = tempfile.mkdtemp()
+    for name in ("app.py", "main.py"):
+        open(os.path.join(directory, name), "w").close()
+    assert agent_setup.entrypoint_for(directory) == "main.py"
+
+    os.remove(os.path.join(directory, "main.py"))
+    assert agent_setup.entrypoint_for(directory) == "app.py"
 
 
 def test_a_bad_wallet_address_is_rejected():
