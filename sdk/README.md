@@ -247,7 +247,6 @@ It treats AI compute as:
 
 ## Links
 
-- Website → https://www.aetheron402.com  
 - GitHub → https://github.com/Aetheron402  
 - X (Twitter) → https://x.com/Aetheron402  
 - Email → team@aetheron402.com
