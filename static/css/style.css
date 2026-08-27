@@ -7,11 +7,19 @@
   animation: loading 3s infinite;
 }
 
-.roadmap-done span {
+/* Only the item name is struck through, not its description.
+   Striking the whole line was fine when items were three words; with a
+   sentence of detail behind each one it made everything already shipped the
+   hardest part of the page to read. */
+.roadmap-done strong {
   background-image: linear-gradient(#22d3ee 2px, transparent 0);
   background-repeat: repeat-x;
   background-size: 100% 0.9em;
   background-position: 0 0.60em;
+}
+
+.roadmap-done span {
+  color: rgba(148, 163, 184, 0.85);
 }
 
 ul li.roadmap-done {
