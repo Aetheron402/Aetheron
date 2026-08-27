@@ -127,7 +127,16 @@
       position: fixed;
       inset: 0;
       overflow: hidden;
-      z-index: 15;
+      /*
+        Behind the content, not over it. This sat at 15 against the shell's 10,
+        so the vignette inside it washed black across whatever happened to be
+        near the bottom of the viewport. It read as the footer bleeding into the
+        section above it, but the footer was never involved: the layer is fixed
+        to the viewport, so it dimmed a different part of the page at every
+        scroll position. pointer-events:none meant clicks still landed, which is
+        why it looked like a rendering quirk rather than a stacking bug.
+      */
+      z-index: 0;
       pointer-events: none;
     }
 
