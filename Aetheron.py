@@ -632,14 +632,6 @@ def api_status():
     return JSONResponse(status_code=200 if data["ok"] else 503, content=data)
 
 
-# Temporary: preview harness for judging component output, off unless DEV_TOKEN
-# is set. Self-contained in dev_preview.py; delete that file and these three
-# lines to remove it entirely. See the module docstring.
-import dev_preview
-if dev_preview.enabled():
-    app.include_router(dev_preview.router)
-
-
 @app.get("/status", response_class=HTMLResponse)
 def status_page(request: Request):
     return templates.TemplateResponse("status.html", {"request": request})
@@ -706,8 +698,6 @@ def shop(request: Request):
     return templates.TemplateResponse("shop.html", {
         "request": request,
         "components": components,
-        # Temporary, alongside the dev_preview router. Remove with it.
-        "dev_preview": dev_preview.is_unlocked(request),
     })
 
 

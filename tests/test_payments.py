@@ -1613,16 +1613,28 @@ def test_every_paid_component_offers_an_example():
     assert "example-btn" not in cards
 
 
-def test_examples_survive_the_dev_preview_being_removed():
+def test_the_dev_preview_harness_is_gone():
     """
-    The block was first placed inside the dev-only section, so examples worked
-    only with DEV_TOKEN set and would have been deleted along with the harness
-    before launch.
+    The harness ran components on a sample input without payment, gated only by
+    DEV_TOKEN. It was always meant to come out before the source went public,
+    because publishing documents the route and its gate for everyone. This
+    keeps it out.
+    """
+    import os
+
+    assert not os.path.exists("dev_preview.py")
+
+    for path in ("Aetheron.py", "templates/shop.html", ".env.example"):
+        source = open(path).read()
+        assert "dev_preview" not in source, path
+        assert "DEV_TOKEN" not in source, path
+
+
+def test_the_examples_outlived_the_harness():
+    """
+    The example viewer was first written inside the dev-only block, so it would
+    have been deleted along with it. It has to stand on its own.
     """
     source = open("templates/shop.html").read()
-    dev_start = source.index("{% if dev_preview %}")
-    dev_end = source.index("{% endif %}", dev_start)
-    dev_block = source[dev_start:dev_end]
-
-    assert "example-btn {" not in dev_block
-    assert 'id="example-bg"' not in dev_block
+    assert "example-btn" in source
+    assert 'id="example-bg"' in source
