@@ -24,9 +24,12 @@ import subprocess
 import sys
 import tempfile
 
-# Agents whose dependencies the worker already has. The rest need packages we
-# do not install for a preview: discord.py and a model client for the Discord
-# helper, PyNaCl for the trading assistant, jsonschema for the planner.
+# Agents the worker can run as it stands. Only the Discord helper is left out:
+# it needs discord.py and a bot token, so there is nothing to show without one.
+#
+# The trading assistant and the planner were excluded on the assumption that
+# they needed PyNaCl and jsonschema. Both are listed in their requirements and
+# neither is imported on the path a run actually takes, so both preview fine.
 PREVIEWABLE = {
     "wallet-watcher",
     "market-tracker",
@@ -34,6 +37,8 @@ PREVIEWABLE = {
     "prediction-market",
     "solana-sniper",
     "pumpfun-launcher",
+    "solana-trading-assistant",
+    "project-planner",
 }
 
 # What each preview runs against. Public, read-only, and interesting enough
@@ -51,6 +56,8 @@ DEMO_CONFIG = {
     "market-tracker": {"run_interval_seconds": 5},
     "alpha-scanner": {"general": {"run_interval_seconds": 5}},
     "prediction-market": {},
+    "solana-trading-assistant": {"analysis": {"poll_interval_seconds": 10}},
+    "project-planner": {},
     "solana-sniper": {"notifications": {"enabled": False, "webhook_url": ""}},
     "pumpfun-launcher": {"notifications": {"enabled": False, "webhook_url": ""}},
 }

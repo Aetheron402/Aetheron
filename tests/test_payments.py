@@ -1329,12 +1329,17 @@ def test_preview_never_takes_configuration_from_the_request():
 
 
 def test_only_agents_the_worker_can_actually_run_are_previewable():
-    """discord.py, PyNaCl and jsonschema are not installed for a preview."""
+    """
+    The Discord helper needs discord.py and a bot token, so it has no preview.
+
+    The trading assistant and the planner were excluded on the assumption they
+    needed PyNaCl and jsonschema. Both are listed in their requirements and
+    neither is imported on the path a run takes, so both preview fine.
+    """
     import agent_preview
     assert not agent_preview.is_previewable("discord-helper")
-    assert not agent_preview.is_previewable("solana-trading-assistant")
-    assert not agent_preview.is_previewable("project-planner")
-    assert agent_preview.is_previewable("wallet-watcher")
+    for agent in ("wallet-watcher", "solana-trading-assistant", "project-planner"):
+        assert agent_preview.is_previewable(agent), agent
 
 
 def test_a_preview_is_bounded_in_time():
@@ -1391,5 +1396,6 @@ def test_agents_without_a_preview_have_no_button():
     import Aetheron
     html = TestClient(Aetheron.app).get("/agents").text
     wired = set(re.findall(r"previewAgent\('([a-z-]+)'\)", html))
-    for agent in ("discord-helper", "solana-trading-assistant", "project-planner"):
-        assert agent not in wired
+    # Only the Discord helper cannot be previewed: it needs a bot token, so
+    # there is nothing to show without one.
+    assert "discord-helper" not in wired
