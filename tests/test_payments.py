@@ -1426,3 +1426,49 @@ def test_birdeye_calls_declare_their_chain():
         window = block[:600]
         assert "x-chain" in window or "headers=headers" in window, \
             "a Birdeye call is missing its chain header"
+
+
+def test_every_provider_can_die_without_crashing_a_paid_report():
+    """
+    A report someone has already paid for must not be lost because a third
+    party is having a bad afternoon. Every fetcher returns a dict describing
+    what it could not get, and the renderer says so, rather than raising.
+    """
+    import importlib
+    import requests
+
+    original_get, original_post = requests.get, requests.post
+
+    def dead(*args, **kwargs):
+        raise requests.exceptions.ConnectionError("simulated provider outage")
+
+    requests.get = requests.post = dead
+    try:
+        worker = importlib.import_module("celery_worker")
+        for call in (
+            lambda: worker.fetch_solana_account_info("So11111111111111111111111111111111111111112"),
+            lambda: worker.fetch_birdeye_full("So11111111111111111111111111111111111111112"),
+            lambda: worker.fetch_honeypot_analysis("0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", 1),
+            lambda: worker.fetch_etherscan_contract_intel("0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"),
+            lambda: worker.fetch_top_erc20_holders("0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"),
+            lambda: worker.fetch_market_data_dexscreener("So11111111111111111111111111111111111111112"),
+        ):
+            assert isinstance(call(), dict)
+    finally:
+        requests.get, requests.post = original_get, original_post
+
+
+def test_a_report_with_no_data_at_all_still_scores_and_renders():
+    """Nothing available is a reportable state, not a failure."""
+    import contract_report as cr
+
+    blob = {"network": "solana", "contract_address": "X", "base_intel": {},
+            "token_metadata": {}, "risk_hints": {}, "signal_indicators": {}}
+
+    scores = cr.score(blob)
+    assert all(1 <= v <= 10 for v in scores.values())
+    # With nothing to go on, completeness must bottom out rather than flatter.
+    assert scores["data_completeness"] <= 2
+
+    assert "unavailable" in cr.holder_table(blob).lower()
+    assert "NOT CHECKED" in cr.coverage(blob)
