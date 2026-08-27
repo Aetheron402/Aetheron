@@ -1367,6 +1367,22 @@ def test_a_preview_cannot_be_asked_to_run_forever():
     assert result["seconds"] <= agent_preview.MAX_SECONDS
 
 
+def fresh_wallet(name: str) -> str:
+    """
+    A wallet with no view history, whatever previous runs left behind.
+
+    The view tables live in the real ledger, so a test that claims views under a
+    fixed name passes once and then fails on every later run: the wallet has
+    already spent its allowance. Clearing first keeps the tests deterministic
+    without letting the table grow a new wallet per run.
+    """
+    ledger_utils.init_examples()
+    with ledger_utils._cursor(commit=True) as cur:
+        cur.execute(ledger_utils._q("DELETE FROM example_views WHERE wallet = %s;"),
+                    (name,))
+    return name
+
+
 def test_watching_an_agent_run_is_metered_per_wallet():
     """
     Previews were limited only by a per IP cooldown, so a visitor could watch
@@ -1377,7 +1393,7 @@ def test_watching_an_agent_run_is_metered_per_wallet():
     from fastapi.testclient import TestClient
     import agent_preview
     client = TestClient(Aetheron.app)
-    wallet = {"X-USER-WALLET": "MeteredPreviewWallet"}
+    wallet = {"X-USER-WALLET": fresh_wallet("MeteredPreviewWallet")}
     agents = sorted(agent_preview.PREVIEWABLE)[:ledger_utils.PREVIEW_ALLOWANCE + 1]
 
     for agent in agents[:-1]:
@@ -1395,7 +1411,7 @@ def test_rewatching_an_agent_costs_nothing_further():
     from fastapi.testclient import TestClient
     import agent_preview
     client = TestClient(Aetheron.app)
-    wallet = {"X-USER-WALLET": "RewatchWallet"}
+    wallet = {"X-USER-WALLET": fresh_wallet("RewatchWallet")}
     agent = sorted(agent_preview.PREVIEWABLE)[0]
 
     Aetheron._preview_last_seen.clear()
@@ -1419,7 +1435,7 @@ def test_report_examples_and_agent_runs_do_not_share_an_allowance():
     They are separate products. Spending every report example must not also
     take away the agent runs.
     """
-    wallet = "SeparatePoolsWallet"
+    wallet = fresh_wallet("SeparatePoolsWallet")
     for slug in list(Aetheron.EXAMPLE_SLUGS)[:ledger_utils.EXAMPLE_ALLOWANCE]:
         ledger_utils.claim_view(wallet, slug, "example")
 
