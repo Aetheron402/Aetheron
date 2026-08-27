@@ -1,6 +1,5 @@
 import requests
 from typing import Dict, Any
-from openai import OpenAI
 
 
 # Main AI Reply Generator
@@ -40,8 +39,26 @@ def generate_ai_reply(message: str, ai_config: Dict[str, Any], logger) -> str:
 def ai_openai(message: str, ai_config: Dict[str, Any], logger) -> str:
     """
     Generates a reply using OpenAI's Chat Completions API.
+
+    The client is imported here rather than at the top of the file. Importing
+    it on load meant the bot could not start at all without that package, even
+    with AI switched off or another provider selected, which is the default.
     """
+    try:
+        from openai import OpenAI
+    except ImportError:
+        logger.error(
+            "The openai package is not installed. Run pip install openai, "
+            "or set ai.provider to anthropic or openrouter, which need no "
+            "extra package."
+        )
+        return generate_fallback_reply(message)
+
     api_key = ai_config.get("openai_api_key", "")
+    if not api_key:
+        logger.error("OpenAI provider selected but no API key provided.")
+        return generate_fallback_reply(message)
+
     client = OpenAI(api_key=api_key)
 
     try:

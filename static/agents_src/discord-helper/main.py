@@ -21,12 +21,23 @@ def main():
 
     logger.info("Initializing Discord Support Agent...")
 
+    # Check the token before connecting. Discord answers a placeholder with
+    # "Improper token has been passed", which says nothing about what to do.
+    token = (config.get("discord", {}).get("bot_token") or "").strip()
+    if not token or token.upper().startswith("YOUR_"):
+        logger.error(
+            "No Discord bot token is set. Open config.json and put your token "
+            "in discord.bot_token. Create one at "
+            "https://discord.com/developers/applications, under Bot, Reset Token."
+        )
+        return
+
     # Create bot instance (fully functional bot with real moderation & AI support)
     bot = create_discord_client(config, logger)
 
     # Start bot
     try:
-        asyncio.run(bot.start(config["discord"]["bot_token"]))
+        asyncio.run(bot.start(token))
     except KeyboardInterrupt:
         logger.info("Discord Support Agent stopped by user.")
     except Exception as e:

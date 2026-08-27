@@ -212,20 +212,67 @@ class PolymarketAdapter(PredictionMarketAdapter):
             f"{moved * position.size:+.4f} on {position.size} units."
         )
 
+    def _closed_market(self, market_id: str):
+        """Fetch one market by id, including closed ones."""
+        # By path, not by query. The id filter on the collection route returns
+        # an empty list, so settlement silently never found its market.
+        try:
+            response = requests.get(f"{GAMMA_URL}/{market_id}", timeout=TIMEOUT,
+                                    headers={"User-Agent": "prediction-market-agent"})
+            response.raise_for_status()
+            row = response.json()
+        except Exception:
+            return None
+        if isinstance(row, list):
+            row = row[0] if row else None
+        return row if isinstance(row, dict) else None
+
     def settle(self) -> None:
         """
-        Retire positions whose market has closed.
+        Settle positions against the outcome the market actually resolved to.
 
-        The board only lists open markets, so a position whose market has left
-        it has resolved. The outcome is not read here: settlement prices need
-        the CLOB, and guessing which side won would be the invention this
-        adapter replaced.
+        A resolved market prices the winning outcome at 1 and the rest at 0, so
+        the real result is readable without the CLOB. This previously marked a
+        position settled and said the outcome could not be determined, which
+        left a paper run with no result: every position closed as a shrug and
+        the strategy could never be scored.
         """
         live = {m.id for m in self.list_markets()}
+
         for position in self._positions.values():
-            if position.status == "open" and position.market_id not in live:
+            if position.status != "open" or position.market_id in live:
+                continue
+
+            row = self._closed_market(position.market_id)
+            if not row or not row.get("closed"):
+                continue
+
+            labels = _as_list(row.get("outcomes"))
+            prices = _as_list(row.get("outcomePrices"))
+            if not labels or len(labels) != len(prices):
                 position.status = "settled"
                 self.logger.info(
-                    f"Market {position.market_id} has closed. {position.id} marked "
-                    "settled; the resolved outcome requires the CLOB to read."
+                    f"{position.id}: market {position.market_id} closed, but its "
+                    "resolution was not published in a readable form."
                 )
+                continue
+
+            try:
+                index = int(str(position.outcome_id).split(":")[-1])
+                final = float(prices[index])
+            except (ValueError, IndexError):
+                position.status = "settled"
+                continue
+
+            position.current_price = final
+            position.status = "settled"
+
+            # Binary settlement: the stake either pays out at 1 or is lost.
+            pnl = (final - position.entry_price) * position.size
+            won = final >= 0.5
+            self.logger.info(
+                f"[SETTLED] {position.id} on {row.get('question', '')[:60]}: "
+                f"{labels[index]} resolved {'YES' if won else 'NO'}, "
+                f"entry {position.entry_price:.4f} to {final:.0f}, "
+                f"{pnl:+.2f} on {position.size} units."
+            )

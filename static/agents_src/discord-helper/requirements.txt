@@ -1,4 +1,7 @@
 discord.py>=2.3.2
-openai>=1.12.0
 requests>=2.31.0
 python-dotenv>=1.0.1
+
+# Only needed if you set ai.provider to "openai".
+# The anthropic and openrouter providers use plain HTTP.
+# openai>=1.12.0
