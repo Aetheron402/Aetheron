@@ -1010,9 +1010,13 @@ def fetch_birdeye_full(address: str):
     if not BIRDEYE_API_KEY:
         return {"error": "BIRDEYE_API_KEY not configured"}
 
+    # The /defi routes select a network from this header. Without it Birdeye
+    # answers for its default chain, which is not necessarily the one being
+    # analysed.
     headers = {
         "X-API-KEY": BIRDEYE_API_KEY,
-        "accept": "application/json"
+        "x-chain": "solana",
+        "accept": "application/json",
     }
 
     meta = {}
@@ -1020,17 +1024,24 @@ def fetch_birdeye_full(address: str):
     meta_error = None
     market_error = None
 
+    # Birdeye retired every /public route and answers 404 on them. These are
+    # the current ones, and they take the address as a parameter rather than a
+    # path segment.
     try:
-        meta_url = "https://public-api.birdeye.so/public/token/metadata"
-        r1 = requests.get(meta_url, headers=headers, params={"address": address}, timeout=15)
+        r1 = requests.get(
+            "https://public-api.birdeye.so/defi/v3/token/meta-data/single",
+            headers=headers, params={"address": address}, timeout=15,
+        )
         r1.raise_for_status()
         meta = (r1.json() or {}).get("data", {}) or {}
     except Exception as e:
         meta_error = str(e)
 
     try:
-        market_url = f"https://public-api.birdeye.so/public/market/solana/token/{address}"
-        r2 = requests.get(market_url, headers=headers, timeout=15)
+        r2 = requests.get(
+            "https://public-api.birdeye.so/defi/token_overview",
+            headers=headers, params={"address": address}, timeout=15,
+        )
         r2.raise_for_status()
         market = (r2.json() or {}).get("data", {}) or {}
     except Exception as e:
@@ -1577,57 +1588,33 @@ def fetch_solana_top_holders(identifier: str, mint: str = None, limit: int = 20)
         except Exception as e:
             print("[DEXSCREENER HTML ERROR]:", e)
 
-    try:
-        url = f"https://api.solscan.io/token/holders?token={mint}&offset=0&size={limit}"
-        r = requests.get(url, timeout=12)
-        print("[SOLSCAN] status:", r.status_code)
-        print("[SOLSCAN] RAW:", r.text[:600])
-
-        if r.status_code == 200:
-            payload = r.json() or {}
-            arr = payload.get("data") or []
-            out_list = []
-
-            for h in arr:
-                owner = h.get("address")
-                amount = h.get("amount")
-                out_list.append({
-                    "owner": owner,
-                    "amount_raw": str(amount),
-                    "amount_ui": None,
-                    "percentage": None
-                })
-
-            if out_list:
-                return {
-                    "mint": mint,
-                    "holders": out_list,
-                    "decimals": None,
-                    "total_supply_raw": None,
-                    "source": "solscan"
-                }
-
-    except Exception as e:
-        print("[SOLSCAN ERROR]:", e)
+    # The Solscan block that sat here called api.solscan.io, which no longer
+    # resolves. Every Solana holder lookup paid a full timeout waiting for it
+    # before falling through to the source that answers, on the component
+    # people pay the most for.
 
     if BIRDEYE_API_KEY:
         try:
-            url = f"https://public-api.birdeye.so/public/token/holder-distribution/{mint}"
-            headers = {"X-API-KEY": BIRDEYE_API_KEY, "accept": "application/json"}
-            r = requests.get(url, headers=headers, timeout=12)
+            # /public was retired and answers 404. /defi/v3 is the current
+            # route and takes the address as a parameter.
+            url = "https://public-api.birdeye.so/defi/v3/token/holder"
+            headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana",
+                       "accept": "application/json"}
+            r = requests.get(url, params={"address": mint, "limit": limit},
+                             headers=headers, timeout=12)
             print("[BIRDEYE HOLDERS] status:", r.status_code)
             print("[BIRDEYE HOLDERS RAW]:", r.text[:600])
 
             if r.status_code == 200:
                 data = (r.json() or {}).get("data", {})
-                arr = data.get("topHolders") or []
+                arr = data.get("items") or data.get("topHolders") or []
                 out_list = []
 
                 for h in arr:
                     out_list.append({
-                        "owner": h.get("address"),
-                        "amount_raw": str(h.get("balance")),
-                        "amount_ui": None,
+                        "owner": h.get("owner") or h.get("address"),
+                        "amount_raw": str(h.get("amount") or h.get("balance")),
+                        "amount_ui": (h.get("ui_amount") or h.get("uiAmount")),
                         "percentage": h.get("percentage")
                     })
 

@@ -1399,3 +1399,30 @@ def test_agents_without_a_preview_have_no_button():
     # Only the Discord helper cannot be previewed: it needs a bot token, so
     # there is nothing to show without one.
     assert "discord-helper" not in wired
+
+
+def test_no_component_calls_a_retired_endpoint():
+    """
+    Endpoints rot silently. Birdeye retired every /public route and answers
+    404, and api.solscan.io stopped resolving, so a holder lookup paid a full
+    timeout waiting for a host that was gone before falling through to one
+    that answers.
+    """
+    import os
+    RETIRED = ("birdeye.so/public", "api.solscan.io", "quote-api.jup.ag")
+
+    for name in sorted(f for f in os.listdir(".") if f.endswith(".py")):
+        for line in open(name, errors="replace").read().splitlines():
+            if line.strip().startswith("#"):
+                continue                      # a comment may explain a removal
+            for dead in RETIRED:
+                assert dead not in line, f"{name} still calls {dead}"
+
+
+def test_birdeye_calls_declare_their_chain():
+    """The /defi routes pick a network from the header, not the address."""
+    source = open("celery_worker.py", errors="replace").read()
+    for block in source.split("public-api.birdeye.so")[1:]:
+        window = block[:600]
+        assert "x-chain" in window or "headers=headers" in window, \
+            "a Birdeye call is missing its chain header"
