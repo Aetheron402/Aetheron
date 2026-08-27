@@ -20,6 +20,7 @@ class SolanaClient:
         self.rpc_url = rpc_config["url"]
         self.timeout = rpc_config["timeout_seconds"]
         self.logger = logger
+        self._seen = set()
 
         self.logger.info(f"SolanaClient initialized with RPC endpoint: {self.rpc_url}")
 
@@ -44,55 +45,94 @@ class SolanaClient:
     # TOKEN DISCOVERY TEMPLATE HOOK
     def fetch_new_opportunities(self) -> List[Dict[str, Any]]:
         """
-        Discovery hook:
-        This method should return a list of token opportunity dictionaries based on
-        whatever discovery source the user integrates.
+        Newly listed Solana tokens, from DexScreener's public feed.
 
-        Example sources:
-        - Pump.fun feed
-        - Helius token metadata feed
-        - Birdeye API
-        - Direct subscription to program logs
-        - Custom metadata indexers
+        This used to emit a fabricated token every twenty seconds: a mint that
+        read ExampleMint111..., 5.2 SOL of liquidity and a 150,000 dollar
+        market cap, none of which existed. It demonstrated the loop and taught
+        the filters nothing, because the invented token passed every check by
+        construction.
 
-        Expected return structure for each token:
-        {
-            "mint": "...",
-            "creator": "...",
-            "liquidity_sol": float,
-            "market_cap_usd": float,
-            "renounced": bool,
-            "liquidity_locked": bool,
-            "mint_authority_disabled": bool,
-            "trades_1m": int,
-            "price": float,
-            "program_id": "..."
-        }
-
-        For template purposes, this method emits a periodic example opportunity
-        to demonstrate the full agent loop without requiring API keys.
+        No API key is needed. Tokens already seen are skipped, so each one is
+        evaluated once rather than on every poll.
         """
+        profiles = self._get("https://api.dexscreener.com/token-profiles/latest/v1")
+        if not isinstance(profiles, list):
+            return []
 
-        # Emit an example token every ~20 seconds
-        # (Shows the loop is working and demonstrates filtering behavior)
-        if int(time.time()) % 20 == 0:
-            example_token = {
-                "mint": "ExampleMint111111111111111111111111111",
-                "creator": "ExampleCreator11111111111111111111111",
-                "liquidity_sol": 5.2,
-                "market_cap_usd": 150000,
-                "renounced": True,
-                "liquidity_locked": True,
-                "mint_authority_disabled": True,
-                "trades_1m": 12,
-                "price": 0.00032,
-                "program_id": "ExampleProgram11111111111111111111"
-            }
+        opportunities = []
+        for profile in profiles:
+            if not isinstance(profile, dict) or profile.get("chainId") != "solana":
+                continue
 
-            self.logger.debug("Generated template token opportunity (example signal).")
-            return [example_token]
+            mint = profile.get("tokenAddress")
+            if not mint or mint in self._seen:
+                continue
+            self._seen.add(mint)
 
-        return []
+            token = self._describe(mint)
+            if token:
+                opportunities.append(token)
+
+            # A handful per cycle. The feed returns thirty and the filters
+            # below are the point, not the volume.
+            if len(opportunities) >= 5:
+                break
+
+        # Keep the seen set from growing for the life of the process.
+        if len(self._seen) > 2000:
+            self._seen = set(list(self._seen)[-1000:])
+
+        return opportunities
+
+    def _get(self, url: str, params: dict = None):
+        try:
+            response = requests.get(url, params=params or {}, timeout=self.timeout,
+                                    headers={"User-Agent": "solana-sniper"})
+            response.raise_for_status()
+            return response.json()
+        except Exception as exc:
+            self.logger.debug(f"Discovery request failed: {exc}")
+            return None
+
+    def _describe(self, mint: str):
+        """Turn a mint into the opportunity shape the filters expect."""
+        data = self._get(f"https://api.dexscreener.com/latest/dex/tokens/{mint}")
+        pairs = (data or {}).get("pairs") or []
+        if not pairs:
+            return None
+
+        # The deepest pair, since a token's quiet pools say nothing about it.
+        pair = max(pairs, key=lambda p: (p.get("liquidity") or {}).get("usd") or 0)
+        liquidity_usd = (pair.get("liquidity") or {}).get("usd") or 0
+        txns = (pair.get("txns") or {}).get("m5") or {}
+
+        try:
+            price = float(pair.get("priceUsd") or 0)
+        except (TypeError, ValueError):
+            price = 0.0
+
+        return {
+            "mint": mint,
+            "creator": (pair.get("baseToken") or {}).get("address"),
+            "symbol": (pair.get("baseToken") or {}).get("symbol"),
+            # Reported in SOL to match the filter thresholds, at roughly the
+            # current price. Liquidity is the figure the filters actually read.
+            "liquidity_sol": round(liquidity_usd / 200.0, 4),
+            "liquidity_usd": liquidity_usd,
+            "market_cap_usd": pair.get("marketCap") or pair.get("fdv") or 0,
+            "trades_1m": (txns.get("buys") or 0) + (txns.get("sells") or 0),
+            "price": price,
+            "dex": pair.get("dexId"),
+            "pair_url": pair.get("url"),
+            # These need a mint account read to answer honestly, and this
+            # discovery feed does not carry them. Left unset rather than
+            # asserted, so a filter reading them sees nothing rather than a
+            # convenient true.
+            "renounced": None,
+            "liquidity_locked": None,
+            "mint_authority_disabled": None,
+        }
 
     # EXECUTION HOOK
     def execute_buy_transaction(self, token: Dict[str, Any], amount_sol: float):

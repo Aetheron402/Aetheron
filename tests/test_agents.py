@@ -312,3 +312,55 @@ def test_discord_helper_defaults_to_claude():
     cfg = config_of("discord-helper")
     assert cfg["ai"]["provider"] == "anthropic"
     assert "claude" in cfg["ai"]["model"]
+
+
+def test_sniper_discovery_is_not_a_generated_example():
+    """
+    fetch_new_opportunities used to emit a fabricated token every twenty
+    seconds: a mint reading ExampleMint111..., 5.2 SOL of liquidity and a
+    150,000 dollar market cap, none of which existed. It taught the filters
+    nothing, because an invented token passes every check by construction.
+    """
+    source = open(os.path.join(AGENTS, "solana-sniper", "utils", "rpc.py")).read()
+    assert "ExampleMint" not in source
+    assert "example_token" not in source
+    assert "token-profiles" in source, "discovery needs a real source"
+
+
+def test_sniper_leaves_unreadable_safety_flags_unset():
+    """
+    A discovery feed cannot answer whether a mint authority is revoked, and
+    reporting False would be a claim. None is rejected by the filters the same
+    way, but it is reported as unknown rather than as unsafe.
+    """
+    rpc = load("solana-sniper", "utils.rpc")
+    client = rpc.SolanaClient({"url": "http://unused", "timeout_seconds": 1,
+                               "poll_interval_seconds": 5}, LOG)
+    client._get = lambda url, params=None: {"pairs": [{
+        "baseToken": {"address": "A", "symbol": "TKN"},
+        "liquidity": {"usd": 20000.0}, "marketCap": 50000,
+        "priceUsd": "0.001", "txns": {"m5": {"buys": 4, "sells": 2}},
+    }]}
+
+    token = client._describe("MINT")
+    assert token["liquidity_usd"] == 20000.0
+    assert token["trades_1m"] == 6
+    for key in ("renounced", "liquidity_locked", "mint_authority_disabled"):
+        assert token[key] is None, key
+
+
+def test_sniper_filters_say_unknown_rather_than_unsafe():
+    helpers = load("solana-sniper", "utils.helpers")
+    records = []
+
+    class Recorder:
+        def info(self, m): records.append(m)
+        def debug(self, m): records.append(m)
+
+    cfg = config_of("solana-sniper")
+    cfg["filters"]["require_renounced"] = True
+    token = {"mint": "M", "liquidity_sol": 999, "market_cap_usd": 1,
+             "trades_1m": 999, "renounced": None}
+
+    assert helpers.token_passes_filters(token, cfg, Recorder()) is False
+    assert any("could not be read" in m for m in records), records

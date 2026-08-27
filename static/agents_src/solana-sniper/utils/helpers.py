@@ -90,18 +90,27 @@ def token_passes_filters(token: Dict[str, Any], config: Dict[str, Any], logger: 
         logger.debug(f"Rejected {mint}: market cap {market_cap} > maximum {sniper_cfg['max_market_cap_usd']}.")
         return False
 
-    # Optional safety settings
-    if filters_cfg["require_renounced"] and not token.get("renounced", False):
-        logger.debug(f"Rejected {mint}: renounce requirement not met.")
-        return False
-
-    if filters_cfg["require_locked_liquidity"] and not token.get("liquidity_locked", False):
-        logger.debug(f"Rejected {mint}: liquidity is not locked.")
-        return False
-
-    if filters_cfg["block_mint_authority"] and not token.get("mint_authority_disabled", False):
-        logger.debug(f"Rejected {mint}: mint authority still active.")
-        return False
+    # Optional safety settings. A value of None means the discovery source did
+    # not answer, which is rejected the same as a failure but reported
+    # differently: not knowing and knowing it is unsafe are not the same
+    # finding, and a log that conflates them teaches the wrong thing.
+    for key, flag, unsafe, unknown in (
+        ("renounced", "require_renounced",
+         "ownership is not renounced", "renounce status could not be read"),
+        ("liquidity_locked", "require_locked_liquidity",
+         "liquidity is not locked", "lock status could not be read"),
+        ("mint_authority_disabled", "block_mint_authority",
+         "mint authority is still active", "mint authority could not be read"),
+    ):
+        if not filters_cfg[flag]:
+            continue
+        value = token.get(key)
+        if value is None:
+            logger.debug(f"Rejected {mint}: {unknown}.")
+            return False
+        if not value:
+            logger.debug(f"Rejected {mint}: {unsafe}.")
+            return False
 
     # 1-minute trading activity
     trades_1m = token.get("trades_1m", 0)
