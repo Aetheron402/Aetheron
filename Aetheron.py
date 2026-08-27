@@ -37,6 +37,7 @@ from aeth_price import calculate_required_aeth, AethPricingError
 
 import storage
 import agent_setup
+import ledger_utils
 
 from celery.result import AsyncResult
 from solders.signature import Signature
@@ -113,6 +114,7 @@ templates = Jinja2Templates(directory="templates")
 
 init_ledger()
 storage.init_storage()
+ledger_utils.init_examples()
 
 templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M")
 
@@ -937,6 +939,75 @@ def agent_preview_result(task_id: str):
         return {"ready": True, "ok": False, "reason": "The preview failed to run."}
     payload = res.result if isinstance(res.result, dict) else {}
     return {"ready": True, **payload}
+
+
+EXAMPLE_SLUGS = {
+    "prompt-optimizer", "code-explainer", "prompt-tester",
+    "contract-intel", "risk-engine",
+}
+
+
+@app.get("/api/examples/{slug}")
+def read_example(slug: str, request: Request):
+    """
+    Hand over one example report, against the wallet's allowance.
+
+    The allowance is shared across the whole shop rather than per component,
+    so a visitor picks which reports to spend it on. Re-opening one already
+    read is free: the limit is on how many different ones a wallet sees, not
+    on how often it looks at the ones it chose.
+
+    Served from here rather than as a static file because a static file cannot
+    be counted.
+    """
+    if slug not in EXAMPLE_SLUGS:
+        raise HTTPException(status_code=404, detail="No example for that component.")
+
+    wallet = (request.headers.get("X-USER-WALLET") or "").strip()
+    if not wallet:
+        raise HTTPException(
+            status_code=401,
+            detail="Connect a wallet to read an example. Each wallet gets "
+                   f"{ledger_utils.EXAMPLE_ALLOWANCE}.",
+        )
+
+    claim = ledger_utils.claim_example(wallet, slug)
+    if not claim["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"You have opened all {ledger_utils.EXAMPLE_ALLOWANCE} of your "
+                   "examples. You can still reopen the ones you chose.",
+        )
+
+    path = os.path.join("static", "examples", f"{slug}.txt")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Example not found.")
+
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        body = handle.read()
+
+    return JSONResponse({
+        "slug": slug,
+        "report": body,
+        "remaining": claim["remaining"],
+        "already_seen": claim["already_seen"],
+    })
+
+
+@app.get("/api/examples")
+def example_allowance(request: Request):
+    """What this wallet has already opened, and how many it has left."""
+    wallet = (request.headers.get("X-USER-WALLET") or "").strip()
+    if not wallet:
+        return {"connected": False, "allowance": ledger_utils.EXAMPLE_ALLOWANCE,
+                "seen": [], "remaining": ledger_utils.EXAMPLE_ALLOWANCE}
+    seen = ledger_utils.examples_seen(wallet)
+    return {
+        "connected": True,
+        "allowance": ledger_utils.EXAMPLE_ALLOWANCE,
+        "seen": seen,
+        "remaining": max(0, ledger_utils.EXAMPLE_ALLOWANCE - len(seen)),
+    }
 
 
 @app.get("/api/agents/{agent_id}/setup")

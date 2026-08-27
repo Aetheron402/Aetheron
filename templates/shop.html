@@ -41,12 +41,6 @@
 
           <span class="text-cyan-300 font-semibold">
             {{ c.price }}
-            {# A real report from this component, so the output can be read
-               before paying rather than after. #}
-            {% if c.slug in ['prompt-optimizer','code-explainer','prompt-tester','contract-intel','risk-engine'] %}
-              <button type="button" class="example-btn" data-slug="{{ c.slug }}"
-                      title="Read a real report from this component">See an example</button>
-            {% endif %}
             {# Temporary preview button, removed along with the dev_preview module. #}
             {% if dev_preview and c.slug in ['prompt-optimizer','code-explainer','prompt-tester','risk-engine','contract-intel'] %}
               <button type="button" class="dev-test-btn" data-slug="{{ c.slug }}"
@@ -153,6 +147,12 @@
           <div>
             <h3 class="text-cyan-300 text-xl font-semibold mb-1">AI Prompt Optimizer</h3>
             <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.25 USDC</span> per request.</p>
+            <p class="mt-2">
+              <button type="button" class="example-btn" data-slug="prompt-optimizer">
+                See an example report
+              </button>
+              <span class="example-left text-xs text-gray-500 ml-2"></span>
+            </p>
           </div>
           <button onclick="closeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
         </div>
@@ -230,6 +230,12 @@
           <div>
             <h3 class="text-cyan-300 text-xl font-semibold mb-1">LLM-Powered Code Explainer</h3>
             <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.50 USDC</span> per request.</p>
+            <p class="mt-2">
+              <button type="button" class="example-btn" data-slug="code-explainer">
+                See an example report
+              </button>
+              <span class="example-left text-xs text-gray-500 ml-2"></span>
+            </p>
           </div>
           <button onclick="closeCodeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
         </div>
@@ -298,6 +304,12 @@
           <div>
             <h3 class="text-cyan-300 text-xl font-semibold mb-1">Smart Prompt Tester (PersonaSim)</h3>
             <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">0.50 USDC</span> per run.</p>
+            <p class="mt-2">
+              <button type="button" class="example-btn" data-slug="prompt-tester">
+                See an example report
+              </button>
+              <span class="example-left text-xs text-gray-500 ml-2"></span>
+            </p>
           </div>
           <button onclick="closeTesterModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
         </div>
@@ -368,6 +380,12 @@
           <div>
             <h3 class="text-cyan-300 text-xl font-semibold mb-1">Contract Intelligence Analyzer</h3>
             <p class="text-sm text-gray-400">Price: <span class="text-cyan-300 font-semibold">1.00 USDC</span> per request.</p>
+            <p class="mt-2">
+              <button type="button" class="example-btn" data-slug="contract-intel">
+                See an example report
+              </button>
+              <span class="example-left text-xs text-gray-500 ml-2"></span>
+            </p>
           </div>
 
           <button onclick="closeContractModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
@@ -450,6 +468,12 @@
           <p class="text-sm text-gray-400">
             Price: <span class="text-cyan-300 font-semibold">0.75 USDC</span> per request.
           </p>
+            <p class="mt-2">
+              <button type="button" class="example-btn" data-slug="risk-engine">
+                See an example report
+              </button>
+              <span class="example-left text-xs text-gray-500 ml-2"></span>
+            </p>
         </div>
         <button onclick="closeRiskModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
       </div>
@@ -1370,35 +1394,76 @@ function toggleMobileMenu() {
     </div>
     <p class="text-sm text-gray-400 mb-4">
       A real report this component produced, unedited. Yours is generated from your
-      own input, so it will differ in content rather than in shape.
+      own input, so it will differ in content rather than in shape. Each wallet can
+      open three examples across the whole shop, so pick the ones that matter.
     </p>
     <pre id="example-body">Loading...</pre>
+    <p id="example-note" class="text-xs text-gray-500 mt-3"></p>
   </div>
 </div>
 
 <script>
-// Static files, so reading one costs nothing, needs no wallet, and keeps
-// working after the dev preview block above is removed.
+// Examples are metered per wallet across the whole shop, so a visitor picks
+// which reports to spend their allowance on rather than reading every one.
+async function refreshExampleAllowance() {
+  const labels = document.querySelectorAll(".example-left");
+  if (!labels.length) return;
+
+  let state = { connected: false, remaining: null, seen: [] };
+  try {
+    const headers = window.currentWallet ? { "X-USER-WALLET": window.currentWallet } : {};
+    state = await (await fetch("/api/examples", { headers })).json();
+  } catch (e) { /* leave the label blank rather than guess */ }
+
+  for (const label of labels) {
+    const slug = label.previousElementSibling?.dataset?.slug;
+    if (!state.connected) {
+      label.textContent = "connect a wallet to read one";
+    } else if (state.seen.includes(slug)) {
+      label.textContent = "already opened, free to reread";
+    } else if (state.remaining > 0) {
+      label.textContent = `${state.remaining} of ${state.allowance} left`;
+    } else {
+      label.textContent = "no examples left";
+    }
+  }
+}
+
 document.querySelectorAll(".example-btn").forEach(btn => {
   btn.addEventListener("click", async () => {
     const bg = document.getElementById("example-bg");
     const body = document.getElementById("example-body");
-    const card = btn.closest(".card");
+    const note = document.getElementById("example-note");
 
-    document.getElementById("example-title").textContent =
-      card ? card.querySelector("h2").textContent.trim() : "Example report";
+    document.getElementById("example-title").textContent = "Example report";
     body.textContent = "Loading...";
+    note.textContent = "";
     bg.style.display = "flex";
 
     try {
-      const r = await fetch(`/static/examples/${btn.dataset.slug}.txt`);
-      body.textContent = r.ok ? await r.text() : "This example could not be loaded.";
+      const headers = window.currentWallet ? { "X-USER-WALLET": window.currentWallet } : {};
+      const r = await fetch(`/api/examples/${btn.dataset.slug}`, { headers });
+      const d = await r.json();
+
+      if (!r.ok) {
+        body.textContent = d.detail || "This example could not be loaded.";
+      } else {
+        body.textContent = d.report;
+        note.textContent = d.already_seen
+          ? "You have opened this one before, so it did not cost you another."
+          : `${d.remaining} example${d.remaining === 1 ? "" : "s"} left on this wallet.`;
+      }
     } catch (e) {
       body.textContent = "This example could not be loaded.";
     }
     body.scrollTop = 0;
+    refreshExampleAllowance();
   });
 });
+
+document.addEventListener("DOMContentLoaded", refreshExampleAllowance);
+// The count is per wallet, so it changes when one connects.
+window.addEventListener("aetheron:wallet", refreshExampleAllowance);
 </script>
 
 </div>

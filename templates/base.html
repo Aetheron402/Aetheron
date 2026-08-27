@@ -701,6 +701,7 @@
         currentWallet = res.publicKey.toString();
         currentChain = "solana";
         window.currentWallet = currentWallet;
+        window.dispatchEvent(new CustomEvent('aetheron:wallet', { detail: currentWallet }));
         updateWalletUI();
         window.dispatchEvent(new Event("wallet:connected"));
       } catch (err) {
@@ -727,6 +728,7 @@
         currentWallet = (res?.publicKey ?? provider.publicKey).toString();
         currentChain = "solana";
         window.currentWallet = currentWallet;
+        window.dispatchEvent(new CustomEvent('aetheron:wallet', { detail: currentWallet }));
         window.currentChain = currentChain;
         updateWalletUI();
         window.dispatchEvent(new Event("wallet:connected"));
@@ -754,6 +756,7 @@
         currentWallet = accounts[0];
         currentChain = "ethereum";
         window.currentWallet = currentWallet;
+        window.dispatchEvent(new CustomEvent('aetheron:wallet', { detail: currentWallet }));
         window.currentChain = currentChain;
         updateWalletUI();
         window.dispatchEvent(new Event("wallet:connected"));

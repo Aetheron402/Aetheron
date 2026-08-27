@@ -1474,30 +1474,67 @@ def test_a_report_with_no_data_at_all_still_scores_and_renders():
     assert "NOT CHECKED" in cr.coverage(blob)
 
 
-def test_every_paid_component_has_a_readable_example():
+def test_examples_are_metered_per_wallet_across_the_shop():
     """
-    An agent can be watched running for nothing. A component costs money and
-    showed nothing until after payment, which is the same problem without the
-    solution.
+    The allowance is shared across every component rather than granted per
+    component, so choosing which report to open is a real decision.
     """
-    import os
-    import re
+    import ledger_utils
     from fastapi.testclient import TestClient
     import Aetheron
 
     client = TestClient(Aetheron.app)
-    html = client.get("/shop").text
+    wallet = {"X-USER-WALLET": "MeteringTestWallet1"}
+
+    allowed = []
+    for slug in ("risk-engine", "prompt-optimizer", "code-explainer",
+                 "contract-intel", "prompt-tester"):
+        response = client.get(f"/api/examples/{slug}", headers=wallet)
+        if response.status_code == 200:
+            allowed.append(slug)
+            assert len(response.json()["report"]) > 2000, slug
+        else:
+            assert response.status_code == 429
+
+    assert len(allowed) == ledger_utils.EXAMPLE_ALLOWANCE
+
+    # Reopening one already chosen is free: the limit is on how many different
+    # reports a wallet sees, not on how often it reads them.
+    again = client.get(f"/api/examples/{allowed[0]}", headers=wallet)
+    assert again.status_code == 200
+    assert again.json()["already_seen"] is True
+
+    # The allowance is per wallet, not global.
+    other = client.get("/api/examples/contract-intel",
+                       headers={"X-USER-WALLET": "MeteringTestWallet2"})
+    assert other.status_code == 200
+
+
+def test_an_example_needs_a_connected_wallet():
+    """Without one there is nothing to meter against."""
+    from fastapi.testclient import TestClient
+    import Aetheron
+    assert TestClient(Aetheron.app).get("/api/examples/risk-engine").status_code == 401
+
+
+def test_every_paid_component_offers_an_example():
+    """
+    An agent can be watched running for nothing. A component costs money and
+    showed nothing until after payment, which is the same problem without the
+    answer.
+    """
+    import re
+    from fastapi.testclient import TestClient
+    import Aetheron
+
+    html = TestClient(Aetheron.app).get("/shop").text
     wired = set(re.findall(r'example-btn" data-slug="([a-z-]+)"', html))
+    assert wired == {"prompt-optimizer", "code-explainer", "prompt-tester",
+                     "contract-intel", "risk-engine"}
 
-    expected = {"prompt-optimizer", "code-explainer", "prompt-tester",
-                "contract-intel", "risk-engine"}
-    assert wired == expected, expected ^ wired
-
-    for slug in expected:
-        response = client.get(f"/static/examples/{slug}.txt")
-        assert response.status_code == 200, slug
-        # A stub would pass a mere existence check.
-        assert len(response.text) > 2000, f"{slug} example is too short to be real"
+    # In the component's own modal, not crowding the price on the card.
+    cards = html[html.index("components-grid"):html.index("my-assets-section")]
+    assert "example-btn" not in cards
 
 
 def test_examples_survive_the_dev_preview_being_removed():

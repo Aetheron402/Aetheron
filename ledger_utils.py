@@ -414,3 +414,66 @@ def finalize_asset(asset_id: str, filename: str):
             ),
             (filename, asset_id),
         )
+
+
+# ── example views ───────────────────────────────────────────────────────────
+# A wallet may read a small number of example reports before buying anything.
+# The allowance is per wallet across the whole shop rather than per component,
+# so choosing which one to spend it on is a real decision.
+
+EXAMPLE_ALLOWANCE = int(os.getenv("EXAMPLE_ALLOWANCE", "3"))
+
+
+def init_examples():
+    """Create the view table. Safe to call repeatedly."""
+    with _cursor(commit=True) as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS example_views (
+                wallet TEXT NOT NULL,
+                slug TEXT NOT NULL,
+                viewed_at REAL NOT NULL,
+                PRIMARY KEY (wallet, slug)
+            );
+            """
+        )
+
+
+def examples_seen(wallet: str) -> list:
+    """Which examples this wallet has already opened."""
+    init_examples()
+    with _cursor() as cur:
+        cur.execute(_q("SELECT slug FROM example_views WHERE wallet = %s;"), (wallet,))
+        return [row[0] for row in cur.fetchall()]
+
+
+def claim_example(wallet: str, slug: str) -> dict:
+    """
+    Spend one of this wallet's example views, or report why it cannot.
+
+    Re-opening one already read is free: the allowance limits how many
+    different reports a wallet can see, not how many times it can look at the
+    ones it chose.
+    """
+    seen = examples_seen(wallet)
+
+    if slug in seen:
+        return {"allowed": True, "remaining": EXAMPLE_ALLOWANCE - len(seen),
+                "already_seen": True}
+
+    if len(seen) >= EXAMPLE_ALLOWANCE:
+        return {"allowed": False, "remaining": 0, "already_seen": False,
+                "seen": seen}
+
+    try:
+        with _cursor(commit=True) as cur:
+            cur.execute(
+                _q("INSERT INTO example_views (wallet, slug, viewed_at) VALUES (%s, %s, %s);"),
+                (wallet, slug, time.time()),
+            )
+    except INTEGRITY_ERRORS:
+        # Two tabs claiming at once. The row exists either way.
+        pass
+
+    return {"allowed": True, "remaining": EXAMPLE_ALLOWANCE - len(seen) - 1,
+            "already_seen": False}
