@@ -418,3 +418,113 @@ def test_pumpfun_reads_the_route_jupiter_actually_returns():
     source = open(os.path.join(AGENTS, "pumpfun-launcher", "main.py")).read()
     assert "routePlan" in source
     assert 'jup.get("route")' not in source
+
+
+def test_wallet_watcher_distinguishes_no_tokens_from_unreadable():
+    """
+    A wallet with thousands of token accounts times out on the public
+    endpoint. Reporting that as "0 tokens" is the same class of claim as any
+    other invented figure: not read is not the same as not held.
+    """
+    rpc = load("wallet-watcher", "utils.rpc")
+    client = rpc.WalletWatcherClient({"url": "http://unused", "timeout_seconds": 1}, LOG)
+
+    # SOL answers, the token call fails.
+    def partial(method, params, timeout=None):
+        if method == "getBalance":
+            return {"result": {"value": 2_000_000_000}}
+        return None
+    client.rpc_post = partial
+    balances = client.fetch_balances("W")
+    assert balances["sol"] == 2.0
+    assert balances["tokens"] is None, "unreadable must not read as empty"
+
+    # Both answer, and the wallet genuinely holds nothing.
+    def empty(method, params, timeout=None):
+        if method == "getBalance":
+            return {"result": {"value": 0}}
+        return {"result": {"value": []}}
+    client.rpc_post = empty
+    assert client.fetch_balances("W")["tokens"] == []
+
+
+def test_wallet_watcher_skips_emptied_token_accounts():
+    """A zero balance account is a leftover, not a holding."""
+    rpc = load("wallet-watcher", "utils.rpc")
+    client = rpc.WalletWatcherClient({"url": "http://unused", "timeout_seconds": 1}, LOG)
+
+    def accounts(method, params, timeout=None):
+        if method == "getBalance":
+            return {"result": {"value": 0}}
+        return {"result": {"value": [
+            {"account": {"data": {"parsed": {"info": {
+                "mint": "HELD", "tokenAmount": {"uiAmount": 5.0}}}}}},
+            {"account": {"data": {"parsed": {"info": {
+                "mint": "EMPTY", "tokenAmount": {"uiAmount": 0}}}}}},
+        ]}}
+    client.rpc_post = accounts
+    tokens = client.fetch_balances("W")["tokens"]
+    assert [t["mint"] for t in tokens] == ["HELD"]
+
+
+def test_prediction_market_retires_finished_positions():
+    """Settled positions were kept forever, so a long run kept every one."""
+    from datetime import datetime, timezone
+    poly = load("prediction-market", "adapters.polymarket")
+    schemas = load("prediction-market", "schemas")
+
+    adapter = poly.PolymarketAdapter(LOG)
+    adapter._cache.update({"at": 9e9, "markets": []})
+    for _ in range(adapter.MAX_FINISHED + 60):
+        pid = adapter.place_order(schemas.Order(
+            market_id="M", outcome_id="M:0", side="enter", price=0.5,
+            size=1.0, timestamp=datetime.now(timezone.utc)))
+        adapter._positions[pid].status = "settled"
+
+    assert len(adapter._positions) <= adapter.MAX_FINISHED + 1
+
+
+def test_no_agent_uses_a_bare_except():
+    """
+    A bare except swallows KeyboardInterrupt, so the only way out of a loop
+    holding one is to kill the process.
+    """
+    import ast
+    for agent in sorted(os.listdir(AGENTS)):
+        for root, dirs, files in os.walk(os.path.join(AGENTS, agent)):
+            dirs[:] = [d for d in dirs if d not in ("__pycache__", ".venv")]
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(root, name)
+                try:
+                    tree = ast.parse(open(path, errors="replace").read())
+                except SyntaxError:
+                    continue
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ExceptHandler) and node.type is None:
+                        raise AssertionError(f"{agent}/{name}:{node.lineno} is a bare except")
+
+
+def test_every_outbound_call_is_bounded():
+    """A request without a timeout hangs the loop forever on a stalled host."""
+    import ast
+    for agent in sorted(os.listdir(AGENTS)):
+        for root, dirs, files in os.walk(os.path.join(AGENTS, agent)):
+            dirs[:] = [d for d in dirs if d not in ("__pycache__", ".venv")]
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(root, name)
+                try:
+                    tree = ast.parse(open(path, errors="replace").read())
+                except SyntaxError:
+                    continue
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    func = node.func
+                    if getattr(getattr(func, "value", None), "id", None) == "requests" \
+                       and getattr(func, "attr", None) in ("get", "post", "put"):
+                        assert any(k.arg == "timeout" for k in node.keywords), \
+                            f"{agent}/{name}:{node.lineno} has no timeout"

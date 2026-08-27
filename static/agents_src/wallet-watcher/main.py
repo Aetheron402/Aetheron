@@ -24,6 +24,13 @@ class WalletWatcher:
         Main loop, poll RPC, detect activity, classify events, log them, and notify if enabled.
         """
         poll_interval = self.config["rpc"]["poll_interval_seconds"]
+
+        # Say what each wallet holds before watching for changes to it, so the
+        # first thing on screen proves the connection works even when the
+        # wallet sits quiet for an hour.
+        for wallet in self.wallets:
+            self.report_holdings(wallet)
+
         self.logger.info(f"Starting wallet watcher loop (poll every {poll_interval}s)...")
 
         while True:
@@ -40,6 +47,41 @@ class WalletWatcher:
             except Exception as e:
                 self.logger.error(f"Unexpected error in main loop: {e}")
                 time.sleep(1)
+
+    def report_holdings(self, wallet: str):
+        """Print the wallet's opening position."""
+        try:
+            balances = self.client.fetch_balances(wallet)
+        except Exception as exc:
+            self.logger.error(f"Could not read balances for {wallet[:8]}...: {exc}")
+            return
+
+        from utils.helpers import KNOWN_MINTS
+
+        sol = balances.get("sol")
+        tokens = balances.get("tokens")
+
+        if tokens is None:
+            holdings = "token balances could not be read"
+        elif tokens:
+            holdings = f"{len(tokens)} token(s) with a balance"
+        else:
+            holdings = "no token balances"
+
+        self.logger.info(
+            f"[HOLDINGS] {wallet[:8]}... : "
+            + (f"{sol:,.4f} SOL" if sol is not None else "SOL balance unavailable")
+            + f", {holdings}"
+        )
+        tokens = tokens or []
+
+        for token in tokens[:8]:
+            mint = token["mint"] or "unknown"
+            label = KNOWN_MINTS.get(mint, f"{mint[:4]}...{mint[-4:]}")
+            self.logger.info(f"           {token['amount']:>18,.6f}  {label}")
+
+        if len(tokens) > 8:
+            self.logger.info(f"           and {len(tokens) - 8} more")
 
     def handle_event(self, event):
         """

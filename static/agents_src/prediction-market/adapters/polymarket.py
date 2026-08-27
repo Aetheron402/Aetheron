@@ -155,6 +155,21 @@ class PolymarketAdapter(PredictionMarketAdapter):
 
     # ── execution, in memory ────────────────────────────────────────────────
 
+    # How many finished positions to keep for the record before dropping the
+    # oldest. Settled ones were kept forever, so an agent left running for
+    # weeks accumulated every position it had ever opened.
+    MAX_FINISHED = 200
+
+    def _retire_old(self) -> None:
+        """Drop the oldest finished positions once there are too many."""
+        finished = [p for p in self._positions.values() if p.status != "open"]
+        if len(finished) <= self.MAX_FINISHED:
+            return
+
+        finished.sort(key=lambda p: p.opened_at)
+        for position in finished[:len(finished) - self.MAX_FINISHED]:
+            self._positions.pop(position.id, None)
+
     def place_order(self, order: Order) -> str:
         """Fill against the live price and record the position. No funds move."""
         market = self.get_market(order.market_id)
@@ -164,6 +179,8 @@ class PolymarketAdapter(PredictionMarketAdapter):
                 if outcome.id == order.outcome_id:
                     price = outcome.price if outcome.price is not None else order.price
                     break
+
+        self._retire_old()
 
         position_id = f"paper-{next(self._ids)}"
         self._positions[position_id] = Position(

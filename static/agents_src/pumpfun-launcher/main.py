@@ -36,7 +36,10 @@ class PumpFunShowcase:
             async for raw in ws:
                 try:
                     msg = json.loads(raw)
-                except:
+                except (json.JSONDecodeError, TypeError):
+                    # A malformed frame is skipped. A bare except here also
+                    # swallowed Ctrl-C, so the only way out of the loop was to
+                    # kill the process.
                     continue
 
                 # Only process mint events

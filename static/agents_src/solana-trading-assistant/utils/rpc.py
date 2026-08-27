@@ -42,7 +42,10 @@ class SolanaRPCClient:
         info = self.get_account_info(mint)
         try:
             return info["result"]["value"]["data"]["parsed"]["info"]["decimals"]
-        except:
+        except (KeyError, TypeError):
+            # The account is missing, or not a parsed mint. Naming the errors
+            # means a genuine fault still surfaces instead of reading as a
+            # token without decimals.
             return None
 
 

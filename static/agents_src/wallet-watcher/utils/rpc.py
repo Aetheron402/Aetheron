@@ -27,7 +27,7 @@ class WalletWatcherClient:
         self.last_seen_signatures = {}
 
     # JSON-RPC helper
-    def rpc_post(self, method: str, params: list) -> Any:
+    def rpc_post(self, method: str, params: list, timeout: float = None) -> Any:
         """
         Minimal JSON-RPC POST helper.
         """
@@ -35,7 +35,7 @@ class WalletWatcherClient:
             response = requests.post(
                 self.rpc_url,
                 json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
-                timeout=self.timeout
+                timeout=timeout or self.timeout
             )
             response.raise_for_status()
             return response.json()
@@ -66,6 +66,55 @@ class WalletWatcherClient:
                 events.append(signal_event)
 
         return events
+
+
+    # Opening position
+    def fetch_balances(self, wallet: str) -> Dict[str, Any]:
+        """
+        What the wallet holds right now: SOL, and every token with a balance.
+
+        Read once at startup. Without it the agent printed that it was watching
+        and then nothing at all until somebody moved funds, which on a quiet
+        wallet is indistinguishable from a watcher that is not working.
+        """
+        # tokens stays None until the call succeeds, so "could not read" is
+        # never reported as "holds nothing".
+        out = {"sol": None, "tokens": None}
+
+        res = self.rpc_post("getBalance", [wallet])
+        try:
+            out["sol"] = res["result"]["value"] / 1_000_000_000
+        except (KeyError, TypeError):
+            pass
+
+        # A busy wallet can hold thousands of token accounts, and the public
+        # endpoint is slow to assemble them, so this one call gets longer than
+        # the rest.
+        res = self.rpc_post("getTokenAccountsByOwner", [
+            wallet,
+            {"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
+            {"encoding": "jsonParsed"},
+        ], timeout=max(self.timeout, 30))
+        try:
+            accounts = res["result"]["value"]
+        except (KeyError, TypeError):
+            return out
+
+        out["tokens"] = []
+
+        for account in accounts:
+            try:
+                info = account["account"]["data"]["parsed"]["info"]
+                amount = (info.get("tokenAmount") or {}).get("uiAmount")
+            except (KeyError, TypeError):
+                continue
+            # Empty token accounts are left behind by past activity and say
+            # nothing about what is held now.
+            if amount:
+                out["tokens"].append({"mint": info.get("mint"), "amount": amount})
+
+        out["tokens"].sort(key=lambda t: t["amount"], reverse=True)
+        return out
 
     # Token Transfer + basic event detection
     def fetch_wallet_transfers(self, wallet: str) -> List[Dict[str, Any]]:
