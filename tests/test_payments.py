@@ -1367,6 +1367,66 @@ def test_a_preview_cannot_be_asked_to_run_forever():
     assert result["seconds"] <= agent_preview.MAX_SECONDS
 
 
+def test_watching_an_agent_run_is_metered_per_wallet():
+    """
+    Previews were limited only by a per IP cooldown, so a visitor could watch
+    every agent in the store for free by waiting twenty seconds between clicks.
+    The allowance is per wallet and spans the whole store, the same way the
+    report examples do.
+    """
+    from fastapi.testclient import TestClient
+    import agent_preview
+    client = TestClient(Aetheron.app)
+    wallet = {"X-USER-WALLET": "MeteredPreviewWallet"}
+    agents = sorted(agent_preview.PREVIEWABLE)[:ledger_utils.PREVIEW_ALLOWANCE + 1]
+
+    for agent in agents[:-1]:
+        Aetheron._preview_last_seen.clear()
+        assert client.post(f"/api/agents/{agent}/preview", headers=wallet).status_code == 202
+
+    Aetheron._preview_last_seen.clear()
+    spent = client.post(f"/api/agents/{agents[-1]}/preview", headers=wallet)
+    assert spent.status_code == 429
+    assert "watched all" in spent.json()["detail"]
+
+
+def test_rewatching_an_agent_costs_nothing_further():
+    """The allowance limits how many agents are seen, not how often."""
+    from fastapi.testclient import TestClient
+    import agent_preview
+    client = TestClient(Aetheron.app)
+    wallet = {"X-USER-WALLET": "RewatchWallet"}
+    agent = sorted(agent_preview.PREVIEWABLE)[0]
+
+    Aetheron._preview_last_seen.clear()
+    first = client.post(f"/api/agents/{agent}/preview", headers=wallet).json()
+    Aetheron._preview_last_seen.clear()
+    again = client.post(f"/api/agents/{agent}/preview", headers=wallet).json()
+
+    assert first["already_seen"] is False
+    assert again["already_seen"] is True
+    assert again["remaining"] == first["remaining"]
+
+
+def test_a_preview_needs_a_wallet_to_meter_against():
+    from fastapi.testclient import TestClient
+    Aetheron._preview_last_seen.clear()
+    assert TestClient(Aetheron.app).post("/api/agents/wallet-watcher/preview").status_code == 401
+
+
+def test_report_examples_and_agent_runs_do_not_share_an_allowance():
+    """
+    They are separate products. Spending every report example must not also
+    take away the agent runs.
+    """
+    wallet = "SeparatePoolsWallet"
+    for slug in list(Aetheron.EXAMPLE_SLUGS)[:ledger_utils.EXAMPLE_ALLOWANCE]:
+        ledger_utils.claim_view(wallet, slug, "example")
+
+    assert ledger_utils.claim_view(wallet, "one-more-report", "example")["allowed"] is False
+    assert ledger_utils.claim_view(wallet, "wallet-watcher", "preview")["allowed"] is True
+
+
 def test_an_unpreviewable_agent_is_refused_cleanly():
     import agent_preview
     result = agent_preview.run("discord-helper", seconds=5)

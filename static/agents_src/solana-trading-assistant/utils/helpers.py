@@ -139,13 +139,21 @@ def analyze_token(
 # PRINTING / OUTPUT
 def pretty_print_analysis(mint_address: str, analysis: dict, logger: logging.Logger):
     """Human-friendly output formatting."""
+    # The trend dict came out as raw repr, so a flat move printed as
+    # -0.02000000000000382 and the header read "Trend (%%)": the escape belongs
+    # to printf style formatting, and an f-string emits it literally.
+    trend = analysis.get("trend") or {}
+    if isinstance(trend, dict):
+        trend = ", ".join(f"{window} {value:+.2f}%" for window, value in trend.items()) \
+            or "no timeframes returned"
+
     logger.info(
         "\n──────────────────────────────────────────────────────────\n"
         f"Token: {mint_address}\n"
         f"Price: {analysis['price']:.6f} USD\n"
         f"Liquidity: ${analysis['liquidity_usd']:,}\n"
         f"24h Volume: ${analysis['volume_24h_usd']:,}\n"
-        f"Trend (%%): {analysis['trend']}\n"
+        f"Trend: {trend}\n"
         f"Price Trend Score: {analysis['price_trend_score']:.2f}\n"
         f"Volume Acceleration: {analysis['volume_acceleration_percent']:.2f}%\n"
         f"Volatility: {analysis['volatility_percent']:.2f}%\n"

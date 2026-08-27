@@ -45,11 +45,16 @@ PREVIEWABLE = {
 # that the output shows the agent doing its job rather than idling.
 DEMO_CONFIG = {
     "wallet-watcher": {
-        # Raydium's AMM authority: its balances actually change on nearly
-        # every transaction, so the preview shows real transfers within
-        # seconds. An exchange hot wallet looks busier but is mostly only
-        # mentioned by transactions rather than moved by them.
-        "wallets_to_watch": ["5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1"],
+        # Pump.fun's fee account. It takes a cut of every trade on the
+        # platform, so its balance moves constantly and the preview shows real
+        # transfers within seconds.
+        #
+        # Raydium's AMM authority was the obvious pick and was wrong: it holds
+        # enough token accounts that the public RPC spent 21 seconds on the
+        # opening balance read and then failed, which used the whole preview
+        # window before the watch loop had started. This one answers in under
+        # two seconds and still holds hundreds of real balances.
+        "wallets_to_watch": ["CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM"],
         "rpc": {"poll_interval_seconds": 3},
         "notifications": {"enabled": False, "webhook_url": ""},
     },
@@ -60,6 +65,61 @@ DEMO_CONFIG = {
     "project-planner": {},
     "solana-sniper": {"notifications": {"enabled": False, "webhook_url": ""}},
     "pumpfun-launcher": {"notifications": {"enabled": False, "webhook_url": ""}},
+}
+
+# Some agents read their state from a file rather than from an API, and ship
+# that file empty because a buyer's project is their own. The planner is the
+# one that matters: previewed against its shipped database it printed
+# "0 open / 0 done" and then sat silent for the rest of the window, which shows
+# a buyer nothing. These files are written into the scratch copy so the preview
+# has something to organise. The agent itself is untouched and still ships
+# empty.
+def _demo_project() -> str:
+    """A small project, dated relative to now so reminders fire on screen."""
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    stamp = lambda minutes: (now + timedelta(minutes=minutes)).isoformat()
+
+    def task(num, title, status, due, priority, description=""):
+        return {
+            "id": f"task_demo{num}", "title": title, "description": description,
+            "status": status, "priority": priority, "due_at": stamp(due),
+            "created_at": stamp(-60 * 24 * 9), "updated_at": stamp(-90),
+            "completed_at": stamp(-120) if status == "done" else None,
+        }
+
+    return json.dumps({
+        # Two are inside the hour, so the reminder service has something to
+        # report while the preview is still on screen.
+        "tasks": [
+            task(1, "Ship the payment retry path", "open", 25, 1,
+                 "Retry on a dropped confirmation instead of failing the order."),
+            task(2, "Write the migration rollback note", "open", 45, 2),
+            task(3, "Review the API rate limits", "open", 60 * 26, 3),
+            task(4, "Cut the staging release", "done", -60 * 20, 2),
+            task(5, "Draft the launch checklist", "done", -60 * 40, 3),
+        ],
+        "milestones": [
+            {"id": "ms_demo1", "title": "Public beta", "due_at": stamp(60 * 24 * 12),
+             "status": "open", "created_at": stamp(-60 * 24 * 30)},
+            {"id": "ms_demo2", "title": "Internal cutover", "due_at": stamp(-60 * 24 * 3),
+             "status": "done", "created_at": stamp(-60 * 24 * 40)},
+        ],
+        "notes": [
+            {"id": "note_demo1", "title": "Retry semantics",
+             "body": "A dropped confirmation is not a failed payment. Retry reads "
+                     "before touching the order.",
+             "created_at": stamp(-60 * 30), "updated_at": stamp(-60 * 30)},
+            {"id": "note_demo2", "title": "Rate limit findings",
+             "body": "The public endpoint is the bottleneck, not our own limiter.",
+             "created_at": stamp(-60 * 6), "updated_at": stamp(-60 * 6)},
+        ],
+    }, indent=2)
+
+
+DEMO_FILES = {
+    "project-planner": {"data/db.json": _demo_project},
 }
 
 MAX_SECONDS = int(os.getenv("AGENT_PREVIEW_SECONDS", "25"))
@@ -110,6 +170,12 @@ def run(agent_id: str, seconds: int = MAX_SECONDS) -> dict:
             config = _merge(config, DEMO_CONFIG.get(agent_id, {}))
             with open(config_path, "w") as handle:
                 json.dump(config, handle, indent=2)
+
+        for relative, builder in DEMO_FILES.get(agent_id, {}).items():
+            target = os.path.join(workdir, *relative.split("/"))
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "w") as handle:
+                handle.write(builder())
 
         entrypoint = agent_setup.entrypoint_for(workdir)
 

@@ -237,6 +237,16 @@ Maximum total exposure allowed across all positions.
 
 Defines **when** the agent decides to act.
 
+`min_probability` is a floor. With the example value of `0.30` the agent only
+enters an outcome the market already gives a 30% chance or better, and it takes
+the strongest outcome that clears the floor rather than whichever the API
+listed first. Raise it to trade favourites only, lower it to include long-shots.
+
+The bundled strategy holds no independent estimate of fair value, so it cannot
+tell you a price is wrong. It is the scaffold: replace `evaluate` in
+`core/strategy.py` with your own view, and the engine, sizing, risk and
+lifecycle around it keep working unchanged.
+
 ## sizing
 
 Defines **how much** capital is allocated per decision.

@@ -914,6 +914,25 @@ def start_agent_preview(agent_id: str, request: Request):
             detail=f"One preview every {PREVIEW_COOLDOWN_SECONDS} seconds. Try again shortly.",
         )
 
+    # Metered per wallet, like the report examples. The cooldown above stops
+    # one caller occupying every worker slot; this stops the free tier being
+    # the whole product.
+    wallet = (request.headers.get("X-USER-WALLET") or "").strip()
+    if not wallet:
+        raise HTTPException(
+            status_code=401,
+            detail="Connect a wallet to watch an agent run. Each wallet gets "
+                   f"{ledger_utils.PREVIEW_ALLOWANCE}.",
+        )
+
+    claim = ledger_utils.claim_view(wallet, agent_id, "preview")
+    if not claim["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"You have watched all {claim['allowance']} of your agent runs. "
+                   "You can still rewatch the ones you chose.",
+        )
+
     try:
         from celery_worker import preview_agent
         task = preview_agent.delay(agent_id, agent_preview.MAX_SECONDS)
@@ -925,6 +944,8 @@ def start_agent_preview(agent_id: str, request: Request):
         "task_id": task.id,
         "agent_id": agent_id,
         "seconds": agent_preview.MAX_SECONDS,
+        "remaining": claim["remaining"],
+        "already_seen": claim["already_seen"],
     })
 
 
@@ -1007,6 +1028,22 @@ def example_allowance(request: Request):
         "allowance": ledger_utils.EXAMPLE_ALLOWANCE,
         "seen": seen,
         "remaining": max(0, ledger_utils.EXAMPLE_ALLOWANCE - len(seen)),
+    }
+
+
+@app.get("/api/agents/preview-allowance")
+def preview_allowance(request: Request):
+    """What this wallet has already watched, and how many runs it has left."""
+    wallet = (request.headers.get("X-USER-WALLET") or "").strip()
+    if not wallet:
+        return {"connected": False, "allowance": ledger_utils.PREVIEW_ALLOWANCE,
+                "seen": [], "remaining": ledger_utils.PREVIEW_ALLOWANCE}
+    seen = ledger_utils.views_seen(wallet, "preview")
+    return {
+        "connected": True,
+        "allowance": ledger_utils.PREVIEW_ALLOWANCE,
+        "seen": seen,
+        "remaining": max(0, ledger_utils.PREVIEW_ALLOWANCE - len(seen)),
     }
 
 

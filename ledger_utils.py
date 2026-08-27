@@ -416,12 +416,16 @@ def finalize_asset(asset_id: str, filename: str):
         )
 
 
-# ── example views ───────────────────────────────────────────────────────────
-# A wallet may read a small number of example reports before buying anything.
-# The allowance is per wallet across the whole shop rather than per component,
-# so choosing which one to spend it on is a real decision.
+# ── free views: examples and agent previews ─────────────────────────────────
+# A wallet gets a small allowance of each before buying anything. The allowance
+# is per category across the whole shop rather than per item, so choosing what
+# to spend it on is a real decision. Reports and agent runs are counted
+# separately, since they are different products.
 
 EXAMPLE_ALLOWANCE = int(os.getenv("EXAMPLE_ALLOWANCE", "3"))
+PREVIEW_ALLOWANCE = int(os.getenv("PREVIEW_ALLOWANCE", "3"))
+
+ALLOWANCES = {"example": EXAMPLE_ALLOWANCE, "preview": PREVIEW_ALLOWANCE}
 
 
 def init_examples():
@@ -439,41 +443,60 @@ def init_examples():
         )
 
 
-def examples_seen(wallet: str) -> list:
-    """Which examples this wallet has already opened."""
+def _key(kind: str, slug: str) -> str:
+    """Namespaced so a report and an agent of the same name cannot collide."""
+    return f"{kind}:{slug}"
+
+
+def views_seen(wallet: str, kind: str = "example") -> list:
+    """Which items of this kind the wallet has already opened."""
     init_examples()
+    prefix = f"{kind}:"
     with _cursor() as cur:
-        cur.execute(_q("SELECT slug FROM example_views WHERE wallet = %s;"), (wallet,))
-        return [row[0] for row in cur.fetchall()]
+        cur.execute(
+            _q("SELECT slug FROM example_views WHERE wallet = %s AND slug LIKE %s;"),
+            (wallet, prefix + "%"),
+        )
+        return [row[0][len(prefix):] for row in cur.fetchall()]
 
 
-def claim_example(wallet: str, slug: str) -> dict:
+def claim_view(wallet: str, slug: str, kind: str = "example") -> dict:
     """
-    Spend one of this wallet's example views, or report why it cannot.
+    Spend one of this wallet's free views, or report why it cannot.
 
-    Re-opening one already read is free: the allowance limits how many
-    different reports a wallet can see, not how many times it can look at the
-    ones it chose.
+    Reopening something already claimed is free: the allowance limits how many
+    different items a wallet sees, not how many times it returns to the ones it
+    chose.
     """
-    seen = examples_seen(wallet)
+    allowance = ALLOWANCES.get(kind, EXAMPLE_ALLOWANCE)
+    seen = views_seen(wallet, kind)
 
     if slug in seen:
-        return {"allowed": True, "remaining": EXAMPLE_ALLOWANCE - len(seen),
-                "already_seen": True}
+        return {"allowed": True, "remaining": allowance - len(seen),
+                "already_seen": True, "allowance": allowance}
 
-    if len(seen) >= EXAMPLE_ALLOWANCE:
+    if len(seen) >= allowance:
         return {"allowed": False, "remaining": 0, "already_seen": False,
-                "seen": seen}
+                "allowance": allowance, "seen": seen}
 
     try:
         with _cursor(commit=True) as cur:
             cur.execute(
                 _q("INSERT INTO example_views (wallet, slug, viewed_at) VALUES (%s, %s, %s);"),
-                (wallet, slug, time.time()),
+                (wallet, _key(kind, slug), time.time()),
             )
     except INTEGRITY_ERRORS:
         # Two tabs claiming at once. The row exists either way.
         pass
 
-    return {"allowed": True, "remaining": EXAMPLE_ALLOWANCE - len(seen) - 1,
-            "already_seen": False}
+    return {"allowed": True, "remaining": allowance - len(seen) - 1,
+            "already_seen": False, "allowance": allowance}
+
+
+# Kept for the report path, which reads more clearly with the specific names.
+def examples_seen(wallet: str) -> list:
+    return views_seen(wallet, "example")
+
+
+def claim_example(wallet: str, slug: str) -> dict:
+    return claim_view(wallet, slug, "example")
