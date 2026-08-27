@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+
+{% block title %}$AETH | Aetheron{% endblock %}
+
+{% block body_class %}page-token{% endblock %}
+
+{% block content %}
+
+{#
+  The token page.
+
+  The contract address is read from AETH_MINT_ADDRESS and nothing else. Before
+  the mint exists the page says so in the strongest terms available, because
+  this is the page somebody checks before buying, and a placeholder that looked
+  like an address would be worse than no page at all.
+#}
+
+<style>
+  .tk-panel{
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:1rem; padding:1.5rem;
+    background:rgba(15,23,42,0.42);
+  }
+  .tk-stat{
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:.75rem; padding:.9rem 1rem;
+    background:rgba(15,23,42,0.42);
+  }
+  .tk-label{ font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:rgba(148,163,184,0.75); }
+  .tk-value{ font-size:1.35rem; font-weight:700; color:#fff; margin-top:.15rem; }
+  .tk-note{ font-size:.72rem; color:rgba(148,163,184,0.65); margin-top:.15rem; }
+
+  .tk-chip{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-size:.68rem; padding:.2rem .7rem; border-radius:9999px;
+    border:1px solid rgba(148,163,184,0.3); color:rgba(148,163,184,0.9);
+    text-transform:uppercase; letter-spacing:.06em; white-space:nowrap;
+  }
+  .tk-chip-live{ border-color:rgba(52,211,153,0.45); color:#6ee7b7; }
+  .tk-chip-wait{ border-color:rgba(251,191,36,0.45); color:#fcd34d; }
+
+  .tk-dot{ width:7px; height:7px; border-radius:9999px; background:currentColor; }
+  .tk-chip-live .tk-dot{ animation:tkBlink 2.4s ease-in-out infinite; }
+  @keyframes tkBlink{
+    0%,100%{ box-shadow:0 0 0 0 rgba(52,211,153,0.5); }
+    70%    { box-shadow:0 0 0 5px rgba(52,211,153,0); }
+  }
+  @media (prefers-reduced-motion: reduce){ .tk-chip-live .tk-dot{ animation:none; } }
+
+  /* The address itself. Monospace and generously spaced, because people
+     compare these character by character. */
+  .tk-ca{
+    font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:1.02rem; letter-spacing:.02em; word-break:break-all;
+    color:#a5f3fc; line-height:1.6;
+  }
+  .tk-ca-empty{
+    font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:1rem; color:rgba(148,163,184,0.55); letter-spacing:.06em;
+  }
+  .tk-copy{
+    padding:.4rem .9rem; font-size:.75rem; font-weight:600;
+    color:#67e8f9; background:rgba(103,232,249,.08);
+    border:1px solid rgba(103,232,249,.3); border-radius:.5rem;
+    cursor:pointer; white-space:nowrap; transition:background .15s,color .15s;
+  }
+  .tk-copy:hover{ background:rgba(103,232,249,.18); color:#a5f3fc; }
+
+  .tk-link{
+    display:inline-flex; align-items:center; gap:.35rem;
+    font-size:.78rem; color:#67e8f9; text-decoration:none;
+    border-bottom:1px solid rgba(103,232,249,.25); padding-bottom:1px;
+  }
+  .tk-link:hover{ color:#a5f3fc; border-color:rgba(103,232,249,.6); }
+
+  .tk-warn{
+    border:1px solid rgba(251,191,36,0.28);
+    background:rgba(251,191,36,0.05);
+    border-radius:.9rem; padding:1.1rem 1.25rem;
+  }
+
+  /* The two mechanics, side by side. */
+  .tk-mech{
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:.9rem; padding:1.25rem;
+    background:rgba(15,23,42,0.42);
+    transition:border-color .2s;
+  }
+  .tk-mech:hover{ border-color:rgba(34,211,238,0.28); }
+  .tk-mech-title{ font-size:1.02rem; font-weight:700; color:#67e8f9; }
+  .tk-mech-when{ font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:rgba(148,163,184,0.6); }
+
+  .tk-table{ width:100%; border-collapse:collapse; font-size:.86rem; }
+  .tk-table th{
+    text-align:left; font-size:.66rem; text-transform:uppercase; letter-spacing:.08em;
+    color:rgba(148,163,184,0.6); font-weight:600;
+    padding:0 .6rem .6rem; border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .tk-table td{ padding:.7rem .6rem; border-bottom:1px solid rgba(255,255,255,0.05); color:#cbd5e1; }
+  .tk-table tr:last-child td{ border-bottom:none; }
+  .tk-num{ font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+  .tk-aeth{ color:#67e8f9; font-weight:600; }
+
+  .tk-step{ display:flex; gap:1rem; align-items:flex-start; }
+  .tk-step-n{
+    flex:none; width:26px; height:26px; border-radius:9999px;
+    border:1px solid rgba(103,232,249,.35); color:#67e8f9;
+    font-size:.72rem; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Geist Mono',ui-monospace,monospace;
+  }
+</style>
+
+<div class="page-fade">
+<section class="max-w-4xl mx-auto">
+
+  <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">/ Aetheron / $AETH</p>
+
+  <a href="/shop" class="inline-flex items-center text-cyan-300 hover:text-cyan-200 text-sm mb-6 transition">
+    ← Back to Shop
+  </a>
+
+  <div class="flex items-center gap-4 flex-wrap mb-4">
+    <h1 class="text-4xl font-bold text-cyan-400">$AETH</h1>
+    {% if aeth_mint %}
+      <span class="tk-chip tk-chip-live"><span class="tk-dot"></span>Live</span>
+    {% else %}
+      <span class="tk-chip tk-chip-wait"><span class="tk-dot"></span>Not launched</span>
+    {% endif %}
+  </div>
+
+  <p class="text-gray-300 mb-10">
+    The token that pays for Aetheron. It is not a separate product, a governance
+    wrapper or a claim on revenue: it is a second way to pay for the same calls,
+    priced under USDC, and burned rather than kept when it is spent.
+  </p>
+
+  {# ── the contract address ───────────────────────────────────────────────── #}
+
+  <h2 class="text-2xl font-semibold text-cyan-300 mb-2">Official contract address</h2>
+  <p class="text-gray-400 text-sm mb-4">
+    This page reads the address straight from the running configuration. If the
+    panel below is empty, the mint does not exist yet and nothing has launched.
+  </p>
+
+  {% if aeth_mint %}
+    <div class="tk-panel mb-4">
+      <p class="tk-label mb-2">Solana mint address</p>
+      <div class="flex items-start gap-4 flex-wrap">
+        <p class="tk-ca flex-1 min-w-[280px]" id="ca-text">{{ aeth_mint }}</p>
+        <button class="tk-copy" onclick="copyCA()" id="ca-copy">Copy</button>
+      </div>
+      <div class="flex gap-5 flex-wrap mt-4">
+        <a class="tk-link" target="_blank" rel="noopener"
+           href="https://solscan.io/token/{{ aeth_mint }}">Solscan</a>
+        <a class="tk-link" target="_blank" rel="noopener"
+           href="https://dexscreener.com/solana/{{ aeth_mint }}">DexScreener</a>
+        <a class="tk-link" target="_blank" rel="noopener"
+           href="https://pump.fun/coin/{{ aeth_mint }}">Pump.fun</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="tk-panel mb-4">
+      <p class="tk-label mb-3">Solana mint address</p>
+      <p class="tk-ca-empty mb-4">not yet issued</p>
+      <p class="text-gray-400 text-sm leading-relaxed">
+        When the token launches, the address appears here automatically, the
+        moment it is configured. Nothing is typed into this page by hand and
+        there is no placeholder: an empty panel means there is no token.
+      </p>
+    </div>
+  {% endif %}
+
+  {# ── the part that actually protects people ─────────────────────────────── #}
+
+  <div class="tk-warn mb-12">
+    <p class="text-amber-200 font-semibold mb-2 text-sm">How to be sure you have the right token</p>
+    <ul class="text-gray-300 text-sm space-y-2 leading-relaxed">
+      <li>
+        There are exactly three places an official address is published: this
+        page, the
+        <a class="tk-link" href="https://github.com/Aetheron402/Aetheron" target="_blank" rel="noopener">source repository</a>,
+        and
+        <a class="tk-link" href="https://x.com/Aetheron402" target="_blank" rel="noopener">@Aetheron402</a>.
+        All three will agree. If they do not, trust none of them and wait.
+      </li>
+      <li>
+        Compare the address in full. The first and last four characters are not
+        enough, and a wallet that shows you only those is not showing you enough
+        to decide.
+      </li>
+      <li>
+        Nobody will ever send you the address first. Treat any Aetheron token
+        announced anywhere else, or before it appears here, as fake.
+      </li>
+      <li>
+        A launch does not need your keys, your seed phrase or a signature to
+        "claim" anything. There is no airdrop, no presale, no allocation and no
+        whitelist.
+      </li>
+    </ul>
+  </div>
+
+  {# ── what the token does ────────────────────────────────────────────────── #}
+
+  <h2 class="text-2xl font-semibold text-cyan-300 mb-2">What it does</h2>
+  <p class="text-gray-400 text-sm mb-6">
+    Two mechanics, both built after the token exists rather than switched on by
+    its arrival.
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-4 mb-6">
+    <div class="tk-mech">
+      <div class="flex justify-between items-start gap-3 mb-2">
+        <p class="tk-mech-title">Fee tier</p>
+        <span class="tk-mech-when">Q3 2026</span>
+      </div>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        Paying in AETH costs less than paying in USDC for the same call. It sits
+        in the pricing layer rather than running as a promotion, so it is not a
+        code that expires and not a discount that has to be claimed. You pay
+        less because of what you paid with.
+      </p>
+    </div>
+
+    <div class="tk-mech">
+      <div class="flex justify-between items-start gap-3 mb-2">
+        <p class="tk-mech-title">Burn on use</p>
+        <span class="tk-mech-when">Q3 2026</span>
+      </div>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        The AETH taken as payment is burned instead of kept. Supply falls
+        because the product is being used, not because of a buyback or an
+        announcement, and every burn is a transaction on chain that anyone can
+        count without asking us.
+      </p>
+    </div>
+  </div>
+
+  <p class="text-gray-400 text-sm mb-4">
+    What that looks like against the prices on the shop today. The rate is not
+    finalised, so treat the AETH column as the shape of it rather than a
+    committed number.
+  </p>
+
+  <div class="tk-panel mb-12">
+    <table class="tk-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th style="text-align:right">USDC</th>
+          <th style="text-align:right">In AETH</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for name, usdc, aeth in [
+             ("Prompt Optimizer", "0.25", "0.20"),
+             ("Code Explainer", "0.50", "0.40"),
+             ("Prompt Tester", "0.50", "0.40"),
+             ("Risk Engine", "0.75", "0.60"),
+             ("Contract Intelligence", "1.00", "0.80"),
+             ("Agent templates", "4.99", "3.99")] %}
+        <tr>
+          <td>{{ name }}</td>
+          <td class="tk-num" style="text-align:right; color:rgba(148,163,184,0.85)">{{ usdc }}</td>
+          <td class="tk-num tk-aeth" style="text-align:right">{{ aeth }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ── the technical bit, which is the credible bit ───────────────────────── #}
+
+  <h2 class="text-2xl font-semibold text-cyan-300 mb-2">What happens at launch</h2>
+  <p class="text-gray-400 text-sm mb-6">
+    The AETH payment path is already written and already tested. It sits dormant
+    with no mint configured, which is why the shop is USDC only right now.
+  </p>
+
+  <div class="tk-panel mb-12 space-y-5">
+    <div class="tk-step">
+      <span class="tk-step-n">1</span>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        The mint is created on <strong class="text-gray-100">pump.fun</strong>.
+        No presale, no allocation, no team unlock, and no liquidity we control.
+      </p>
+    </div>
+    <div class="tk-step">
+      <span class="tk-step-n">2</span>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        The address is set as <code class="text-cyan-300 text-xs">AETH_MINT_ADDRESS</code>,
+        and appears on this page the moment it is. No redeploy and no code
+        change, because there is nothing to change.
+      </p>
+    </div>
+    <div class="tk-step">
+      <span class="tk-step-n">3</span>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        AETH becomes payable everywhere at once: the shop, the SDK, and the
+        <code class="text-cyan-300 text-xs">accepted_methods</code> in every
+        402 response the API returns.
+      </p>
+    </div>
+    <div class="tk-step">
+      <span class="tk-step-n">4</span>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        The fee tier and the burn are built on top of that, after launch. They
+        are not automatic, and this page will say plainly when each one is live.
+      </p>
+    </div>
+  </div>
+
+  {# ── beyond the two mechanics ───────────────────────────────────────────── #}
+
+  <h2 class="text-2xl font-semibold text-cyan-300 mb-2">Further out</h2>
+  <p class="text-gray-400 text-sm mb-6">
+    Where the token reaches past paying for calls. Dates are on the
+    <a class="tk-link" href="/roadmap">roadmap</a>, and nothing here is built yet.
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-4 mb-12">
+    {% for title, when, body in [
+      ("Creator revenue sharing", "Q4 2026",
+       "Publish an agent template to the store and be paid per sale, settled straight to your wallet, with the protocol cut taken at settlement rather than invoiced."),
+      ("Component reputation", "Q3 2027",
+       "Ranking built from settled usage and verified outputs, not from stars anyone can buy."),
+      ("Governance", "Q4 2027",
+       "Voting on component inclusion, protocol fees and treasury allocation, weighted by holdings and by usage rather than by holdings alone."),
+      ("Protocol grants", "Q4 2027",
+       "Treasury funded grants for the components the registry shows people asking for and nobody has built."),
+    ] %}
+    <div class="tk-mech">
+      <div class="flex justify-between items-start gap-3 mb-2">
+        <p class="tk-mech-title">{{ title }}</p>
+        <span class="tk-mech-when">{{ when }}</span>
+      </div>
+      <p class="text-gray-300 text-sm leading-relaxed">{{ body }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── what it is not ─────────────────────────────────────────────────────── #}
+
+  <h2 class="text-2xl font-semibold text-cyan-300 mb-2">What it is not</h2>
+  <div class="tk-panel mb-10">
+    <ul class="text-gray-300 text-sm space-y-3 leading-relaxed">
+      <li><strong class="text-gray-100">Not required.</strong> Every component is payable in USDC and always will be. AETH is a cheaper option, never a gate.</li>
+      <li><strong class="text-gray-100">Not a security.</strong> It buys calls. It is not a share of revenue and it does not entitle you to a payout.</li>
+      <li><strong class="text-gray-100">Not custodial.</strong> Aetheron holds no keys and cannot move, freeze or claw back anything you hold.</li>
+      <li><strong class="text-gray-100">Not a promise of price.</strong> Burning supply is a mechanic, not a forecast, and usage is what drives it.</li>
+    </ul>
+  </div>
+
+  <p class="text-gray-500 text-xs leading-relaxed">
+    Nothing here is financial advice. Aetheron does not control liquidity on
+    pump.fun and cannot influence what the token trades at. Buy only what you
+    can afford to lose, and verify the address in more than one place before you
+    send anything anywhere.
+  </p>
+
+</section>
+</div>
+
+{% if aeth_mint %}
+<script>
+function copyCA() {
+  const btn = document.getElementById("ca-copy");
+  const text = document.getElementById("ca-text").textContent.trim();
+  // Older browsers and any non secure context have no clipboard API, and a
+  // button that silently does nothing is worse than one that says so.
+  const done = ok => {
+    btn.textContent = ok ? "Copied" : "Press Ctrl+C";
+    if (!ok) {
+      const r = document.createRange();
+      r.selectNodeContents(document.getElementById("ca-text"));
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
+    setTimeout(() => { btn.textContent = "Copy"; }, 1800);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+  } else {
+    done(false);
+  }
+}
+</script>
+{% endif %}
+
+{% endblock %}

@@ -716,6 +716,18 @@ def legal_page(request: Request):
 @app.get("/roadmap", response_class=HTMLResponse)
 def roadmap_page(request: Request):
     return templates.TemplateResponse("roadmap.html", {"request": request})
+
+
+@app.get("/token", response_class=HTMLResponse)
+def token_page(request: Request):
+    """
+    The $AETH page.
+
+    It renders the mint address from AETH_MINT_ADDRESS through the aeth_mint
+    template global and from nowhere else, so an unlaunched token shows an
+    empty panel rather than anything that could be mistaken for an address.
+    """
+    return templates.TemplateResponse("token.html", {"request": request})
     
 @app.get("/docs", response_class=HTMLResponse)
 def docs_page(request: Request):

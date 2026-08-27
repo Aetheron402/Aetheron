@@ -1638,3 +1638,33 @@ def test_the_examples_outlived_the_harness():
     source = open("templates/shop.html").read()
     assert "example-btn" in source
     assert 'id="example-bg"' in source
+
+
+# ── the token page ──────────────────────────────────────────────────────────
+
+def test_the_token_page_shows_no_address_until_a_mint_exists():
+    """
+    This is the page somebody checks before buying. Before the mint exists it
+    must show nothing that could be read as an address: no placeholder, no
+    example, no truncated stand-in. The panel is empty or it is the real thing.
+    """
+    from fastapi.testclient import TestClient
+    html = TestClient(Aetheron.app).get("/token").text
+
+    assert "not yet issued" in html
+    assert "Not launched" in html
+    # No explorer deep links can exist without a mint to link to.
+    assert "solscan.io/token/" not in html
+    assert "pump.fun/coin/" not in html
+    # Nothing base58 shaped long enough to be mistaken for a Solana address.
+    import re
+    body = re.sub(r"<script.*?</script>", "", html, flags=re.S)
+    for candidate in re.findall(r"[1-9A-HJ-NP-Za-km-z]{32,44}", body):
+        assert False, f"address shaped string on an unlaunched token page: {candidate}"
+
+
+def test_the_token_page_is_reachable_from_the_header():
+    from fastapi.testclient import TestClient
+    html = TestClient(Aetheron.app).get("/shop").text
+    # Desktop nav and mobile nav both.
+    assert html.count('href="/token"') >= 2
