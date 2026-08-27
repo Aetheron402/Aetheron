@@ -1,13 +1,13 @@
 ---
 
-### License Notice  
-This template is licensed for **personal use only**.  
-Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.  
+### License Notice
+This template is licensed for **personal use only**.
+Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.
 See `LICENSE.txt` for full terms.
 
 ---
 
-# Solana Trading Assistant  
+# Solana Trading Assistant
 *A full-featured, real-time Solana market analysis agent designed for real-world usage.*
 
 This agent analyzes Solana tokens in real time using:
@@ -22,7 +22,7 @@ This agent analyzes Solana tokens in real time using:
 - **Structured JSON outputs**
 - **Config-driven design**
 
-This is a **real, production-ready agent**.  
+This is a **real, production-ready agent**.
 No placeholders. No simulation. Everything is implemented.
 
 ---
@@ -128,28 +128,28 @@ You’ll see periodic analysis prints in your terminal, and if webhooks are enab
 
 # 2. Feature Overview (High-Level)
 
-### ✔ Live token data from Birdeye
+### Live token data from Birdeye
 - Price (USD)
 - Liquidity (USD)
 - 24h Volume (USD)
 - Candles (OHLCV)
 
-### ✔ Multi-timeframe market analysis
+### Multi-timeframe market analysis
 - 5m, 15m, 1h trend evaluation (configurable)
 - Volume acceleration in recent candles
 - Volatility estimation from candle ranges
 
-### ✔ Health scoring model
+### Health scoring model
 - Weighted contribution of price trend, volume trend, liquidity stability, volatility
 - Configurable weights & thresholds
 
-### ✔ Production-friendly design
+### Production-friendly design
 - Config-based behavior (`config.json`)
 - Clean logging (console + file)
 - Webhook notifications (e.g., Discord)
 - JSON-friendly analysis object
 
-### ✔ Extension-ready
+### Extension-ready
 - Add your own indicators
 - Pipe into databases
 - Use as backend for dashboards
@@ -405,7 +405,7 @@ Compares liquidity to threshold:
 liquidity_ok = liquidity_usd >= min_liquidity_usd
 ```
 
-If stable, contributes positively to score.  
+If stable, contributes positively to score.
 If unstable, contributes negatively.
 
 ---

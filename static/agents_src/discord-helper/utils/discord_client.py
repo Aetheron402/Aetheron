@@ -63,7 +63,7 @@ def create_discord_client(config, logger):
     @bot.command(name="ping")
     async def ping_command(ctx):
         """Replies with pong."""
-        await ctx.send("Pong! 🏓")
+        await ctx.send("Pong! ")
 
     @bot.command(name="info")
     async def info_command(ctx):

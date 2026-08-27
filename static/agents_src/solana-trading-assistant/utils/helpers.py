@@ -167,7 +167,7 @@ def pretty_print_analysis(mint_address: str, analysis: dict, logger: logging.Log
 def send_webhook_notification(webhook_url: str, mint_address: str, analysis: dict, logger: logging.Logger):
     """Send webhook with JSON payload."""
     payload = {
-        "content": f"📊 **Market Analysis for {mint_address}**",
+        "content": f"**Market Analysis for {mint_address}**",
         "embeds": [
             {
                 "title": "Token Market Summary",

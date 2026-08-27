@@ -152,7 +152,7 @@ def clean_markdown(md: str) -> str:
 
     text = re.sub(r"■", "", text)
 
-    text = re.sub(r"(?s)>\s*🧾\s*\*?Certified.*", "", text)
+    text = re.sub(r"(?s)>\s*\*?Certified.*", "", text)
     text = re.sub(r"(?s)Aetheron X402 [—-] Certified Asset.*", "", text)
     text = re.sub(r"(?s)Certified Aetheron Asset.*", "", text)
 
@@ -1855,7 +1855,7 @@ def fetch_top_erc20_holders(address: str, token_meta=None, total_supply_raw=None
         ha = (hp or {}).get("holder_analysis") or {}
 
         if ha.get("holders_analyzed"):
-            
+
             return {
                 "holders": [],
                 "source": "honeypot_summary",
@@ -2050,7 +2050,7 @@ def fetch_honeypot_analysis(address, chain_id=None):
     except Exception as e:
         print("[HONEYPOT] error:", e)
         return {"error": f"Honeypot API error: {e}"}
-        
+
 def fetch_etherscan_contract_intel(address: str):
     """
     Fetch Ethereum contract metadata using Etherscan V2 API.

@@ -27,11 +27,11 @@ The whole exchange is four HTTP messages and one Solana transfer.
 
 | | |
 |:--|:--|
-| 🧩 &nbsp; **5 components** | prompts, code, personas, token risk, Monte Carlo |
-| 🤖 &nbsp; **9 agent templates** | full Python projects, yours to keep |
-| 💵 &nbsp; **$0.25 to $4.99** | per call, in USDC |
-| 🔑 &nbsp; **Non-custodial** | this code cannot sign anything |
-| 🏠 &nbsp; **Self-hostable** | clone, add a key, run |
+| **5 components** | prompts, code, personas, token risk, Monte Carlo |
+| **9 agent templates** | full Python projects, yours to keep |
+| **$0.25 to $4.99** | per call, in USDC |
+| **Non-custodial** | this code cannot sign anything |
+| **Self-hostable** | clone, add a key, run |
 
 </div>
 
@@ -41,13 +41,13 @@ The whole exchange is four HTTP messages and one Solana transfer.
 
 Every component returns a written report: PDF, DOCX, HTML, Markdown or plain text.
 
-| | Component | Price | What you get |
-|---|---|---:|---|
-| 🧠 | **Prompt Optimizer** | `$0.25` | Loose text rewritten into a structured, agent-ready prompt |
-| 🔍 | **Code Explainer** | `$0.50` | A file explained, rated for complexity, with refactors proposed |
-| 🎭 | **Prompt Tester** | `$0.50` | One prompt run past several personas, with each reaction reported |
-| 📊 | **Risk Engine** | `$0.75` | Monte Carlo GBM simulation, charted paths and outcome distribution |
-| 🛡️ | **Contract Intelligence** | `$1.00` | Holder concentration, LP lock, admin powers and honeypot checks |
+| Component | Price | What you get |
+|---|---:|---|
+| **Prompt Optimizer** | `$0.25` | Loose text rewritten into a structured, agent-ready prompt |
+| **Code Explainer** | `$0.50` | A file explained, rated for complexity, with refactors proposed |
+| **Prompt Tester** | `$0.50` | One prompt run past several personas, with each reaction reported |
+| **Risk Engine** | `$0.75` | Monte Carlo GBM simulation, charted paths and outcome distribution |
+| **Contract Intelligence** | `$1.00` | Holder concentration, LP lock, admin powers and honeypot checks |
 
 The first three need only an Anthropic key. The last two read Solana and Ethereum, and
 fall back to whatever sources remain when a provider is missing.
@@ -123,7 +123,7 @@ matches each to its own prior balance by account index, and sums the rise. So:
 | Buying the token on a DEX | `0` |
 | Paying somebody else | `0` |
 | Reusing a signature that already bought something | `409` |
-| An actual transfer to the payment wallet | ✅ |
+| An actual transfer to the payment wallet | the full amount |
 
 The signer must also be the wallet claiming the purchase, and claiming a payment is
 an `INSERT` keyed on the signature. The write *is* the check, so two requests racing

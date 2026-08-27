@@ -1,33 +1,33 @@
 ---
 
-### License Notice  
-This template is licensed for **personal use only**.  
-Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.  
+### License Notice
+This template is licensed for **personal use only**.
+Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.
 See `LICENSE.txt` for full terms.
 
 ---
 
 # Discord Support Agent
 
-A production‑grade, beginner‑friendly, and deeply extensible Discord support bot template.  
+A production‑grade, beginner‑friendly, and deeply extensible Discord support bot template.
 This README is **structure, depth, and polish**: including diagrams, onboarding flows, config walkthroughs, architecture breakdowns, strategy examples, and troubleshooting trees.
 
 ---
 
 # 0. Introduction
 
-Managing a Discord community means facing repeated questions, support bottlenecks, and moderation workload.  
+Managing a Discord community means facing repeated questions, support bottlenecks, and moderation workload.
 This **Discord Support Agent** is built to solve that, usable by beginners, extendable by developers, and powerful with optional AI integrations.
 
 It includes:
 
-- Automated replies (AI or static)  
-- Real moderation commands  
-- Utility commands for daily use  
-- Multi‑provider AI support  
-- Clear logging & safety  
-- A plug‑and‑play architecture  
-- Zero required experience  
+- Automated replies (AI or static)
+- Real moderation commands
+- Utility commands for daily use
+- Multi‑provider AI support
+- Clear logging & safety
+- A plug‑and‑play architecture
+- Zero required experience
 
 This documentation provides **full technical + beginner onboarding**.
 
@@ -35,8 +35,8 @@ This documentation provides **full technical + beginner onboarding**.
 
 # 1. Quick Start Guide (Beginner Mode)
 
-### **Step 1, Install Python (if you don’t already have it)**  
-Download Python 3.10+ from:  
+### **Step 1, Install Python (if you don’t already have it)**
+Download Python 3.10+ from:
 https://www.python.org/downloads/
 
 Ensure “Add to PATH” is checked.
@@ -53,12 +53,12 @@ pip install -r requirements.txt
 
 ### **Step 3, Get your Discord bot token**
 
-1. Go to: https://discord.com/developers/applications  
-2. Click **New Application**  
-3. Go to **Bot** → “Add Bot”  
-4. Copy the bot token  
-5. Enable:  
-   - **Message Content Intent**  
+1. Go to: https://discord.com/developers/applications
+2. Click **New Application**
+3. Go to **Bot** → “Add Bot”
+4. Copy the bot token
+5. Enable:
+   - **Message Content Intent**
    - **Server Members Intent** (optional but recommended)
 
 ---
@@ -104,13 +104,13 @@ You should see:
 
 # 2. Feature Overview (High‑Level)
 
-### ✔ Automated support replies (AI or static)
-### ✔ Moderation: kick + ban (with permission checks)
-### ✔ Utility commands (ping, info, help)
-### ✔ Multiple AI providers supported
-### ✔ Fully configurable behavior
-### ✔ Safe error handling + logging
-### ✔ Extendable architecture for advanced developers
+### Automated support replies (AI or static)
+### Moderation: kick + ban (with permission checks)
+### Utility commands (ping, info, help)
+### Multiple AI providers supported
+### Fully configurable behavior
+### Safe error handling + logging
+### Extendable architecture for advanced developers
 
 ---
 
@@ -176,7 +176,7 @@ Below is **full walkthrough** of each config parameter.
 }
 ```
 
-**prefix**  
+**prefix**
 Commands like `!help`, `!ping`, `!ban` use this prefix.
 
 ---
@@ -211,8 +211,8 @@ Commands like `!help`, `!ping`, `!ban` use this prefix.
 }
 ```
 
-- `INFO` recommended for production  
-- `DEBUG` recommended during development  
+- `INFO` recommended for production
+- `DEBUG` recommended during development
 
 ---
 
@@ -232,11 +232,11 @@ Commands like `!help`, `!ping`, `!ban` use this prefix.
 
 If AI is enabled:
 
-1. User sends message  
-2. Bot checks if message should trigger AI  
-3. Bot sends prompt → provider  
-4. Provider returns generated response  
-5. Bot sends formatted reply  
+1. User sends message
+2. Bot checks if message should trigger AI
+3. Bot sends prompt → provider
+4. Provider returns generated response
+5. Bot sends formatted reply
 
 Providers supported:
 
@@ -250,24 +250,24 @@ Providers supported:
 # 8. How the Bot Works Internally (Detailed)
 
 ### **main.py**
-- Loads config  
-- Initializes logger  
-- Creates Discord client  
-- Starts event loop  
+- Loads config
+- Initializes logger
+- Creates Discord client
+- Starts event loop
 
 ### **discord_client.py**
 Handles:
-- on_ready  
-- on_message  
-- command routing  
-- permission validation  
-- error handling  
+- on_ready
+- on_message
+- command routing
+- permission validation
+- error handling
 
 ### **ai.py**
-- Handles API calls  
-- Provider selection  
-- Error fallback  
-- Message formatting  
+- Handles API calls
+- Provider selection
+- Error fallback
+- Message formatting
 
 ---
 
@@ -335,21 +335,21 @@ START
 
 # 12. Security Notes
 
-- Never share your bot token  
-- Always rotate API keys periodically  
-- Use Discord role hierarchy for moderation  
-- Never allow AI to run administrator commands  
-- Log moderation actions for transparency  
+- Never share your bot token
+- Always rotate API keys periodically
+- Use Discord role hierarchy for moderation
+- Never allow AI to run administrator commands
+- Log moderation actions for transparency
 
 ---
 
 # 13. Beginner Mistakes to Avoid
 
-❌ Forgetting Message Content Intent  
-❌ Using the wrong Python version  
-❌ Running the bot from the wrong folder  
-❌ Forgetting to prefix commands  
-❌ Expecting AI replies when `enabled = false`  
+ Forgetting Message Content Intent
+ Using the wrong Python version
+ Running the bot from the wrong folder
+ Forgetting to prefix commands
+ Expecting AI replies when `enabled = false`
 
 ---
 
@@ -377,7 +377,7 @@ START
 
 # 15. Disclaimer
 
-This is a **production-ready template**, not a finished SaaS.  
+This is a **production-ready template**, not a finished SaaS.
 Use responsibly and follow Discord's Terms of Service.
 
 ---

@@ -1,13 +1,13 @@
 ---
 
-### License Notice  
-This template is licensed for **personal use only**.  
-Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.  
+### License Notice
+This template is licensed for **personal use only**.
+Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.
 See `LICENSE.txt` for full terms.
 
 ---
 
-# Wallet Watcher Bot  
+# Wallet Watcher Bot
 *A production‑grade wallet activity monitoring agent with real‑time event detection, webhook alerts, strategy modules, and an extensible architecture.*
 
 This README is written with **richness, clarity, and depth**: including deep feature explanations, diagrams, workflows, advanced usage, onboarding guides, troubleshooting flows, and developer extension points.
@@ -16,22 +16,22 @@ This README is written with **richness, clarity, and depth**: including deep fea
 
 # 0. Introduction
 
-The **Wallet Watcher Bot** is a fast, lightweight, highly extendable wallet monitoring framework.  
+The **Wallet Watcher Bot** is a fast, lightweight, highly extendable wallet monitoring framework.
 After adding **your RPC** and **target wallet address**, the bot tracks:
 
-- Token transfers  
-- NFT-style movements  
-- Swap/liquidity‑style behavior  
-- Any meaningful account events  
+- Token transfers
+- NFT-style movements
+- Swap/liquidity‑style behavior
+- Any meaningful account events
 
 This makes it ideal for:
 
-- Wallet tracking bots  
-- Discord alert integrations  
-- Personal trading analytics  
-- Whale watching / internal tooling  
-- Real-time monitoring dashboards  
-- On‑chain reporting systems  
+- Wallet tracking bots
+- Discord alert integrations
+- Personal trading analytics
+- Whale watching / internal tooling
+- Real-time monitoring dashboards
+- On‑chain reporting systems
 
 This guide explains the bot **from zero to full customization**, friendly for beginners and powerful for developers.
 
@@ -39,7 +39,7 @@ This guide explains the bot **from zero to full customization**, friendly for be
 
 # 1. Quick Start Guide (Beginner Mode)
 
-### Step 1, Install Python  
+### Step 1, Install Python
 https://www.python.org/downloads/
 
 Check:
@@ -49,7 +49,7 @@ python --version
 
 ---
 
-### Step 2, Install dependencies  
+### Step 2, Install dependencies
 ```
 pip install -r requirements.txt
 ```
@@ -74,7 +74,7 @@ pip install -r requirements.txt
 
 ---
 
-### Step 4, Run the watcher  
+### Step 4, Run the watcher
 ```
 python main.py
 ```
@@ -85,14 +85,14 @@ You’ll now see live wallet events printed in your terminal.
 
 # 2. Feature Overview
 
-### ✔ Near real-time wallet activity monitoring  
-### ✔ Token transfer detection  
-### ✔ NFT-style activity detection  
-### ✔ Swap/liquidity‑style pattern detection  
-### ✔ Webhook alert support (Discord/Slack/Custom)  
-### ✔ Config-driven behavior  
-### ✔ Clean extension points for developers  
-### ✔ Lightweight + RPC‑friendly  
+### Near real-time wallet activity monitoring
+### Token transfer detection
+### NFT-style activity detection
+### Swap/liquidity‑style pattern detection
+### Webhook alert support (Discord/Slack/Custom)
+### Config-driven behavior
+### Clean extension points for developers
+### Lightweight + RPC‑friendly
 
 ---
 
@@ -162,9 +162,9 @@ The bot is controlled entirely through **config.json**.
 
 **Recommended settings:**
 
-- **Fast tracking:** 2-4 seconds  
-- **Balanced:** 5-8 seconds  
-- **CPU/RPC friendly:** 10-15 seconds  
+- **Fast tracking:** 2-4 seconds
+- **Balanced:** 5-8 seconds
+- **CPU/RPC friendly:** 10-15 seconds
 
 ---
 
@@ -196,9 +196,9 @@ Supports **multiple wallets**:
 
 Send events to:
 
-- Discord  
-- Slack  
-- Custom endpoints  
+- Discord
+- Slack
+- Custom endpoints
 
 ---
 
@@ -214,9 +214,9 @@ Send events to:
 
 Log levels:
 
-- `DEBUG` = most information  
-- `INFO` = recommended default  
-- `WARNING` / `ERROR` = reduced output  
+- `DEBUG` = most information
+- `INFO` = recommended default
+- `WARNING` / `ERROR` = reduced output
 
 ---
 
@@ -226,48 +226,48 @@ The bot classifies all detected activity into **three main categories**:
 
 ---
 
-## 1. Token Transfer Detection  
+## 1. Token Transfer Detection
 Triggered when:
 
-- SPL / ERC-style tokens move  
-- Wallet sends or receives tokens  
-- Balance changes appear on-chain  
+- SPL / ERC-style tokens move
+- Wallet sends or receives tokens
+- Balance changes appear on-chain
 
 Useful for:
 
-- Whale tracking  
-- Trading automation triggers  
-- Alert bots  
+- Whale tracking
+- Trading automation triggers
+- Alert bots
 
 ---
 
-## 2. NFT-Style Movements  
+## 2. NFT-Style Movements
 Triggered by:
 
-- NFT mint  
-- NFT transfer  
-- Ownership changes  
-- Activity signals resembling NFT interactions  
+- NFT mint
+- NFT transfer
+- Ownership changes
+- Activity signals resembling NFT interactions
 
 Useful for:
 
-- NFT trading bots  
-- Collection activity monitors  
+- NFT trading bots
+- Collection activity monitors
 
 ---
 
-## 3. Swap / Liquidity Activity Signals  
+## 3. Swap / Liquidity Activity Signals
 Pattern-based detection of:
 
-- Swaps  
-- Liquidity adds/removes  
-- Program-level interactions  
+- Swaps
+- Liquidity adds/removes
+- Program-level interactions
 
 Useful for:
 
-- Trading insights  
-- Wallet strategy tracking  
-- Automated alert systems  
+- Trading insights
+- Wallet strategy tracking
+- Automated alert systems
 
 ---
 
@@ -294,46 +294,46 @@ These examples help beginners configure the watcher for different goals.
 
 ---
 
-## Strategy A, Whale Watching  
+## Strategy A, Whale Watching
 Ideal config:
 
-- `poll_interval_seconds: 3-5`  
-- Webhooks enabled  
-- Track large token movements  
-- Add filters for high‑value tokens  
+- `poll_interval_seconds: 3-5`
+- Webhooks enabled
+- Track large token movements
+- Add filters for high‑value tokens
 
 ---
 
-## Strategy B, NFT Wallet Tracker  
-- Lower frequency needed (8-12 sec)  
-- Focus on NFT‑style events  
-- Use Discord for alerting  
+## Strategy B, NFT Wallet Tracker
+- Lower frequency needed (8-12 sec)
+- Focus on NFT‑style events
+- Use Discord for alerting
 
 ---
 
-## Strategy C, Personal Trading Monitor  
-- Watch your own wallet  
-- Track swaps  
-- Get pinged when trades settle  
+## Strategy C, Personal Trading Monitor
+- Watch your own wallet
+- Track swaps
+- Get pinged when trades settle
 
 ---
 
-## Strategy D, Quiet Monitoring (RPC Friendly)  
-- `poll_interval_seconds: 12-18`  
-- Logging level WARNING  
-- No webhooks  
+## Strategy D, Quiet Monitoring (RPC Friendly)
+- `poll_interval_seconds: 12-18`
+- Logging level WARNING
+- No webhooks
 
 ---
 
 # 9. Extending the Agent (Developer Mode)
 
-### Add new event categories  
+### Add new event categories
 Modify `rpc.py` → detection logic.
 
-### Add filtering logic  
+### Add filtering logic
 Add rules in `helpers.py`.
 
-### Add reaction logic  
+### Add reaction logic
 Inside `main.py`, inside the loop:
 
 ```python
@@ -341,14 +341,14 @@ if event["type"] == "swap":
     do_something(event)
 ```
 
-### Connect to external systems  
+### Connect to external systems
 Examples:
 
-- Database storage  
-- Dashboards  
-- Telegram alerts  
-- Trading bots  
-- AI analysis pipelines  
+- Database storage
+- Dashboards
+- Telegram alerts
+- Trading bots
+- AI analysis pipelines
 
 ---
 
@@ -397,11 +397,11 @@ START
 
 # 12. Beginner Mistakes to Avoid
 
-❌ Using a slow/free RPC  
-❌ Forgetting to add your wallet address  
-❌ Expecting events when the wallet is inactive  
-❌ Setting poll interval below 2 seconds  
-❌ Forgetting to enable webhooks  
+ Using a slow/free RPC
+ Forgetting to add your wallet address
+ Expecting events when the wallet is inactive
+ Setting poll interval below 2 seconds
+ Forgetting to enable webhooks
 
 ---
 
@@ -431,24 +431,24 @@ logging: WARNING
 
 # 14. Roadmap (Expanded)
 
-### Coming soon  
-- Multi-chain version (EVM, Sui, Aptos)  
-- Token filtering  
-- Program-specific detectors  
-- Real swap decoding  
-- Dashboard exporter module  
+### Coming soon
+- Multi-chain version (EVM, Sui, Aptos)
+- Token filtering
+- Program-specific detectors
+- Real swap decoding
+- Dashboard exporter module
 
-### Long-term  
-- AI wallet behavior prediction  
-- Advanced transaction decoding  
-- Multi-wallet analytics suite  
+### Long-term
+- AI wallet behavior prediction
+- Advanced transaction decoding
+- Multi-wallet analytics suite
 
 ---
 
 # 15. Disclaimer
 
-This is a **wallet monitoring framework**.  
-Use your own RPC infrastructure for production deployments.  
+This is a **wallet monitoring framework**.
+Use your own RPC infrastructure for production deployments.
 Always follow blockchain provider terms.
 
 ---

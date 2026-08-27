@@ -660,7 +660,7 @@
     window.currentWallet = "";
     const walletBtn = document.getElementById("connect-wallet");
 
-    function shorten(addr) { return "🔗 " + addr.slice(0,4) + "..." + addr.slice(-4); }
+    function shorten(addr) { return addr.slice(0,4) + "..." + addr.slice(-4); }
 
     function updateWalletUI() {
       const mobileWalletBtn = document.getElementById("mobile-connect-wallet");

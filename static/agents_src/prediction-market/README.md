@@ -104,14 +104,14 @@ No API keys. No real trading. Safe by default.
 
 # 3. Feature Overview
 
-### ✔ Venue-agnostic by design
+### Venue-agnostic by design
 
 The agent does not assume any specific prediction market.\
 All market-specific logic lives in the adapter layer.
 
 ------------------------------------------------------------------------
 
-### ✔ Deterministic execution flow
+### Deterministic execution flow
 
 Every execution cycle follows the same steps:
 
@@ -126,7 +126,7 @@ No hidden behavior. No side effects.
 
 ------------------------------------------------------------------------
 
-### ✔ Built-in risk management
+### Built-in risk management
 
 Includes:
 
@@ -138,7 +138,7 @@ Risk logic is separate from strategy logic.
 
 ------------------------------------------------------------------------
 
-### ✔ Lifecycle-based exits
+### Lifecycle-based exits
 
 Positions are automatically exited when:
 
@@ -149,14 +149,14 @@ This prevents unmanaged or forgotten exposure.
 
 ------------------------------------------------------------------------
 
-### ✔ Config-driven behavior
+### Config-driven behavior
 
 Most behavior is controlled via `config.json`.\
 Users do not need to edit code for common changes.
 
 ------------------------------------------------------------------------
 
-### ✔ Safe by default
+### Safe by default
 
 -   Mock adapter included\
 -   Explicit `[MOCK]` logging\

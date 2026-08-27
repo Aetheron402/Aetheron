@@ -1,8 +1,8 @@
 ---
 
-### License Notice  
-This template is licensed for **personal use only**.  
-Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.  
+### License Notice
+This template is licensed for **personal use only**.
+Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.
 See `LICENSE.txt` for full terms.
 
 ---
@@ -17,11 +17,11 @@ Pump.fun is one of the fastest‑moving launchpads in crypto. Hundreds of tokens
 
 This **Pump.fun Launch Assistant** is a **production‑quality template** designed to give users everything they need to build:
 
-- A monitoring bot  
-- A signal generator  
-- A research assistant  
-- A custom trading system  
-- A wallet intelligence pipeline  
+- A monitoring bot
+- A signal generator
+- A research assistant
+- A custom trading system
+- A wallet intelligence pipeline
 
 …without writing any discovery, filtering, or RPC code.
 
@@ -67,51 +67,51 @@ No keys. No API setup. No coding.
 
 # 2. Feature Overview (High-Level Summary)
 
-### ✔ Real-time Pump.fun feed  
+### Real-time Pump.fun feed
 Fetches the newest launched tokens with their data:
 
-- mint address  
-- liquidity  
-- BC %  
-- market cap  
-- trading activity  
-- renounce status  
-- liquidity lock  
-- mint authority disabled  
+- mint address
+- liquidity
+- BC %
+- market cap
+- trading activity
+- renounce status
+- liquidity lock
+- mint authority disabled
 
-### ✔ Advanced filtering  
+### Advanced filtering
 Avoids:
 
-- ultra‑early rugs  
-- tokens with no liquidity  
-- dead launches  
-- known malicious creators  
-- tokens missing renounce or lock  
-- tokens with active mint authority  
+- ultra‑early rugs
+- tokens with no liquidity
+- dead launches
+- known malicious creators
+- tokens missing renounce or lock
+- tokens with active mint authority
 
-### ✔ Webhook notification support  
+### Webhook notification support
 Send alerts to:
 
-- Discord  
-- Slack  
-- Telegram (via bot webhook adapters)  
+- Discord
+- Slack
+- Telegram (via bot webhook adapters)
 
-### ✔ Execution hook  
+### Execution hook
 A safe function where users can add:
 
-- Jupiter swaps  
-- Raydium swaps  
-- Alerts  
-- Logging  
-- Custom analytics  
+- Jupiter swaps
+- Raydium swaps
+- Alerts
+- Logging
+- Custom analytics
 
-### ✔ Config-driven  
+### Config-driven
 Everything is adjustable from **config.json**.
 
-### ✔ Perfect for beginners  
+### Perfect for beginners
 Doesn’t require any knowledge to run.
 
-### ✔ Perfect for developers  
+### Perfect for developers
 Offers clean extension points to build a full automated system.
 
 ---
@@ -165,13 +165,13 @@ Below is the upgraded explanation for **every parameter**.
 }
 ```
 
-- **url**: optional Solana RPC provider  
-  (used for deeper checks or future extensions)  
+- **url**: optional Solana RPC provider
+  (used for deeper checks or future extensions)
 
-- **poll_interval_seconds**  
-  - 2-3s = sniper speed  
-  - 4-6s = medium  
-  - 7-12s = low frequency  
+- **poll_interval_seconds**
+  - 2-3s = sniper speed
+  - 4-6s = medium
+  - 7-12s = low frequency
 
 ---
 
@@ -188,16 +188,16 @@ Below is the upgraded explanation for **every parameter**.
 }
 ```
 
-- **min_liquidity_sol**  
+- **min_liquidity_sol**
   Minimum liquidity to consider the token valid.
 
-- **min_bonding_curve_percent**  
+- **min_bonding_curve_percent**
   Reject tokens that are too early on the bonding curve.
 
-- **max_market_cap_usd**  
+- **max_market_cap_usd**
   Filters out overextended tokens.
 
-- **track_liquidity_events** (future expansion)  
+- **track_liquidity_events** (future expansion)
 - **track_creator_activity** (future expansion)
 
 ---
@@ -213,10 +213,10 @@ Below is the upgraded explanation for **every parameter**.
 }
 ```
 
-- **min_trades_5m**  
+- **min_trades_5m**
   Ensures a minimum level of real activity.
 
-- **block_mint_authority**  
+- **block_mint_authority**
   Critical rug-check filter.
 
 ---
@@ -258,8 +258,8 @@ Best for users willing to take higher risk.
 
 Recommended config:
 
-- `min_bonding_curve_percent: 5`  
-- `min_liquidity_sol: 1.0`  
+- `min_bonding_curve_percent: 5`
+- `min_liquidity_sol: 1.0`
 - `min_trades_5m: 3`
 
 ---
@@ -270,8 +270,8 @@ Focuses on tokens past the critical risk zone.
 
 Use:
 
-- `min_bonding_curve_percent: 12-15`  
-- `require_locked_liquidity: true`  
+- `min_bonding_curve_percent: 12-15`
+- `require_locked_liquidity: true`
 
 ---
 
@@ -279,8 +279,8 @@ Use:
 
 Focus on tokens gaining traction.
 
-- `min_trades_5m: 10-20`  
-- `min_liquidity_sol: 2.0+`  
+- `min_trades_5m: 10-20`
+- `min_liquidity_sol: 2.0+`
 
 ---
 
@@ -335,22 +335,22 @@ Safe. Optional. Beginner-friendly.
 
 # 7. System Concepts (Glossary)
 
-### **Bonding Curve**  
+### **Bonding Curve**
 Defines how price changes as the curve progresses.
 
-### **Liquidity**  
+### **Liquidity**
 SOL pooled backing the token.
 
-### **Mint Authority Disabled**  
+### **Mint Authority Disabled**
 Whether creator can mint more supply.
 
-### **Locked Liquidity**  
+### **Locked Liquidity**
 Whether LP can be pulled.
 
-### **Trades 5m**  
+### **Trades 5m**
 Short-term activity.
 
-### **Market Cap**  
+### **Market Cap**
 Curve-based valuation.
 
 ---
@@ -433,16 +433,16 @@ with open("log.csv", "a") as f:
 
 # 11. Safety Notes
 
-- The bot does **NOT** trade by default.  
-- Trading must be added manually.  
-- Always test trading logic with a burner wallet.  
+- The bot does **NOT** trade by default.
+- Trading must be added manually.
+- Always test trading logic with a burner wallet.
 - Trading carries real financial risk.
 
 ---
 
 # 12. License & Disclaimer
 
-This is a **template**, not a trading system.  
+This is a **template**, not a trading system.
 You are responsible for any real trading code you add.
 
 ---

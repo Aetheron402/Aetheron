@@ -1,8 +1,8 @@
 ---
 
-### License Notice  
-This template is licensed for **personal use only**.  
-Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.  
+### License Notice
+This template is licensed for **personal use only**.
+Redistribution, resale, repackaging, or inclusion in any paid product or service is **strictly prohibited**.
 See `LICENSE.txt` for full terms.
 
 ---
@@ -18,21 +18,21 @@ This enhanced README transforms the base template (fileciteturn2file0) 
 
 The **Sniper Trade Agent** is a configurable framework that lets you build:
 
-- Early‑curve snipers  
-- Volume-based trigger bots  
-- Arbitrage watchers  
-- On‑chain opportunity filters  
-- Custom execution systems using DEX APIs (Jupiter/Raydium/etc.)  
+- Early‑curve snipers
+- Volume-based trigger bots
+- Arbitrage watchers
+- On‑chain opportunity filters
+- Custom execution systems using DEX APIs (Jupiter/Raydium/etc.)
 
 This template is intentionally **safe by default**: no real trades occur unless *you* add an execution call.
 
 It is perfect for:
 
-- Traders building automated tooling  
-- Developers experimenting with strategy logic  
-- Backtesting simulations  
-- High-speed token discovery  
-- Filter pipelines for Pump.fun/DEX-based launches  
+- Traders building automated tooling
+- Developers experimenting with strategy logic
+- Backtesting simulations
+- High-speed token discovery
+- Filter pipelines for Pump.fun/DEX-based launches
 
 ---
 
@@ -92,14 +92,14 @@ Example output:
 
 # 2. Feature Overview
 
-### ✔ Liquidity, market cap & early-curve filters  
-### ✔ Blacklist checks (creators, program IDs, mints)  
-### ✔ Trading activity thresholds  
-### ✔ Full safety module (max spend, slippage, open positions)  
-### ✔ Strategy-driven execution trigger  
-### ✔ Webhooks for alerting  
-### ✔ RPC-based real‑time discovery  
-### ✔ Simulation mode for beginners  
+### Liquidity, market cap & early-curve filters
+### Blacklist checks (creators, program IDs, mints)
+### Trading activity thresholds
+### Full safety module (max spend, slippage, open positions)
+### Strategy-driven execution trigger
+### Webhooks for alerting
+### RPC-based real‑time discovery
+### Simulation mode for beginners
 
 ---
 
@@ -169,8 +169,8 @@ Below is a **deep dive** into every config value.
 | poll_interval_seconds | How frequently new tokens are scanned |
 
 **Recommended:**
-- Fast sniping: `2-4 sec`  
-- Balanced: `5-7 sec`  
+- Fast sniping: `2-4 sec`
+- Balanced: `5-7 sec`
 - Low-resource mode: `8-12 sec`
 
 ---
@@ -255,9 +255,9 @@ Filter glossary:
 
 Supports:
 
-- Scam creators  
-- Bad mints  
-- Malicious program IDs  
+- Scam creators
+- Bad mints
+- Malicious program IDs
 
 ---
 
@@ -285,9 +285,9 @@ These presets help users configure the sniper for different goals.
 ## Strategy A, Early Curve Sniping (High Risk)
 
 ```
-min_liquidity_sol: 1-2  
-min_initial_liquidity_ratio: 0.25  
-min_trades_1m: 1  
+min_liquidity_sol: 1-2
+min_initial_liquidity_ratio: 0.25
+min_trades_1m: 1
 ```
 
 Useful for adrenaline seekers and experimenters.
@@ -297,9 +297,9 @@ Useful for adrenaline seekers and experimenters.
 ## Strategy B, Safer Curve Entry
 
 ```
-min_liquidity_sol: 3-5  
-require_locked_liquidity: true  
-block_mint_authority: true  
+min_liquidity_sol: 3-5
+require_locked_liquidity: true
+block_mint_authority: true
 min_initial_liquidity_ratio: 0.35-0.45
 ```
 
@@ -407,25 +407,25 @@ START
 ### Beginner Mode (Simulation)
 
 ```
-auto_buy_enabled: false  
-min_liquidity_sol: 3  
-min_trades_1m: 2  
+auto_buy_enabled: false
+min_liquidity_sol: 3
+min_trades_1m: 2
 ```
 
 ### Safe Mode
 
 ```
-require_locked_liquidity: true  
-block_mint_authority: true  
-min_initial_liquidity_ratio: 0.40  
+require_locked_liquidity: true
+block_mint_authority: true
+min_initial_liquidity_ratio: 0.40
 ```
 
 ### Aggressive Mode
 
 ```
-min_liquidity_sol: 1-2  
-min_trades_1m: 1  
-max_market_cap_usd: 500k  
+min_liquidity_sol: 1-2
+min_trades_1m: 1
+max_market_cap_usd: 500k
 ```
 
 ---
@@ -444,8 +444,8 @@ max_market_cap_usd: 500k
 
 # 13. Disclaimer
 
-This is a **non-trading template**.  
-You must add real execution manually.  
+This is a **non-trading template**.
+You must add real execution manually.
 Crypto trading is risky, test carefully.
 
 ---

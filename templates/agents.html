@@ -214,7 +214,7 @@
           </div>
           </div>
         </div>
-    
+
         <!-- Market Tracker Agent -->
         <div class="card flex flex-col justify-between">
           <div class="w-fit mb-3">
@@ -276,7 +276,7 @@
           </div>
           </div>
         </div>
-      
+
     </div>
   </section>
 
@@ -431,7 +431,7 @@ function isMobileDevice() {
 
 <script>
 function shorten(addr) {
-  return "🔗 " + addr.slice(0, 4) + "..." + addr.slice(-4);
+  return addr.slice(0, 4) + "..." + addr.slice(-4);
 }
 </script>
 
@@ -466,7 +466,7 @@ document.querySelectorAll(".buy-agent-btn").forEach(btn => {
 });
 </script>
 
-<script>   
+<script>
 function openPaymentModal(agentId, price) {
   selectedAgent = agentId;
   selectedPrice = price;
@@ -827,5 +827,5 @@ window.addEventListener("aetheron:wallet", refreshPreviewAllowance);
     <p class="text-cyan-600 text-sm">Please wait.</p>
   </div>
 </div>
-  
+
 {% endblock %}

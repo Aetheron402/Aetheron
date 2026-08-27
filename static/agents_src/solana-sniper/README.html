@@ -53,14 +53,14 @@
 [<span class="hljs-symbol">INFO</span>] <span class="hljs-symbol">MintABC</span>... passed all filters (auto-buy disabled).
 </code></pre><hr>
 <h1 id="-2-feature-overview">2. Feature Overview</h1>
-<h3 id="-liquidity-market-cap-early-curve-filters">✔ Liquidity, market cap &amp; early-curve filters</h3>
-<h3 id="-blacklist-checks-creators-program-ids-mints-">✔ Blacklist checks (creators, program IDs, mints)</h3>
-<h3 id="-trading-activity-thresholds">✔ Trading activity thresholds</h3>
-<h3 id="-full-safety-module-max-spend-slippage-open-positions-">✔ Full safety module (max spend, slippage, open positions)</h3>
-<h3 id="-strategy-driven-execution-trigger">✔ Strategy-driven execution trigger</h3>
-<h3 id="-webhooks-for-alerting">✔ Webhooks for alerting</h3>
-<h3 id="-rpc-based-real-time-discovery">✔ RPC-based real‑time discovery</h3>
-<h3 id="-simulation-mode-for-beginners">✔ Simulation mode for beginners</h3>
+<h3 id="-liquidity-market-cap-early-curve-filters">Liquidity, market cap &amp; early-curve filters</h3>
+<h3 id="-blacklist-checks-creators-program-ids-mints-">Blacklist checks (creators, program IDs, mints)</h3>
+<h3 id="-trading-activity-thresholds">Trading activity thresholds</h3>
+<h3 id="-full-safety-module-max-spend-slippage-open-positions-">Full safety module (max spend, slippage, open positions)</h3>
+<h3 id="-strategy-driven-execution-trigger">Strategy-driven execution trigger</h3>
+<h3 id="-webhooks-for-alerting">Webhooks for alerting</h3>
+<h3 id="-rpc-based-real-time-discovery">RPC-based real‑time discovery</h3>
+<h3 id="-simulation-mode-for-beginners">Simulation mode for beginners</h3>
 <hr>
 <h1 id="-3-architecture-diagram">3. Architecture Diagram</h1>
 <pre><code>                         ┌─────────────────────────┐
@@ -279,15 +279,15 @@
 <p>These presets help users configure the sniper for different goals.</p>
 <hr>
 <h2 id="-strategy-a-early-curve-sniping-high-risk-">Strategy A, Early Curve Sniping (High Risk)</h2>
-<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>, <span class="hljs-number">2</span>  
-<span class="hljs-symbol">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.25</span>  
+<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>, <span class="hljs-number">2</span>
+<span class="hljs-symbol">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.25</span>
 <span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">1</span>
 </code></pre><p>Useful for adrenaline seekers and experimenters.</p>
 <hr>
 <h2 id="-strategy-b-safer-curve-entry">Strategy B, Safer Curve Entry</h2>
-<pre><code><span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>, <span class="hljs-number">5</span>  
-<span class="hljs-string">require_locked_liquidity:</span> <span class="hljs-literal">true</span>  
-<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>  
+<pre><code><span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>, <span class="hljs-number">5</span>
+<span class="hljs-string">require_locked_liquidity:</span> <span class="hljs-literal">true</span>
+<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>
 <span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.35</span>, <span class="hljs-number">0.45</span>
 </code></pre><p>Avoids most instant rugs.</p>
 <hr>
@@ -358,16 +358,16 @@
 </code></pre><hr>
 <h1 id="-11-recommended-settings">11. Recommended Settings</h1>
 <h3 id="beginner-mode-simulation-">Beginner Mode (Simulation)</h3>
-<pre><code><span class="hljs-string">auto_buy_enabled:</span> <span class="hljs-literal">false</span>  
-<span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>  
+<pre><code><span class="hljs-string">auto_buy_enabled:</span> <span class="hljs-literal">false</span>
+<span class="hljs-string">min_liquidity_sol:</span> <span class="hljs-number">3</span>
 <span class="hljs-string">min_trades_1m:</span> <span class="hljs-number">2</span>
 </code></pre><h3 id="safe-mode">Safe Mode</h3>
-<pre><code><span class="hljs-string">require_locked_liquidity:</span> <span class="hljs-literal">true</span>  
-<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>  
+<pre><code><span class="hljs-string">require_locked_liquidity:</span> <span class="hljs-literal">true</span>
+<span class="hljs-string">block_mint_authority:</span> <span class="hljs-literal">true</span>
 <span class="hljs-string">min_initial_liquidity_ratio:</span> <span class="hljs-number">0.40</span>
 </code></pre><h3 id="aggressive-mode">Aggressive Mode</h3>
-<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>, <span class="hljs-number">2</span>  
-<span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">1</span>  
+<pre><code><span class="hljs-symbol">min_liquidity_sol:</span> <span class="hljs-number">1</span>, <span class="hljs-number">2</span>
+<span class="hljs-symbol">min_trades_1m:</span> <span class="hljs-number">1</span>
 <span class="hljs-symbol">max_market_cap_usd:</span> <span class="hljs-number">500</span>k
 </code></pre><hr>
 <h1 id="-12-glossary">12. Glossary</h1>

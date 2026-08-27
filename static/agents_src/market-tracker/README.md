@@ -12,8 +12,8 @@ See `LICENSE.txt` for full terms.
 
 ## Read This First
 
-This is **not** a trading bot.  
-This is **not** a signal generator.  
+This is **not** a trading bot.
+This is **not** a signal generator.
 This is **not** a prediction engine.
 
 This is a **market environment interpreter**: a system designed to help you understand *how the market is behaving* so you can decide **how aggressive or defensive to be** before taking action.
@@ -26,32 +26,32 @@ If you are building systems, strategies, research workflows, or discretionary pr
 
 ## Table of Contents
 
-0. Scope & Intended Audience  
-1. Introduction & Motivation  
-2. What Problem This Agent Solves  
-3. What This Agent Is / Is Not  
-4. Core Concepts & Mental Model  
-5. Market Regimes Explained  
-6. High-Level Architecture  
-7. Installation (Absolute Beginner → Advanced)  
-8. Running the Agent (Continuous Mode)  
-9. Understanding the Output (Detailed Walkthrough)  
-10. Confidence Explained (Critical Concept)  
-11. Configuration Deep Dive (`config.json`)  
-12. Module-by-Module Logic Breakdown  
-13. Folder Structure Explained  
-14. Data Layer: How Information Enters the System  
-15. Making the Agent “Real” with Live Data  
-16. Normalization & Scoring Rules  
-17. Smoothing, Stability & Regime Transitions  
-18. API Keys, Environment Variables & Security  
-19. Extending the Agent (Beginner → Advanced)  
-20. Error Handling, Safety & Guardrails  
-21. Performance, Operations & Deployment  
-22. Common Customization Patterns  
-23. Design Philosophy & Tradeoffs  
-24. FAQ  
-25. Final Notes  
+0. Scope & Intended Audience
+1. Introduction & Motivation
+2. What Problem This Agent Solves
+3. What This Agent Is / Is Not
+4. Core Concepts & Mental Model
+5. Market Regimes Explained
+6. High-Level Architecture
+7. Installation (Absolute Beginner → Advanced)
+8. Running the Agent (Continuous Mode)
+9. Understanding the Output (Detailed Walkthrough)
+10. Confidence Explained (Critical Concept)
+11. Configuration Deep Dive (`config.json`)
+12. Module-by-Module Logic Breakdown
+13. Folder Structure Explained
+14. Data Layer: How Information Enters the System
+15. Making the Agent “Real” with Live Data
+16. Normalization & Scoring Rules
+17. Smoothing, Stability & Regime Transitions
+18. API Keys, Environment Variables & Security
+19. Extending the Agent (Beginner → Advanced)
+20. Error Handling, Safety & Guardrails
+21. Performance, Operations & Deployment
+22. Common Customization Patterns
+23. Design Philosophy & Tradeoffs
+24. FAQ
+25. Final Notes
 
 ---
 
@@ -113,14 +113,14 @@ It sits **above** strategies and execution logic.
 
 ## 3. What This Agent Is / Is Not
 
-### ✅ What it IS
+### What it IS
 - a macro regime interpreter
 - a continuous environment monitor
 - a modular analysis engine
 - a configurable template
 - transparent and explainable
 
-### ❌ What it is NOT
+### What it is NOT
 - a trading bot
 - a signal generator
 - a forecasting model
@@ -138,8 +138,8 @@ These forces can:
 - neutralize each other
 - conflict during transitions
 
-When forces align → regimes form  
-When forces diverge → noise dominates  
+When forces align → regimes form
+When forces diverge → noise dominates
 
 The agent measures **alignment**, not outcomes.
 
@@ -155,7 +155,7 @@ The agent classifies environments into:
 
 These regimes describe **conditions**, not direction.
 
-A risk_on regime does not guarantee upside.  
+A risk_on regime does not guarantee upside.
 A risk_off regime does not guarantee downside.
 
 They describe **how markets behave**, not what they will do.
@@ -415,10 +415,10 @@ Never hardcode secrets.
 
 ## 24. FAQ
 
-**Does this predict markets?**  
+**Does this predict markets?**
 No.
 
-**Can I plug real data?**  
+**Can I plug real data?**
 Yes.
 
 ---

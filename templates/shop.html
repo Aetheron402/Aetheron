@@ -150,7 +150,7 @@
               <span class="example-left text-xs text-gray-500 ml-2"></span>
             </p>
           </div>
-          <button onclick="closeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-cyan-300 text-lg"></button>
         </div>
 
         <p class="text-gray-400 text-sm mb-4 leading-relaxed">
@@ -233,7 +233,7 @@
               <span class="example-left text-xs text-gray-500 ml-2"></span>
             </p>
           </div>
-          <button onclick="closeCodeModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeCodeModal()" class="text-gray-400 hover:text-cyan-300 text-lg"></button>
         </div>
 
         <p class="text-gray-400 text-sm mb-4 leading-relaxed">
@@ -307,12 +307,12 @@
               <span class="example-left text-xs text-gray-500 ml-2"></span>
             </p>
           </div>
-          <button onclick="closeTesterModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeTesterModal()" class="text-gray-400 hover:text-cyan-300 text-lg"></button>
         </div>
 
         <p class="text-gray-400 text-sm mb-4 leading-relaxed">
-          Evaluate your prompt through multiple AI perspectives. Including <span class="text-cyan-300">Developer</span>, 
-          <span class="text-cyan-300">Skeptic</span>, and <span class="text-cyan-300">Hacker</span> personas.  
+          Evaluate your prompt through multiple AI perspectives. Including <span class="text-cyan-300">Developer</span>,
+          <span class="text-cyan-300">Skeptic</span>, and <span class="text-cyan-300">Hacker</span> personas.
           Aetheron will analyze responses, highlight strengths, and generate a hardened prompt blueprint for you.
         </p>
 
@@ -384,11 +384,11 @@
             </p>
           </div>
 
-          <button onclick="closeContractModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+          <button onclick="closeContractModal()" class="text-gray-400 hover:text-cyan-300 text-lg"></button>
         </div>
 
         <p class="text-gray-400 text-sm mb-4 leading-relaxed">
-          Enter an Ethereum or Solana contract address.  
+          Enter an Ethereum or Solana contract address.
           Aetheron will extract metadata, functions, risks, and known issues.
         </p>
 
@@ -447,7 +447,7 @@
         <div class="flex justify-center mt-6 gap-3">
           <button class="btn px-8 py-2.5 text-base" onclick="submitContractIntel()">Analyze</button>
         </div>
- 
+
         <div id="contract-result"
           class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
 
@@ -471,7 +471,7 @@
               <span class="example-left text-xs text-gray-500 ml-2"></span>
             </p>
         </div>
-        <button onclick="closeRiskModal()" class="text-gray-400 hover:text-cyan-300 text-lg">✕</button>
+        <button onclick="closeRiskModal()" class="text-gray-400 hover:text-cyan-300 text-lg"></button>
       </div>
 
       <p class="text-gray-400 text-sm mb-3 leading-relaxed">
@@ -650,7 +650,7 @@ async function callPaidComponent({ key, endpoint, payload, onQueued, payMethodNa
     unlock(key);
   }
 }
-</script> 
+</script>
 
 <script>
 async function updatePromptPayAmount() {
@@ -889,7 +889,7 @@ async function submitContractIntel() {
   }
 }
 </script>
-    
+
     <script>
   function detectNetworkFromAddress(addr) {
     const ethRegex = /^0x[a-fA-F0-9]{40}$/;
@@ -1027,7 +1027,7 @@ async function loadMyAssets(page = 1) {
         ` : ""}
 
         <span class="text-gray-400">
-          Page <span class="text-cyan-300">${data.page}</span> of 
+          Page <span class="text-cyan-300">${data.page}</span> of
           <span class="text-cyan-300">${data.total_pages}</span>
         </span>
 
@@ -1074,7 +1074,7 @@ async function pollJobStatus(taskId, resultDiv, userFormat = "pdf") {
           Download ${label}
         </a>
       `;
-    
+
       if (format === "pdf") {
         window.open(url, "_blank");
       } else {
