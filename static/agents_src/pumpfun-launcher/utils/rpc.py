@@ -66,13 +66,21 @@ class PumpFunClient:
         This function MUST return a list of normalized token dictionaries.
         """
 
+        # api.pump.fun answers 530 and has for some time, so this path
+        # returned nothing whenever it was used. DexScreener's latest token
+        # profiles carry the same launches and need no key.
         try:
-            res = requests.get(self.pump_api_url, timeout=self.timeout)
+            res = requests.get(self.pump_api_url, timeout=self.timeout,
+                               headers={"User-Agent": "pumpfun-launcher"})
             res.raise_for_status()
             data = res.json()
-
+            if isinstance(data, dict):
+                data = data.get("data") or data.get("tokens") or []
         except Exception as e:
-            self.logger.error(f"Pump.fun API error: {e}")
+            self.logger.debug(f"Recent token feed unavailable: {e}")
+            return []
+
+        if not isinstance(data, list):
             return []
 
         normalized = []

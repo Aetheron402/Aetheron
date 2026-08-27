@@ -100,13 +100,21 @@ class PumpFunShowcase:
                 "slippageBps": 250,
             }
             jup = requests.get(
-                "https://quote-api.jup.ag/v6/quote",
+                # lite-api is Jupiter's current host. quote-api.jup.ag no
+                # longer resolves, so every quote here failed and the block
+                # printed without the figures it exists to show.
+                "https://lite-api.jup.ag/swap/v1/quote",
                 params=params,
                 timeout=4
             ).json()
 
             out_amt = jup.get("outAmount")
-            route = jup.get("route")
+            # Jupiter returns routePlan, a list of hops. There is no "route"
+            # key, so this read None every time and the route line never
+            # printed even when the quote itself succeeded.
+            hops = jup.get("routePlan") or []
+            labels = [(h.get("swapInfo") or {}).get("label") for h in hops]
+            route = " to ".join(l for l in labels if l) or None
         except Exception as e:
             out_amt = None
             route = None

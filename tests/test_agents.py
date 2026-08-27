@@ -384,3 +384,37 @@ def test_sniper_filters_say_unknown_rather_than_unsafe():
 
     assert helpers.token_passes_filters(token, cfg, Recorder()) is False
     assert any("could not be read" in m for m in records), records
+
+
+def test_no_agent_points_at_a_retired_endpoint():
+    """
+    Endpoints rot. Birdeye retired /public, Jupiter moved off quote-api.jup.ag
+    and api.pump.fun answers 530, and in each case the agent kept calling and
+    quietly returned nothing.
+    """
+    import re
+    RETIRED = ("quote-api.jup.ag", "api.pump.fun", "public-api.birdeye.so/public")
+
+    for agent in sorted(os.listdir(AGENTS)):
+        for root, dirs, files in os.walk(os.path.join(AGENTS, agent)):
+            dirs[:] = [d for d in dirs if d not in ("__pycache__", ".venv")]
+            for name in files:
+                if not name.endswith((".py", ".json")):
+                    continue
+                body = open(os.path.join(root, name), errors="replace").read()
+                for dead in RETIRED:
+                    # A comment may name one to explain why it was replaced.
+                    live = [ln for ln in body.splitlines()
+                            if dead in ln and not ln.strip().startswith("#")]
+                    assert not live, f"{agent}/{name} still calls {dead}: {live[:1]}"
+
+
+def test_pumpfun_reads_the_route_jupiter_actually_returns():
+    """
+    Jupiter returns routePlan, a list of hops. There is no route key, so the
+    old read returned None every time and the route line never printed even
+    when the quote succeeded.
+    """
+    source = open(os.path.join(AGENTS, "pumpfun-launcher", "main.py")).read()
+    assert "routePlan" in source
+    assert 'jup.get("route")' not in source
