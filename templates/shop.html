@@ -41,6 +41,12 @@
 
           <span class="text-cyan-300 font-semibold">
             {{ c.price }}
+            {# A real report from this component, so the output can be read
+               before paying rather than after. #}
+            {% if c.slug in ['prompt-optimizer','code-explainer','prompt-tester','contract-intel','risk-engine'] %}
+              <button type="button" class="example-btn" data-slug="{{ c.slug }}"
+                      title="Read a real report from this component">See an example</button>
+            {% endif %}
             {# Temporary preview button, removed along with the dev_preview module. #}
             {% if dev_preview and c.slug in ['prompt-optimizer','code-explainer','prompt-tester','risk-engine','contract-intel'] %}
               <button type="button" class="dev-test-btn" data-slug="{{ c.slug }}"
@@ -127,12 +133,12 @@
           themselves, hosted agent runs, and settlement from EVM wallets.</p>
         </div>
         <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
-          <h3 class="text-cyan-300 font-semibold mb-2">H1 2027</h3>
+          <h3 class="text-cyan-300 font-semibold mb-2">Q1-Q2 2027</h3>
           <p class="text-sm">Components chained together and settled per hop, then a trust ledger that
           certifies every report on chain.</p>
         </div>
         <div class="bg-gray-900 border border-cyan-400/20 rounded-xl p-6 hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] transition">
-          <h3 class="text-cyan-300 font-semibold mb-2">H2 2027</h3>
+          <h3 class="text-cyan-300 font-semibold mb-2">Q3-Q4 2027</h3>
           <p class="text-sm">An open marketplace paying its creators per call, and agents hiring other
           agents under governance.</p>
         </div>
@@ -1330,6 +1336,70 @@ function toggleMobileMenu() {
 })();
 </script>
 {% endif %}
+
+
+<style>
+  /* Quieter than Use: the point is that reading one costs nothing. */
+  .example-btn {
+    display: inline-block; margin-left: .5rem; padding: .12rem .6rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .02em; line-height: 1.5;
+    color: #67e8f9; background: rgba(103,232,249,.07);
+    border: 1px solid rgba(103,232,249,.28); border-radius: 999px;
+    cursor: pointer; white-space: nowrap; vertical-align: middle;
+    transition: background .15s, color .15s;
+  }
+  .example-btn:hover { background: rgba(103,232,249,.18); color: #a5f3fc; }
+
+  #example-bg .modal { width: min(60rem, calc(100vw - 3rem)); }
+  #example-body {
+    background: #070b14; border: 1px solid rgba(103,232,249,.14);
+    border-radius: .6rem; padding: 1.1rem 1.3rem;
+    font-family: 'Geist Mono', ui-monospace, monospace;
+    font-size: .72rem; line-height: 1.6; color: #cbd5e1;
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 62vh; overflow-y: auto;
+  }
+</style>
+
+<div id="example-bg" class="modal-bg" style="display:none">
+  <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6">
+    <div class="flex justify-between items-start mb-1">
+      <h3 id="example-title" class="text-cyan-300 text-xl font-semibold">Example report</h3>
+      <button onclick="document.getElementById('example-bg').style.display='none'"
+              class="text-gray-400 hover:text-cyan-300 text-lg">&times;</button>
+    </div>
+    <p class="text-sm text-gray-400 mb-4">
+      A real report this component produced, unedited. Yours is generated from your
+      own input, so it will differ in content rather than in shape.
+    </p>
+    <pre id="example-body">Loading...</pre>
+  </div>
+</div>
+
+<script>
+// Static files, so reading one costs nothing, needs no wallet, and keeps
+// working after the dev preview block above is removed.
+document.querySelectorAll(".example-btn").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const bg = document.getElementById("example-bg");
+    const body = document.getElementById("example-body");
+    const card = btn.closest(".card");
+
+    document.getElementById("example-title").textContent =
+      card ? card.querySelector("h2").textContent.trim() : "Example report";
+    body.textContent = "Loading...";
+    bg.style.display = "flex";
+
+    try {
+      const r = await fetch(`/static/examples/${btn.dataset.slug}.txt`);
+      body.textContent = r.ok ? await r.text() : "This example could not be loaded.";
+    } catch (e) {
+      body.textContent = "This example could not be loaded.";
+    }
+    body.scrollTop = 0;
+  });
+});
+</script>
 
 </div>
 

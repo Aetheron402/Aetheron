@@ -1,0 +1,156 @@
+1. Core Prompt Interpretation
+
+The prompt asks for a condensed version of some unspecified source material, aimed at an unspecified group, at an unspecified length. Three things are missing and each one changes the deliverable: what "this" refers to (no document is attached in the prompt as given), who "the team" is and therefore what they already know and care about, and what "short" means numerically. Readers fill these gaps silently: one asks for the source, one summarises the conversation so far, one produces three bullets, one produces a half page memo with action items. The framing "for the team" also hides a purpose question: is this an FYI, a decision request, or a status update?
+
+2. Where It Splits
+
+• [HIGH] "this"
+  There is no antecedent in the prompt. No document, link or text is included, so the referent must be guessed from context that may not exist.
+  - reads as: A document or text the author intended to paste but did not
+  - reads as: The preceding conversation or thread
+  - reads as: The most recent output the assistant produced
+• [HIGH] "for the team"
+  Names an audience without saying who they are, what they already know, or what they need to do with it. Audience determines jargon level, framing and what gets cut.
+  - reads as: Engineering peers who share all context, so keep technical detail and cut background
+  - reads as: Cross functional stakeholders who need background and no jargon
+  - reads as: Leadership, so lead with decisions and risks
+• [HIGH] "keep it short"
+  No unit given. "Short" spans an order of magnitude between readers.
+  - reads as: One or two sentences
+  - reads as: Three to five bullets
+  - reads as: Under one page, roughly 300 words
+• [MEDIUM] "Summarise"
+  Does not say whether output is neutral compression or purpose driven extraction (decisions, risks, next steps).
+  - reads as: Faithful neutral precis of the whole
+  - reads as: Extract only what the team must act on
+
+3. PersonaBench Matrix
+
+Literal assistant with no attachment
+
+• Interpretation: Cannot proceed because "this" has no referent, so asks for the source.
+• Strength: Avoids fabricating a summary of material it does not have. Correct behaviour when the referent is genuinely absent.
+• Weakness: If the author meant the prior conversation, this reader stalls unnecessarily and burns a turn.
+• Would return:
+
+```
+I do not see anything attached. Could you paste the text or link the document you want summarised, and tell me roughly how short (a sentence, a few bullets, a paragraph)?
+```
+
+Speed optimiser in a chat thread
+
+• Interpretation: "This" is the conversation above. "Short" means three bullets. Neutral compression.
+• Strength: Fast, scannable, matches how the instruction reads in a Slack style workflow.
+• Weakness: Silently assumes the thread is the referent and drops anything not stated explicitly, including implications and next steps, because nobody asked for them.
+• Would return:
+
+```
+TL;DR
+- Rollout slipped from Tuesday to Thursday
+- Cause: auth service latency under load
+- Fix in review, no customer impact so far
+```
+
+Comms minded manager
+
+• Interpretation: "For the team" implies a broadcast message, so the deliverable is a ready to send update with framing and an ask.
+• Strength: Produces something actually usable in a channel: context line, key points, what happens next.
+• Weakness: Adds a purpose, tone and call to action nobody specified, and overshoots "keep it short" to make the message stand alone.
+• Would return:
+
+```
+Team, quick update on the release.
+
+What changed: we are moving Thursday.
+Why it matters: no customer impact, but QA windows shift.
+What we need: confirm your test slots by EOD.
+
+Happy to go deeper in standup.
+```
+
+Completeness driven analyst
+
+• Interpretation: A summary must be faithful, so "short" means dense rather than selective: cover every section briefly.
+• Strength: Nothing important is lost, good when the source is long and the team will not read it.
+• Weakness: Interprets "short" as relative to the source, so a 40 page doc yields 500 words and the author's actual constraint is broken.
+• Would return:
+
+```
+Summary (by section)
+1. Background: ...
+2. Findings: ...
+3. Risks: ...
+4. Recommendations: ...
+(approx. 450 words, roughly 10 percent of the original)
+```
+
+
+4. Persona Level Deepening
+
+Literal assistant with no attachment
+
+• Reads as unhelpful when context was in fact available
+• Asks for length clarification the author considered already answered by "short"
+
+Speed optimiser in a chat thread
+
+• Summarises the wrong source if an attachment was intended
+• Omits owners and dates the team needs to act
+
+Comms minded manager
+
+• Invents an ask that does not exist
+• Length creeps to a paragraph plus headers despite "keep it short"
+
+Completeness driven analyst
+
+• Blows the length budget while believing it complied
+• Neutral tone buries the one item requiring action
+
+5. Cross Persona Comparison
+
+All four agree the task is compression and none would invent facts about the source. They diverge on three axes the prompt never fixes: referent (ask for it versus assume the thread), length (one line, three bullets, a paragraph, 450 words), and purpose (neutral precis versus action oriented broadcast). The only stable reading is that the output should be shorter than its source. Everything an author would actually check, format, length, audience level, whether next steps appear, is unpredictable.
+
+6. Prompt Quality Score
+
+Prompt Quality Score: 2/10
+
+Earns points for a clear verb and an explicit brevity intent, so no reader mistakes the task for expansion or rewriting. It loses almost everything else: "this" has no antecedent, "the team" carries no audience profile, "keep it short" has no unit, and the purpose of the summary is absent. Four of the five decisions needed to produce the artefact are left to the reader.
+
+7. Persona Divergence Score
+
+Persona Divergence Score: 9/10
+
+"this", "for the team" and "keep it short" each independently split the readings, and they multiply. The outputs range from a clarifying question to three bullets to a send ready channel post to a 450 word sectioned precis. In practice this costs at least one rework cycle and risks a summary written for the wrong audience level.
+
+8. Improvement Suggestions
+
+• Replace the unanchored "this" with an explicit referent: name the attached document or state "the thread above".
+• Replace "keep it short" with a hard budget, for example "maximum 5 bullets, under 100 words".
+• Replace "for the team" with an audience profile and knowledge level, for example "backend engineers who already know the incident timeline".
+• Specify the purpose behind "Summarise": neutral precis versus extract decisions, owners and next steps.
+• State the format and whether it is ready to send or raw notes, since the comms minded reader otherwise adds greeting and call to action.
+• Add a fallback instruction: if the source is missing, ask rather than summarise the conversation.
+
+9. Improved Prompt Variant
+
+```
+Summarise the attached document [PASTE OR ATTACH IT HERE] for my team.
+
+Audience: five backend engineers who already know the project background and the incident timeline. Skip context they have, keep technical terms.
+
+Purpose: they need to know what changed and what they must do next. Extract decisions, owners and dates. Leave out background, methodology and anything nobody needs to act on.
+
+Format: a one line headline, then a maximum of five bullets. Under 100 words total. Plain text, no greeting or sign off, I will paste it into Slack myself.
+
+If a claim in the source is unclear or a bullet has no named owner, add a short "Open questions" line at the end rather than guessing.
+
+If no document is attached, ask me for it instead of summarising this message or our earlier conversation.
+```
+
+10. After The Rewrite
+
+Prompt Quality Score: 2/10 → 9/10
+Persona Divergence Score: 9/10 → 2/10
+
+The rewrite fixes the referent, the word budget, the audience knowledge level, the extraction purpose and the missing source fallback, so the four high impact ambiguities are closed. Remaining spread is narrow but real: readers will still judge differently what counts as "anything nobody needs to act on", and whether a decision without a date belongs in a bullet or in "Open questions". Headline wording style also stays open, though that changes phrasing rather than the deliverable.

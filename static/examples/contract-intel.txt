@@ -1,0 +1,98 @@
+On-chain Contract Intelligence Report
+
+1. Verdict
+
+Both the mint authority and freeze authority on this SPL mint are null, so no key can issue new supply or freeze holder accounts, which leaves market depth rather than contract control as the thing that determines whether it is safe to hold.
+
+2. High Level Summary
+
+This is the Bonk SPL token mint on Solana, owned by the standard SPL Token program (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA) and not itself executable. The parsed mint account reports mintAuthority null and freezeAuthority null with isInitialized true, decimals 5 and a supply of 8799457831408070266 raw units. That combination removes the two levers that normally let an issuer harm holders on Solana: there is no way to inflate supply and no way to freeze a token account. The residual risk is not in the contract, it is in the market and in what the scan could not resolve. Dexscreener reports a single Raydium pair (3UwfrdLTpAjxTRni1boc5HUWe6hzc4HgE5yLdvEp2Noc) with liquidity_usd of 149,971.27 and volume_24h of 43,467.58 against a market_cap and fdv of 274,668,528, meaning the depth visible in this scan is a very small fraction of the nominal valuation. LP lock status came back unknown because the Solana LP mint could not be fetched, and honeypot simulation was not run. Holder data did return: the largest single owner holds 8.17 percent, the top five 24.51 percent and the top ten 38.56 percent of supply across a 20 account sample.
+
+3. Contract Identity and Role
+
+A token mint account. parsed_type is mint, kind is token-mint, executable is false, and the owner_program is the standard SPL Token program, so this is a plain fungible token mint rather than a program or a token account. token_metadata names it Bonk with symbol Bonk, trading on Raydium. It has no custom program logic of its own: all behaviour is whatever the SPL Token program provides.
+
+4. Technical Profile
+
+On Solana an SPL mint carries only two privileged fields, and both are null here. mintAuthority null means the supply of 8799457831408070266 raw units at 5 decimals is fixed and cannot be increased by any signer. freezeAuthority null means no authority can immobilise a holder's associated token account. Because executable is false and the owner is the canonical SPL Token program, there is no upgradeable program, no proxy, no admin module and no upgrade authority attached to this asset. There is correspondingly no ABI to review and no custom function surface: that is expected for a bare SPL mint, not a gap. Power over holders through the mint itself is effectively zero; whatever governance or treasury activity exists around the project sits in separate accounts outside this scan.
+
+Threat Vectors
+
+• No dangerous capability was found in the evidence for this contract.
+
+5. Token and Market Snapshot
+
+Dexscreener returns a price_usd of 0.000003090, market_cap and fdv both 274,668,528, and a single indexed pair on Raydium with liquidity_usd of 149,971.27 and volume_24h of 43,467.58. Market cap equalling FDV is consistent with a fully issued supply and a null mint authority. What the data supports saying is that the token trades and has non-zero on-chain depth, which is the only positive signal the scan recorded. What it does not support is any claim about total market depth: this is one pair, and 149,971.27 of liquidity against a 274 million valuation means the observable venue here would absorb only a small sell before material slippage. Volume of 43,467.58 over 24 hours on this pair is thin. No website, Twitter, Telegram or Discord candidates were extracted, so the scan carries no project-side corroboration.
+
+Holder Concentration Table (Top 10)
+
+| Rank | Wallet Address | % of Supply |
+|------|----------------|-------------|
+| 1 | 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM | 8.17% |
+| 2 | 51yZyDSnec4xnUv7XLRVYcDyV4x3wUtzrDcRaYbmQU5j | 6.56% |
+| 3 | 4xLpwxgYuPwPvtQjE94RLS4WZ4aD8NJYYKr2AJk99Qdg | 3.47% |
+| 4 | 9AdEE8AAm1XgJrPEs4zkTPozr3o4U5iGbgvPwkNdLDJ3 | 3.25% |
+| 5 | 9RpzaFh4J8F6Qg1gjnhrhSp9eXdVDjsesZXe53qp7ubB | 3.06% |
+| 6 | EbLm4ZtRqDftrQnZaMMvnwcKjK5ef5vm1Hg3sAPv3tKi | 3.04% |
+| 7 | 7Lp4JBapgNhXoxpJtR2twufh7oaQyqngqJpy7HFJcn7h | 2.95% |
+| 8 | EfEgUV2uQAzTooo6L4oYiEm15F6JBTnGiWMejqxPaqL3 | 2.81% |
+| 9 | 3B7XAQrLoEMDEGvX8569F9GRb9PcXXocJmj5wvhhei9z | 2.70% |
+| 10 | 8Mm46CsqxiyAputDUp2cXHg41HE3BfynTeMBDwzrMZQH | 2.55% |
+
+6. Permission and Control Surface
+
+• mintAuthority is null in parsed_info: supply is capped and no key can dilute holders.
+• freezeAuthority is null in parsed_info: no key can freeze or immobilise a holder's token account, which is the usual Solana equivalent of a blacklist.
+• executable is false and owner_program is the canonical SPL Token program: there is no upgrade authority and no custom admin code path attached to this mint.
+• admin_risk and exploit_surface are both null in the scan, which is consistent with a bare mint that has no privileged surface to enumerate rather than evidence of a hidden one.
+• Distribution is measured, not assumed: top1_pct is 8.17, top5_pct is 24.51 and top10_pct is 38.56 across a 20 account sample, with the largest owner 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM. These are largest-account balances from rpc_largest_accounts and may include exchange and pool custody rather than individual control.
+• Bubblemap clustering found 62 nodes and 6 clusters with a largest cluster of 48 addresses, and suspicious_cluster_count is 0, so no coordinated wallet grouping was flagged by that pass.
+
+LP Lock Status
+
+LP lock status is unknown: the scan could not fetch the Solana LP mint, so nothing can be said about whether pool tokens for the Raydium pair 3UwfrdLTpAjxTRni1boc5HUWe6hzc4HgE5yLdvEp2Noc are locked, burned or freely withdrawable. Treat that as unmeasured rather than reassuring. In practical terms it matters less here than it would for a token with live authorities, because the mint cannot be inflated, but it still means the 149,971.27 of visible liquidity is of unverified permanence and could in principle be pulled by whoever holds the LP position.
+
+7. Risk Assessment
+
+Overall Risk Score: 4/10
+Centralization Score: 4/10
+Data Quality Score: 7/10
+Data Completeness Score: 9/10
+
+• Centralization risk from the contract itself is minimal because both authority fields are null. There is no key to trust and no renouncement to verify: the fields are simply absent from the mint account.
+• Monetary risk is bounded by mintAuthority being null. The supply figure of 8799457831408070266 raw units at 5 decimals is what exists and cannot grow.
+• Technical risk is low in the sense that there is no custom program, but that also means nothing about the asset is verifiable by code review: the safety here rests entirely on the two null authority fields and on the SPL Token program's known behaviour.
+• Honeypot risk is unassessed. honeypot_intel is null, so no buy or sell simulation was performed. With freezeAuthority null there is no mint-level mechanism to block a sale, but that reasoning is inference from the mint account, not a completed simulation.
+• Distribution is moderately concentrated at the top of the measured sample: 38.56 percent across ten owners. Whether that represents custodial pools or individual holders is not resolvable from this scan, and the sample covers 20 accounts rather than the full holder set.
+• The liquidity to valuation ratio is the practical exposure. A 274,668,528 market cap sitting above 149,971.27 of indexed depth on one Raydium pair means exit pricing, not contract permissions, is the dominant hazard for anyone sizing a position off the headline valuation.
+
+Positive Signals:
+
+• Dexscreener shows non-zero liquidity for this token.
+
+Negative Signals:
+
+• None identified in this scan.
+
+8. Scan Coverage
+
+Checked in this scan
+• On-chain account data: checked, read from the chain
+• Market data: checked, price, liquidity and volume
+• Holder distribution: checked, top holder balances
+• Transfer graph clustering: checked, wallet cluster analysis
+
+Not available in this scan
+• Liquidity lock: NOT CHECKED, whether LP is locked or burned did not come back
+• Project links: NOT CHECKED, website and socials did not come back
+
+An item that was not checked is unmeasured, not clear. Nothing above should be read as evidence that the missing check would have passed.
+
+9. Recommendations
+
+• Confirm the two null authority fields yourself against the mint account before relying on them, since they are the entire basis of the low contract risk here.
+• Check total liquidity across all venues rather than the single Raydium pair in this scan, and size any position against real depth rather than the 274,668,528 market cap figure.
+• Resolve the LP position for pair 3UwfrdLTpAjxTRni1boc5HUWe6hzc4HgE5yLdvEp2Noc independently, since lock status could not be fetched and the pool tokens' disposition is unknown.
+• Run a small round-trip buy and sell before committing size, because honeypot simulation was not performed in this scan.
+• Identify the top owners, starting with 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM at 8.17 percent, to establish whether the top ten's 38.56 percent is exchange custody or concentrated private holdings.
+• Note that no website, social or documentation candidates were extracted here, so verify project identity and any claims through sources outside this report.

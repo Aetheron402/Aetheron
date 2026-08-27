@@ -1,0 +1,79 @@
+1. Optimized Prompt
+
+```
+You are a conversion copywriter. Rewrite the landing page copy below.
+
+CONTEXT (fill in; if a field is blank, ask me for it before rewriting rather than guessing):
+- Product/service: 
+- Who it is for (specific role, situation, or trigger): 
+- The single action the page must drive (e.g. start free trial, book demo, buy): 
+- Main objection or hesitation this audience has: 
+- Closest alternative they use today (competitor, spreadsheet, doing nothing): 
+- Proof available (metrics, customer names, guarantees, credentials): 
+- Brand voice (pick or describe: plain and direct / warm / technical / playful): 
+- Constraints (word limits, banned claims, legal/compliance rules, must-keep phrases): 
+
+CURRENT COPY:
+"""
+[paste the full page copy here, keeping section labels such as HERO, SUBHEAD, FEATURES, CTA]
+"""
+
+WHAT TO DO:
+1. Diagnose first, in under 150 words: what the current copy makes clear, what it leaves the reader guessing about, and where a visitor would drop off.
+2. Rewrite section by section, keeping my existing structure and section labels. For the hero headline and the primary CTA, give three distinct options, not variations of the same sentence.
+3. Then list, in a table, each rewritten section against a one-line reason for the change.
+
+RULES:
+- Every claim in the rewrite must be traceable to something I gave you. Do not invent statistics, customer quotes, awards, or feature capabilities. If a line would be stronger with proof I have not supplied, write it as [PROOF NEEDED: what you need] rather than inventing it.
+- Lead with what the reader gets, not what the product is.
+- Cut hype adjectives (revolutionary, seamless, cutting-edge, game-changing) unless my brand voice explicitly calls for them.
+- Match or beat the current word count per section unless I said otherwise. Shorter is better when meaning survives.
+- Keep reading level around grade 8 unless the audience is technical specialists.
+- Preserve any legal or compliance wording exactly.
+
+OUTPUT: diagnosis, then the rewritten page, then the change table. No preamble.
+```
+
+2. What Changed
+
+• Added a context block for audience, desired action, objection, alternative and proof. Without these, a model invents a generic SaaS persona and writes copy aimed at nobody, which is the default failure of 'make it better'.
+• Added an explicit instruction to paste the current copy and an instruction to ask rather than guess on blank fields. The original prompt referenced 'my landing page copy' without supplying it, so the model would either hallucinate a page or write a lecture on landing page best practice.
+• Defined 'better' as a single conversion goal plus a named action. 'Better' is unmeasurable; a model optimises for prettier prose, which often lengthens the page and buries the CTA.
+• Banned invented proof and introduced the [PROOF NEEDED] placeholder. Copy models reliably fabricate '10,000+ teams trust us' and fake testimonials, which is a legal and credibility hazard if pasted live.
+• Required three distinct hero and CTA options. A single rewrite gives you nothing to test, and asking for 'variations' without the distinctness rule produces three rewordings of one idea.
+• Required a diagnosis before the rewrite so the model commits to a theory of the problem, which prevents cosmetic word-swapping that leaves the actual weakness untouched.
+• Added a word-count ceiling and a hype-adjective ban. Unconstrained rewrites expand: the classic output is the same page with more adjectives.
+• Required the section-by-section change table so you can accept some edits and reject others instead of taking or leaving a wholesale rewrite.
+• Added preservation of legal and compliance wording, which models routinely 'improve' into non-compliance.
+
+3. Prompt Analysis
+
+The original is a four-word request with one goal (improve conversion copy) and three missing pieces: the copy itself, the audience, and a definition of better. It gets one thing right, which is that it names the artifact type; landing page copy is a well-understood genre and a model has strong priors about its structure. Everything else is open. 'Better' could mean shorter, clearer, more persuasive, more on-brand, more SEO-friendly, or more compliant, and these pull in opposite directions: SEO wants keywords, conversion wants brevity. With no audience specified, the model defaults to a generic B2B software buyer. With no proof supplied, it fills the persuasion-shaped holes in the template with fabricated evidence, because a landing page pattern-matches to one containing social proof and numbers. With no structure specified, it may also silently reorganise the page, which breaks whatever design the copy sits inside.
+
+4. Failure Modes
+
+• No copy attached: the model writes a generic example landing page or a bulleted essay on landing page principles, neither of which is usable.
+• Fabricated social proof: invented user counts, testimonials, award badges and percentage uplifts presented as fact. High risk because it reads polished and a hurried user pastes it live.
+• Invented features: the rewrite promises integrations, guarantees or an SLA the product does not have.
+• Audience drift: copy written for a generic startup founder when the real buyer is, say, a hospital procurement officer, producing tone that actively repels the reader.
+• Expansion: a longer page with more adjectives and a weaker CTA, mistaking richer prose for stronger copy.
+• Structural rewrite: sections merged, reordered or dropped, so the copy no longer fits the page template and the change cannot be shipped without a design pass.
+• Compliance breakage: regulated wording (financial, medical, insurance disclaimers) rewritten for flow and thereby invalidated.
+• Unfalsifiable improvement: with no stated goal, there is no way to judge whether the output is better, so you end up trusting vibes.
+
+5. Variants
+
+• Test-generation angle: instead of one rewrite, ask for five hero headline and CTA pairs, each built on a different persuasion angle (outcome, pain, speed, risk reversal, social proof), with the hypothesis each one tests, for A/B testing. Use when you have traffic to test on.
+• Critique-only angle: ask for a drop-off audit of the existing page, ranked by estimated impact, with no rewriting. Use when you want to keep control of the voice and only need to know what is broken.
+• Voice-matching angle: supply three samples of existing brand copy and instruct the model to extract the voice rules first, then rewrite within them. Use when the page must sit inside an established brand system.
+• Compliance-first angle: add a review pass where every claim is tagged as verifiable, puffery or unsupported before rewriting. Use in regulated sectors.
+
+6. Using It
+
+• Fill the context block honestly. A blank 'objection' field is the single biggest predictor of bland output, because objection handling is where copy earns its keep.
+• If the model rewrites despite blank fields, it is ignoring the ask-first instruction. Reply with 'ask me the questions first' rather than accepting the guess.
+• Search the output for numbers and named customers before shipping. Anything not in your context block is fabricated, whatever confidence it is stated with.
+• Smaller or older models tend to skip the diagnosis step and jump to the rewrite. If that happens, run the diagnosis as a separate first message.
+• Word-count discipline is weakly enforced across all models. Check section lengths yourself and reply with 'cut section X by 30 percent, keep the meaning' if it drifts.
+• Judge the result on the page metric, not on how it reads: click-through to the CTA, scroll depth, form starts. If you cannot test, at minimum read the hero aloud and check that a stranger can say what the product does and who it is for within ten seconds.
+• Keep the [PROOF NEEDED] markers visible until you have actually filled them. Deleting them without supplying evidence reintroduces the vagueness the rewrite removed.

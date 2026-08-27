@@ -1,0 +1,97 @@
+1. Verdict
+
+The average return of 8.90% is a mirage created by a small number of very large winners. The median path ends at 0.8589, a loss of about 14% against a 1.0 entry, and 58.00% of paths finish below where they started. More to the point, the typical holder does not experience the ending, they experience the middle: the median maximum drawdown is 52.01%, and 99.45% of paths fall at least 20% from a peak at some point. The median path also spends 60.00% of the horizon below entry. This is a distribution where a positive mean coexists with a majority of losing paths and near-certain deep discomfort along the way.
+
+2. Simulation Results
+
+Parameters:
+• Runs: 2000
+• Steps: 40
+• Mu (drift over the full horizon): 0.1
+• Sigma (volatility over the full horizon): 0.7
+• Start Price: 1.0
+• Seed: 5
+
+Final Price Results:
+• Average Final Price: 1.0890
+• Min Final Price: 0.1026
+• Max Final Price: 8.7948
+
+Return Results:
+• Average Return: 8.90%
+• Worst Return: -89.74%
+• Best Return: 779.48%
+• Standard Deviation of Returns: 84.21%
+
+Distribution Percentiles:
+• P5: 0.2763
+• P25: 0.5301
+• P50 (Median): 0.8589
+• P75: 1.3838
+• P95: 2.6390
+
+Tail Risk:
+• Value at Risk (5%): 0.2763, a return of -72.37%
+• Expected Shortfall (worst 5%): 0.2076, a return of -79.24%
+
+Drawdown, the fall from peak along the way:
+• Median Maximum Drawdown: 52.01%
+• 95th Percentile Drawdown: 79.39%
+• Deepest Drawdown Observed: 90.60%
+• Probability of a 20% Drawdown: 99.45%
+• Probability of a 50% Drawdown: 54.60%
+• Median Share of the Horizon Spent Below Entry: 60.00%
+• 95th Percentile Share Spent Below Entry: 100.00%
+
+Probability Metrics:
+• Probability of Loss: 58.00%
+• Probability of >20% Loss: 45.30%
+• Probability of >50% Loss: 22.50%
+• Probability of >50% Gain: 22.45%
+
+3. Downside
+
+• Losses are the base case, not the exception: 58.00% of paths end below entry, 45.30% end down more than 20%, and 22.50% end down more than 50%.
+• The 5% Value at Risk sits at 0.2763, a return of -72.37%. That is the entry point to the worst twentieth of outcomes, not the worst case.
+• Expected shortfall inside that tail is 0.2076, a return of -79.24%. The gap between -72.37% and -79.24% is about seven percentage points, so the tail is severe but not extraordinarily stretched beyond its own threshold: once you are in the worst 5%, you are reliably down roughly four fifths, not marginally past the VaR line.
+• The worst single path lost 89.74%, finishing at 0.1026.
+• Much of the pain is path pain rather than terminal pain. 45.30% of paths finish more than 20% down, but 99.45% touch a 20% drawdown. Similarly, 22.50% finish more than 50% down while 54.60% touch a 50% drawdown at some stage.
+
+4. Upside
+
+• The upper tail is what carries the average. The best path returned 779.48%, ending at 8.7948, and the P95 outcome is 2.6390. Strip out that thin upper tail and the average return of 8.90% does not survive: the median is 0.8589.
+• 22.45% of paths finish more than 50% ahead, so a meaningful minority do well, but that is almost exactly balanced by the 22.50% that finish more than 50% down.
+• The interquartile range runs from 0.5301 to 1.3838. Even the 75th percentile outcome is a gain of under 40%, which tells you how much of the reported upside is concentrated above P95.
+• Standard deviation of returns is 84.21%, which is the whole story in one number: the dispersion dwarfs the 8.90% mean.
+
+5. Drawdown
+
+The drawdown figures and the final price figures tell different stories, and the difference matters. Half of all paths fall at least 52.01% from a peak before the horizon ends, and the 95th percentile drawdown is 79.39%, with the deepest observed at 90.60%. A 20% fall is effectively guaranteed at 99.45%, and a 50% fall is more likely than not at 54.60%. Meanwhile the median ending is only about 14% below entry. In other words, a large fraction of the paths that end near or above entry get there only after halving first. Add that the median path is underwater for 60.00% of the horizon, and 5% of paths are underwater for the entire horizon, and the practical question is not whether the ending is acceptable but whether a holder would still be holding when it arrives. The ending is only available to someone who sat through the middle.
+
+6. If The Inputs Were Wrong
+
+Volatility and drift are usually estimated, often guessed. These are the same simulation re-run with each one moved, so the reader can see which input the conclusion actually rests on.
+
+| Change | Median | P5 | Median Drawdown | Chance of Loss |
+|---|---|---|---|---|
+| As entered | 0.8558 | 0.2641 | 52.2% | 58.0% |
+| Sigma half (0.35) | 1.0340 | 0.5744 | 28.0% | 45.5% |
+| Sigma one and a half times (1.05) | 0.6267 | 0.1075 | 70.6% | 66.9% |
+| Mu zero (0) | 0.7744 | 0.2390 | 54.3% | 63.9% |
+| Mu double (0.2) | 0.9458 | 0.2919 | 50.4% | 53.4% |
+
+7. Model Assumptions
+
+• Geometric Brownian motion assumes volatility is constant at 0.7 for the whole horizon. Real assets get more volatile as they fall, which means the deep drawdown paths here are gentler and more gradual than their real equivalents.
+• Steps are independent, so there is no momentum, no mean reversion and no volatility clustering. Real drawdowns tend to arrive in clusters rather than being spread evenly across 40 steps.
+• There are no jumps. Prices move continuously, so nothing gaps overnight on news. Real assets do, and a gap through a stop or a liquidation level is not represented anywhere in these figures.
+• Returns are lognormal, which has thinner tails than real markets. The -79.24% expected shortfall and the -89.74% worst path should be read as a floor on how bad the tail gets, not a description of it. The true probability of an extreme outcome is higher than 5%.
+• 2000 runs is enough to pin down the median and the quartiles but the extreme percentiles, particularly the maximum of 8.7948 and the deepest 90.60% drawdown, are estimated from a handful of paths and would move if reseeded.
+
+8. Parameter Notes
+
+• Sigma of 0.7 over the full horizon is very high, at the level of a single volatile crypto asset or a distressed equity rather than a broad index. This one input drives essentially everything: the 84.21% return standard deviation, the 52.01% median drawdown and the near-certain 20% drawdown all come from it.
+• Mu of 0.1 over the horizon is a positive drift assumption that is doing real work in producing the 8.90% average return, but notice that even with it, the median finishes at 0.8589. That is the volatility drag: at this sigma, a 0.1 drift is not enough to make the typical path a winner. The conclusion is far more sensitive to sigma than to mu.
+• Consult the sensitivity table for how the picture shifts when sigma is halved and doubled and when mu is zeroed and doubled, and read the input sensitivity claims off those rows rather than from intuition. Where a row disagrees with the reasoning above, the row governs.
+• Start price is normalised to 1.0, so every figure is a multiple of entry and scales directly with position size. There are no fees, no financing costs and no slippage in these numbers.
+• Both mu and sigma are chosen inputs, not estimates from data. A reader who picked 0.1 and 0.7 arbitrarily should treat the output as a description of those assumptions rather than as a forecast.

@@ -1472,3 +1472,44 @@ def test_a_report_with_no_data_at_all_still_scores_and_renders():
 
     assert "unavailable" in cr.holder_table(blob).lower()
     assert "NOT CHECKED" in cr.coverage(blob)
+
+
+def test_every_paid_component_has_a_readable_example():
+    """
+    An agent can be watched running for nothing. A component costs money and
+    showed nothing until after payment, which is the same problem without the
+    solution.
+    """
+    import os
+    import re
+    from fastapi.testclient import TestClient
+    import Aetheron
+
+    client = TestClient(Aetheron.app)
+    html = client.get("/shop").text
+    wired = set(re.findall(r'example-btn" data-slug="([a-z-]+)"', html))
+
+    expected = {"prompt-optimizer", "code-explainer", "prompt-tester",
+                "contract-intel", "risk-engine"}
+    assert wired == expected, expected ^ wired
+
+    for slug in expected:
+        response = client.get(f"/static/examples/{slug}.txt")
+        assert response.status_code == 200, slug
+        # A stub would pass a mere existence check.
+        assert len(response.text) > 2000, f"{slug} example is too short to be real"
+
+
+def test_examples_survive_the_dev_preview_being_removed():
+    """
+    The block was first placed inside the dev-only section, so examples worked
+    only with DEV_TOKEN set and would have been deleted along with the harness
+    before launch.
+    """
+    source = open("templates/shop.html").read()
+    dev_start = source.index("{% if dev_preview %}")
+    dev_end = source.index("{% endif %}", dev_start)
+    dev_block = source[dev_start:dev_end]
+
+    assert "example-btn {" not in dev_block
+    assert 'id="example-bg"' not in dev_block
