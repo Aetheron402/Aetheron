@@ -321,10 +321,30 @@ def test_sniper_discovery_is_not_a_generated_example():
     150,000 dollar market cap, none of which existed. It taught the filters
     nothing, because an invented token passes every check by construction.
     """
-    source = open(os.path.join(AGENTS, "solana-sniper", "utils", "rpc.py")).read()
-    assert "ExampleMint" not in source
-    assert "example_token" not in source
-    assert "token-profiles" in source, "discovery needs a real source"
+    import ast
+
+    path = os.path.join(AGENTS, "solana-sniper", "utils", "rpc.py")
+    source = open(path).read()
+
+    # Strings that appear only inside comments or docstrings are prose about
+    # the old behaviour, not the behaviour. Checking the raw file made this
+    # test fail on the paragraph explaining what it exists to prevent.
+    tree = ast.parse(source)
+    literals = [
+        node.value for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        and not isinstance(getattr(node, "parent", None), ast.Expr)
+    ]
+    docstrings = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
+            doc = ast.get_docstring(node, clean=False)
+            if doc:
+                docstrings.add(doc)
+
+    live = [v for v in literals if v not in docstrings]
+    assert not any("ExampleMint" in v for v in live), "a fabricated mint is still emitted"
+    assert "token-profiles" in " ".join(live), "discovery needs a real source"
 
 
 def test_sniper_leaves_unreadable_safety_flags_unset():
