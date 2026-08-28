@@ -243,17 +243,25 @@ about it is specific to a browser.
 
 ## $AETH
 
-**Not yet launched.**
+**Live on pump.fun.** The mint address is:
 
-When it launches, the mint address will appear at
-[aetheronprotocol.com/token](https://aetheronprotocol.com/token), in this
-repository, and on [@Aetheron402](https://x.com/Aetheron402). All three will
-agree. Treat any Aetheron token announced anywhere else, or before that, as
-fake.
+```
+D3qncuGsa2iMKcaxnqZxUMeVqPztzyAr819nXfjypump
+```
 
-Components can be priced in AETH as well as USDC. That path is already built and sits
-dormant: setting `AETH_MINT_ADDRESS` turns it on everywhere at once (the shop, the
-SDK and the `accepted_methods` in every 402) with no redeploy and no code change.
+The same address is published at
+[aetheronprotocol.com/token](https://aetheronprotocol.com/token) and on
+[@Aetheron402](https://x.com/Aetheron402). All three agree. Treat any Aetheron
+token announced anywhere else as fake, and compare the address in full rather
+than the first and last four characters.
+
+The mint has **no mint authority and no freeze authority**, so the supply cannot
+be increased and no holder's tokens can be frozen. Both are readable on chain
+and worth checking yourself rather than taking from this file.
+
+Components can be priced in AETH as well as USDC. Setting `AETH_MINT_ADDRESS`
+turns that on everywhere at once (the shop, the SDK and the `accepted_methods`
+in every 402) with no redeploy and no code change.
 
 ---
 
