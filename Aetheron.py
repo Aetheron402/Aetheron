@@ -41,6 +41,7 @@ import ledger_utils
 import legacy_holders
 import pricing
 import burn_ledger
+import aeth_quotes
 
 from celery.result import AsyncResult
 from solders.signature import Signature
@@ -120,6 +121,7 @@ storage.init_storage()
 ledger_utils.init_examples()
 legacy_holders.init_legacy_holders()
 burn_ledger.init_burns()
+aeth_quotes.init_quotes()
 
 templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M")
 
@@ -417,7 +419,18 @@ def verify_payment(
     else:
         decimals = get_mint_decimals(AETH_MINT)
         target_mint = AETH_MINT
-        expected_amount = int(round(calculate_required_aeth(price_usdc) * (10 ** decimals)))
+
+        # Honour what this buyer was told, not a number worked out behind them.
+        # Recomputing here against a fresh rate rejected correct payments: AETH
+        # is on a bonding curve, so the price moves between being quoted and
+        # the transfer landing, and a payment made at the quoted amount came
+        # back short. The buyer had paid and got nothing.
+        locked = aeth_quotes.live(user_wallet, component)
+        if locked:
+            expected_amount = locked
+        else:
+            expected_amount = int(round(
+                calculate_required_aeth(price_usdc) * (10 ** decimals)))
 
     if expected_amount <= 0:
         return False
@@ -441,6 +454,8 @@ def verify_payment(
 
     if total >= threshold:
         clear_partial(user_wallet, component, payment_method)
+        if payment_method == "AETH":
+            aeth_quotes.clear(user_wallet, component)
         return True
 
     add_partial(user_wallet, component, payment_method, received, expected_amount)
@@ -899,11 +914,23 @@ def api_price_aeth(request: Request, component: str | None = None,
     except Exception:
         raise HTTPException(status_code=500, detail="Unexpected error")
 
+    # Written down so settlement can honour it. Only for a named component and
+    # a known wallet, because a bare price has nothing to key a promise to.
+    if component and wallet:
+        try:
+            decimals = get_mint_decimals(AETH_MINT) if AETH_MINT else 6
+            aeth_quotes.record(wallet, component,
+                               int(round(required * (10 ** decimals))), price_usd)
+        except Exception:
+            # Failing to store a quote must not stop one being shown.
+            pass
+
     return {
         "component": component,
         "usdc_price": price_usd,
         "list_price": base,
         "required_aeth": required,
+        "quote_holds_for": aeth_quotes.QUOTE_TTL_SECONDS if (component and wallet) else 0,
         "discounts": quote["discounts"] if quote else [],
     }
 

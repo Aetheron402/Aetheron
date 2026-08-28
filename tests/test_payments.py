@@ -2025,3 +2025,76 @@ def test_the_token_page_survives_having_no_mint_configured():
     assert response.status_code == 200
     # And the burn panel is still there, saying nothing has been burned.
     assert "No burns yet" in response.text or "Burned so far" in response.text
+
+
+# ── locked AETH quotes ──────────────────────────────────────────────────────
+
+def test_a_correct_aeth_payment_survives_the_price_moving():
+    """
+    The bug a real buyer hit. They were quoted an amount, sent exactly that,
+    and settlement recomputed the requirement against a fresh rate. AETH is on
+    a bonding curve so the rate had moved, the new requirement was higher, and
+    their correct payment was rejected as short. They had paid and got nothing.
+    """
+    import aeth_quotes, aeth_price, Aetheron as A
+
+    wallet = "QuotedBuyerWallet11111111111111111111111"
+    aeth_quotes.init_quotes()
+    aeth_quotes.clear(wallet, "prompt-optimizer")
+
+    # Quoted while AETH is worth 0.0000170 each: 0.20 buys 11,764.7 of them.
+    quoted_raw = 11_764_705_882
+    aeth_quotes.record(wallet, "prompt-optimizer", quoted_raw, 0.20)
+
+    # The price then moves. Whatever it moves to, the promise stands.
+    assert aeth_quotes.live(wallet, "prompt-optimizer") == quoted_raw
+
+    # And settlement reads the promise rather than recomputing.
+    import inspect
+    src = inspect.getsource(A.verify_payment)
+    assert "aeth_quotes.live(user_wallet, component)" in src
+    assert src.index("aeth_quotes.live") < src.index("calculate_required_aeth")
+    aeth_quotes.clear(wallet, "prompt-optimizer")
+
+
+def test_a_quote_expires_so_a_stale_rate_cannot_be_farmed():
+    """
+    Holding the promise forever would let somebody quote during a dip and use
+    it whenever it became worth using.
+    """
+    import aeth_quotes, time, ledger_utils
+
+    wallet = "StaleQuoteWallet111111111111111111111111"
+    aeth_quotes.init_quotes()
+    aeth_quotes.record(wallet, "risk-engine", 5_000_000, 0.60)
+    assert aeth_quotes.live(wallet, "risk-engine") == 5_000_000
+
+    # Age it past the window.
+    with ledger_utils._cursor(commit=True) as cur:
+        cur.execute(ledger_utils._q(
+            "UPDATE aeth_quotes SET issued_at = %s WHERE wallet = %s;"),
+            (time.time() - aeth_quotes.QUOTE_TTL_SECONDS - 10, wallet))
+
+    assert aeth_quotes.live(wallet, "risk-engine") is None
+    aeth_quotes.clear(wallet, "risk-engine")
+
+
+def test_a_quote_is_spent_once_it_settles():
+    """Otherwise one quote could cover a second purchase at an old rate."""
+    import aeth_quotes
+    wallet = "SpentQuoteWallet111111111111111111111111"
+    aeth_quotes.record(wallet, "code-explainer", 9_000_000, 0.40)
+    assert aeth_quotes.live(wallet, "code-explainer") == 9_000_000
+    aeth_quotes.clear(wallet, "code-explainer")
+    assert aeth_quotes.live(wallet, "code-explainer") is None
+
+
+def test_a_quote_is_keyed_to_the_wallet_that_was_quoted():
+    """One person's quote must not price another person's payment."""
+    import aeth_quotes
+    mine = "MyQuoteWallet1111111111111111111111111111"
+    yours = "YourQuoteWallet22222222222222222222222222"
+    aeth_quotes.record(mine, "contract-intel", 1_234_000, 0.80)
+    assert aeth_quotes.live(yours, "contract-intel") is None
+    assert aeth_quotes.live(None, "contract-intel") is None
+    aeth_quotes.clear(mine, "contract-intel")
