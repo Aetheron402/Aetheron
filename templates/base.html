@@ -955,5 +955,24 @@
   </script>
 
   {% block scripts %}{% endblock %}
+
+<script>
+// Escape closes whatever modal is open, on every page.
+//
+// Five purchase modals shipped with their close button emptied, which left a
+// visitor who opened one with no way out but a page reload. A keyboard route
+// costs nothing and does not depend on a glyph rendering.
+//
+// Clicking the backdrop deliberately does not close anything: these modals hold
+// text somebody typed, and losing a long prompt to a stray click is worse than
+// one extra keystroke.
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape") return;
+  document.querySelectorAll(".modal-bg").forEach(function (m) {
+    const shown = m.style.display && m.style.display !== "none";
+    if (shown || getComputedStyle(m).display === "flex") m.style.display = "none";
+  });
+});
+</script>
 </body>
 </html>

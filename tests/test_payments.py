@@ -1715,3 +1715,17 @@ def test_documented_curl_examples_are_https():
     html = TestClient(Aetheron.app, base_url="https://aetheronprotocol.com").get("/docs").text
     assert "curl -sX POST https://" in html
     assert "curl -sX POST http://" not in html
+
+
+def test_every_modal_can_actually_be_closed():
+    """
+    The close buttons were drawn with a multiplication glyph, which an emoji
+    sweep treated as decoration and stripped, leaving five empty buttons and no
+    way out of a purchase modal but reloading the page.
+    """
+    import re
+    for path in ("templates/shop.html", "templates/agents.html"):
+        source = open(path).read()
+        assert "></button>" not in source, f"{path} has an empty button"
+        for handler in set(re.findall(r'onclick="(close\w+)\(\)"', source)):
+            assert f"function {handler}(" in source, f"{path}: {handler} is not defined"
