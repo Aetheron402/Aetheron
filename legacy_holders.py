@@ -24,6 +24,7 @@ not something to publish on our side.
 
 import math
 import os
+import time
 
 import ledger_utils
 
@@ -34,6 +35,14 @@ LEGACY_DISCOUNT = float(os.getenv("LEGACY_HOLDER_DISCOUNT", "0.5"))
 LEGACY_MINT = "DGNicx6qMPKSL1deR3fZfbHYjnm5ZJWmHNdY2NhDpump"
 
 _cache: set | None = None
+_cached_at: float = 0.0
+
+# The set is re-read after this long. It was cached for the life of the process
+# on the assumption that loading a snapshot meant a restart, which was wrong the
+# first time it mattered: the wallets were loaded into a running deployment and
+# every eligible buyer kept paying full price until it was restarted. Data
+# should not need a deploy to take effect.
+CACHE_TTL_SECONDS = int(os.getenv("LEGACY_CACHE_TTL", "120"))
 
 
 def init_legacy_holders() -> None:
@@ -55,7 +64,7 @@ def load(wallets: dict) -> int:
 
     Used by the snapshot loader, never by a request.
     """
-    global _cache
+    global _cache, _cached_at
     init_legacy_holders()
     with ledger_utils._cursor(commit=True) as cur:
         cur.execute("DELETE FROM legacy_holders;")
@@ -67,6 +76,7 @@ def load(wallets: dict) -> int:
                 (wallet, ts),
             )
     _cache = None
+    _cached_at = 0.0
     return len(wallets)
 
 
@@ -78,17 +88,20 @@ def _eligible_set() -> set:
     settlement, and the list only changes when a snapshot is deliberately
     reloaded, which is a restart anyway.
     """
-    global _cache
-    if _cache is None:
+    global _cache, _cached_at
+    if _cache is None or (time.time() - _cached_at) > CACHE_TTL_SECONDS:
         try:
             init_legacy_holders()
             with ledger_utils._cursor() as cur:
                 cur.execute("SELECT wallet FROM legacy_holders;")
                 _cache = {row[0] for row in cur.fetchall()}
+                _cached_at = time.time()
         except Exception:
             # A database that cannot be read must not hand out a discount, and
-            # must not block a full price sale either.
-            return set()
+            # must not block a full price sale either. The previous set is kept
+            # if there was one, so a brief outage does not silently start
+            # charging eligible buyers full price.
+            return _cache if _cache is not None else set()
     return _cache
 
 

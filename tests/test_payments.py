@@ -2098,3 +2098,48 @@ def test_a_quote_is_keyed_to_the_wallet_that_was_quoted():
     assert aeth_quotes.live(yours, "contract-intel") is None
     assert aeth_quotes.live(None, "contract-intel") is None
     aeth_quotes.clear(mine, "contract-intel")
+
+
+def test_the_eligible_set_refreshes_without_a_restart():
+    """
+    The set was cached for the life of the process, on the assumption that
+    loading a snapshot meant a deploy. It did not: the wallets were loaded into
+    a running production deployment and every eligible buyer carried on paying
+    full price, because the process had already cached an empty table.
+    """
+    import legacy_holders, time
+
+    legacy_holders.load({"CacheRefreshWallet111111111111111111111": 0.0})
+    assert legacy_holders.is_legacy_holder("CacheRefreshWallet111111111111111111111")
+
+    # Add one behind the cache's back, the way the loader script does.
+    ledger = __import__("ledger_utils")
+    with ledger._cursor(commit=True) as cur:
+        cur.execute(ledger._q(
+            "INSERT INTO legacy_holders (wallet, first_held_at) VALUES (%s, %s);"),
+            ("AddedBehindTheCache1111111111111111111", 0.0))
+
+    # Not visible yet, which is the cache doing its job.
+    assert not legacy_holders.is_legacy_holder("AddedBehindTheCache1111111111111111111")
+
+    # Age the cache past its window rather than sleeping through it.
+    legacy_holders._cached_at = time.time() - legacy_holders.CACHE_TTL_SECONDS - 1
+    assert legacy_holders.is_legacy_holder("AddedBehindTheCache1111111111111111111")
+
+
+def test_a_database_blip_does_not_start_charging_eligible_buyers_full_price():
+    """Losing the connection should hold the last known set, not empty it."""
+    import legacy_holders, ledger_utils, time
+
+    legacy_holders.load({"BlipWallet11111111111111111111111111111": 0.0})
+    assert legacy_holders.is_legacy_holder("BlipWallet11111111111111111111111111111")
+
+    original = ledger_utils._cursor
+    legacy_holders._cached_at = time.time() - legacy_holders.CACHE_TTL_SECONDS - 1
+    def broken(*a, **k):
+        raise RuntimeError("database unavailable")
+    ledger_utils._cursor = broken
+    try:
+        assert legacy_holders.is_legacy_holder("BlipWallet11111111111111111111111111111")
+    finally:
+        ledger_utils._cursor = original
