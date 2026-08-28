@@ -9,7 +9,7 @@
 [![SDK](https://img.shields.io/badge/SDK-TypeScript_0.3.0-3b82f6?style=for-the-badge)](sdk/)
 [![Python](https://img.shields.io/badge/Python-3.11-3b82f6?style=for-the-badge)](requirements.txt)
 
-**[X](https://x.com/Aetheron402)** · **[SDK](sdk/)** · **[Agents](static/agents_src/)**
+**[Website](https://aetheronprotocol.com)** · **[X](https://x.com/Aetheron402)** · **[SDK](sdk/)** · **[Agents](static/agents_src/)**
 
 </div>
 
@@ -245,9 +245,11 @@ about it is specific to a browser.
 
 **Not yet launched.**
 
-When it launches, the mint address will appear in this repository and on
-[@Aetheron402](https://x.com/Aetheron402). Treat any Aetheron token announced
-anywhere else, or before that, as fake.
+When it launches, the mint address will appear at
+[aetheronprotocol.com/token](https://aetheronprotocol.com/token), in this
+repository, and on [@Aetheron402](https://x.com/Aetheron402). All three will
+agree. Treat any Aetheron token announced anywhere else, or before that, as
+fake.
 
 Components can be priced in AETH as well as USDC. That path is already built and sits
 dormant: setting `AETH_MINT_ADDRESS` turns it on everywhere at once (the shop, the

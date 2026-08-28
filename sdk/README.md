@@ -247,5 +247,6 @@ It treats AI compute as:
 
 ## Links
 
+- Website → https://aetheronprotocol.com
 - GitHub → https://github.com/Aetheron402  
 - X (Twitter) → https://x.com/Aetheron402  
