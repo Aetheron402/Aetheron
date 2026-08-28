@@ -38,6 +38,7 @@ from aeth_price import calculate_required_aeth, AethPricingError
 import storage
 import agent_setup
 import ledger_utils
+import legacy_holders
 
 from celery.result import AsyncResult
 from solders.signature import Signature
@@ -115,6 +116,7 @@ templates = Jinja2Templates(directory="templates")
 init_ledger()
 storage.init_storage()
 ledger_utils.init_examples()
+legacy_holders.init_legacy_holders()
 
 templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M")
 
@@ -165,7 +167,8 @@ templates.env.globals["aeth_mint"] = AETH_MINT or ""
 templates.env.globals["current_year"] = lambda: datetime.now(timezone.utc).year
 
 
-def payment_required(component: str, message: str, price_usdc) -> JSONResponse:
+def payment_required(component: str, message: str, price_usdc,
+                     wallet: str | None = None) -> JSONResponse:
     """
     Build the X402 challenge.
 
@@ -173,14 +176,22 @@ def payment_required(component: str, message: str, price_usdc) -> JSONResponse:
     every other client, the SDK above all, learns them only from this body.
     Returning just a message told an integrator that payment was needed while
     withholding how much, in which currency, and to which wallet.
+
+    The quoted amount runs through legacy_holders.price_for, the same function
+    the settlement check uses, so a discounted buyer is never quoted one number
+    and measured against another.
     """
+    quoted = legacy_holders.price_for(wallet, price_usdc)
+    discounted = quoted != float(price_usdc)
     return JSONResponse(
         status_code=402,
         content={
             "status": 402,
             "message": message,
             "component": component,
-            "required": float(price_usdc),
+            "required": quoted,
+            "list_price": float(price_usdc),
+            "discount": "legacy holder, 50%" if discounted else None,
             "currency": PAYMENT_CURRENCY,
             "network": PAYMENT_NETWORK,
             "wallet": PAYMENT_WALLET,
@@ -387,6 +398,11 @@ def verify_payment(
     if not signers or user_wallet not in signers:
         return False
 
+    # Only now that the caller is proven to be a signer of this transaction is
+    # it safe to price against their wallet. Doing it earlier would let anybody
+    # claim a stranger's discount by naming their address.
+    price_usdc = legacy_holders.price_for(user_wallet, price_usdc)
+
     if payment_method == "USDC":
         decimals = USDC_DECIMALS
         target_mint = USDC_MINT
@@ -529,7 +545,7 @@ def risk_engine_api(
     )
 
     if payment_check is False:
-        return payment_required("risk-engine", "Payment required to use Agent Risk & Simulation Engine", RISK_ENGINE_PRICE_USDC)
+        return payment_required("risk-engine", "Payment required to use Agent Risk & Simulation Engine", RISK_ENGINE_PRICE_USDC, user_wallet)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -854,7 +870,8 @@ def _deliver_agent(agent_id: str, request: Request, x_payment, x_payment_method,
 
     if payment_check is False:
         return payment_required(
-            "agent", "Payment required to download this agent", AGENT_PRICE_USDC
+            "agent", "Payment required to download this agent", AGENT_PRICE_USDC,
+            user_wallet,
         )
 
     if isinstance(payment_check, dict):
@@ -1210,7 +1227,7 @@ def contract_intel_api(
     )
 
     if payment_check is False:
-        return payment_required("contract-intel", "Payment required to use Contract Intelligence Analyzer", CONTRACT_INTEL_PRICE_USDC)
+        return payment_required("contract-intel", "Payment required to use Contract Intelligence Analyzer", CONTRACT_INTEL_PRICE_USDC, user_wallet)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1343,7 +1360,7 @@ def prompt_optimizer(
     )
 
     if payment_check is False:
-        return payment_required("prompt-optimizer", "Payment required to use AI Prompt Optimizer", PROMPT_OPTIMIZER_PRICE_USDC)
+        return payment_required("prompt-optimizer", "Payment required to use AI Prompt Optimizer", PROMPT_OPTIMIZER_PRICE_USDC, user_wallet)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1429,7 +1446,7 @@ def code_explainer(
     )
 
     if payment_check is False:
-        return payment_required("code-explainer", "Payment required to use LLM-Powered Code Explainer", CODE_EXPLAINER_PRICE_USDC)
+        return payment_required("code-explainer", "Payment required to use LLM-Powered Code Explainer", CODE_EXPLAINER_PRICE_USDC, user_wallet)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1514,7 +1531,7 @@ def prompt_tester(
     )
 
     if payment_check is False:
-        return payment_required("prompt-tester", "Payment required to use Smart Prompt Tester", PROMPT_TESTER_PRICE_USDC)
+        return payment_required("prompt-tester", "Payment required to use Smart Prompt Tester", PROMPT_TESTER_PRICE_USDC, user_wallet)
 
     if isinstance(payment_check, dict):
         return JSONResponse(

@@ -8,6 +8,7 @@ components without paying for them.
 Run with:  pytest -q
 """
 
+import json
 import os
 import sys
 
@@ -1729,3 +1730,85 @@ def test_every_modal_can_actually_be_closed():
         assert "></button>" not in source, f"{path} has an empty button"
         for handler in set(re.findall(r'onclick="(close\w+)\(\)"', source)):
             assert f"function {handler}(" in source, f"{path}: {handler} is not defined"
+
+
+# ── the legacy holder discount ──────────────────────────────────────────────
+
+def _legacy_wallet():
+    import legacy_holders
+    legacy_holders.load({"LegacyTestWallet1111111111111111111111111": 0.0})
+    return "LegacyTestWallet1111111111111111111111111"
+
+
+def test_the_quote_and_the_settlement_agree_on_the_discounted_price():
+    """
+    The whole risk in a per wallet price is the two halves disagreeing. Quote
+    high and settle low and anyone pays half; quote low and settle high and an
+    eligible buyer's payment is rejected as short. Both must come from the same
+    function.
+    """
+    import inspect, legacy_holders, Aetheron as A
+
+    wallet = _legacy_wallet()
+    quoted = json.loads(A.payment_required("x", "y", 0.25, wallet).body)["required"]
+    assert quoted == legacy_holders.price_for(wallet, 0.25)
+
+    # And the settlement path prices through the same call, not its own copy.
+    assert "legacy_holders.price_for(user_wallet, price_usdc)" in inspect.getsource(A.verify_payment)
+
+
+def test_the_discount_is_applied_only_after_the_signer_is_proven():
+    """
+    Pricing against a wallet the caller merely named would let anybody claim a
+    stranger's discount by putting their address in a header.
+    """
+    import inspect, Aetheron as A
+    src = inspect.getsource(A.verify_payment)
+    assert src.index("user_wallet not in signers") < src.index("legacy_holders.price_for")
+
+
+def test_an_ordinary_wallet_pays_full_price():
+    import legacy_holders
+    _legacy_wallet()
+    for base in (0.25, 0.5, 4.99):
+        assert legacy_holders.price_for("NotAHolderWallet", base) == base
+        assert legacy_holders.price_for(None, base) == base
+        assert legacy_holders.price_for("", base) == base
+
+
+def test_the_discount_never_rounds_against_the_buyer_or_to_zero():
+    """
+    Rounding to nearest made 4.99 settle at 2.50, half a cent over half. And a
+    price that floored to zero would make the expected amount zero, which the
+    settlement check rejects, locking that component's buyers out entirely.
+    """
+    import legacy_holders
+    wallet = _legacy_wallet()
+    assert legacy_holders.price_for(wallet, 4.99) == 2.49
+    assert legacy_holders.price_for(wallet, 0.25) == 0.12
+    for base in (0.01, 0.02, 0.001):
+        assert legacy_holders.price_for(wallet, base) >= 0.01
+
+
+def test_eligibility_cannot_be_claimed_through_the_api():
+    """
+    The list comes from a snapshot taken before any of this was announced. No
+    header, body or query a caller sends may add to it.
+    """
+    from fastapi.testclient import TestClient
+    import legacy_holders
+
+    _legacy_wallet()
+    client = TestClient(Aetheron.app)
+    stranger = "StrangerWallet99999999999999999999999999"
+
+    for headers in (
+        {"X-USER-WALLET": stranger},
+        {"X-USER-WALLET": stranger, "X-LEGACY-HOLDER": "true"},
+        {"X-USER-WALLET": stranger, "X-DISCOUNT": "0.5"},
+    ):
+        body = client.post("/api/prompt-optimizer", json={"text": "hi"}, headers=headers).json()
+        assert body["required"] == 0.25, headers
+        assert body["discount"] is None, headers
+
+    assert stranger not in legacy_holders._eligible_set()
