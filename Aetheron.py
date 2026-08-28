@@ -1049,22 +1049,6 @@ def example_allowance(request: Request):
     }
 
 
-@app.get("/api/agents/preview-allowance")
-def preview_allowance(request: Request):
-    """What this wallet has already watched, and how many runs it has left."""
-    wallet = (request.headers.get("X-USER-WALLET") or "").strip()
-    if not wallet:
-        return {"connected": False, "allowance": ledger_utils.PREVIEW_ALLOWANCE,
-                "seen": [], "remaining": ledger_utils.PREVIEW_ALLOWANCE}
-    seen = ledger_utils.views_seen(wallet, "preview")
-    return {
-        "connected": True,
-        "allowance": ledger_utils.PREVIEW_ALLOWANCE,
-        "seen": seen,
-        "remaining": max(0, ledger_utils.PREVIEW_ALLOWANCE - len(seen)),
-    }
-
-
 @app.get("/api/agents/{agent_id}/setup")
 def agent_setup_fields(agent_id: str):
     """

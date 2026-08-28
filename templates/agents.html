@@ -66,7 +66,6 @@
           <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="solana-trading-assistant" onclick="previewAgent('solana-trading-assistant')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="solana-trading-assistant"></span>
             <button class="btn buy-agent-btn"
             data-id="solana-trading-assistant"
             data-price="4.99">
@@ -97,7 +96,6 @@
           <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="pumpfun-launcher" onclick="previewAgent('pumpfun-launcher')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="pumpfun-launcher"></span>
             <button class="btn buy-agent-btn"
             data-id="pumpfun-launcher"
             data-price="4.99">
@@ -128,7 +126,6 @@
           <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="solana-sniper" onclick="previewAgent('solana-sniper')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="solana-sniper"></span>
             <button class="btn buy-agent-btn"
             data-id="solana-sniper"
             data-price="4.99">
@@ -177,7 +174,6 @@
             <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="alpha-scanner" onclick="previewAgent('alpha-scanner')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="alpha-scanner"></span>
             <button class="btn buy-agent-btn"
               data-id="alpha-scanner"
               data-price="4.99">
@@ -208,7 +204,6 @@
             <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="prediction-market" onclick="previewAgent('prediction-market')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="prediction-market"></span>
             <button class="btn buy-agent-btn"
               data-id="prediction-market"
               data-price="4.99">
@@ -239,7 +234,6 @@
             <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="market-tracker" onclick="previewAgent('market-tracker')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="market-tracker"></span>
             <button class="btn buy-agent-btn"
               data-id="market-tracker"
               data-price="4.99">
@@ -270,7 +264,6 @@
             <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="wallet-watcher" onclick="previewAgent('wallet-watcher')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="wallet-watcher"></span>
             <button class="btn buy-agent-btn"
               data-id="wallet-watcher"
               data-price="4.99">
@@ -342,7 +335,6 @@
           <div class="flex items-center gap-2">
             <button type="button" class="preview-agent-btn" data-agent="project-planner" onclick="previewAgent('project-planner')"
                     title="Run it for a few seconds on live data, no payment">Watch it run</button>
-            <span class="preview-left" data-agent="project-planner"></span>
             <button class="btn buy-agent-btn"
             data-id="project-planner"
             data-price="4.99">
@@ -721,8 +713,6 @@ async function downloadAgent(agentId) {
     transition: background .15s, color .15s;
   }
   .preview-agent-btn:hover { background: rgba(103,232,249,.18); color: #a5f3fc; }
-  /* Says what a click costs before it is clicked. */
-  .preview-left { font-size: .68rem; color: #64748b; white-space: nowrap; }
 </style>
 
 <div id="agent-preview-bg" class="modal-bg" style="display:none">
@@ -771,7 +761,6 @@ async function previewAgent(agentId) {
     return;
   }
 
-  refreshPreviewAllowance();
   status.textContent = `Running for ${started.seconds} seconds against live data...`
     + (started.already_seen
         ? " You have watched this one before, so it did not cost you another."
@@ -793,34 +782,6 @@ async function previewAgent(agentId) {
   status.textContent = "The preview timed out.";
 }
 
-// Runs are metered per wallet across the whole store, the same way the report
-// examples are, so a visitor picks which agents to spend their runs on.
-async function refreshPreviewAllowance() {
-  const labels = document.querySelectorAll(".preview-left");
-  if (!labels.length) return;
-
-  let state = { connected: false, remaining: null, seen: [] };
-  try {
-    const headers = window.currentWallet ? { "X-USER-WALLET": window.currentWallet } : {};
-    state = await (await fetch("/api/agents/preview-allowance", { headers })).json();
-  } catch (e) { /* leave the label blank rather than guess */ }
-
-  for (const label of labels) {
-    const agent = label.dataset.agent;
-    if (!state.connected) {
-      label.textContent = "connect a wallet";
-    } else if (state.seen.includes(agent)) {
-      label.textContent = "watched, free to rewatch";
-    } else if (state.remaining > 0) {
-      label.textContent = `${state.remaining} of ${state.allowance} left`;
-    } else {
-      label.textContent = "no runs left";
-    }
-  }
-}
-
-document.addEventListener("DOMContentLoaded", refreshPreviewAllowance);
-window.addEventListener("aetheron:wallet", refreshPreviewAllowance);
 </script>
 
 <div id="loading" class="fixed inset-0 bg-black/70 hidden z-[9999] flex items-center justify-center">
