@@ -137,7 +137,23 @@ def asset_url(path: str) -> str:
     return f"/{rel}?v={stamp}"
 
 
+def absolute_url(request, path: str = "/") -> str:
+    """
+    A fully qualified URL for social card metadata.
+
+    Scrapers reject relative og:image paths, and hardcoding a host would break
+    the moment the domain changes, so this is built from the request. Railway
+    terminates TLS at its proxy, so the app sees http even though the world
+    sees https: the scheme is corrected unless this is genuinely local.
+    """
+    base = str(request.base_url).rstrip("/")
+    if not base.startswith(("http://127.0.0.1", "http://localhost")):
+        base = base.replace("http://", "https://", 1)
+    return base + path
+
+
 templates.env.globals["asset_url"] = asset_url
+templates.env.globals["absolute_url"] = absolute_url
 
 templates.env.globals["payment_wallet"] = PAYMENT_WALLET
 templates.env.globals["payment_network"] = PAYMENT_NETWORK

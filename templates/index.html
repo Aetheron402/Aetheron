@@ -4,6 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aetheron | AI Components powered by X402</title>
+
+    {#
+      This page does not extend base.html, so it needs its own card metadata.
+      It is the root URL, which is the one that actually gets pasted, and
+      without these it was the only page on the site that previewed as a bare
+      link. The URLs are absolute and built from the request, so they survive
+      the domain changing.
+    #}
+    {% set og_desc = "AI components you pay for per call, settled over HTTP 402 on Solana. No signup, no subscription, no card." %}
+    <meta name="description" content="{{ og_desc }}">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Aetheron">
+    <meta property="og:title" content="Aetheron | Pay per call, on Solana">
+    <meta property="og:description" content="{{ og_desc }}">
+    <meta property="og:url" content="{{ absolute_url(request, '/') }}">
+    <meta property="og:image" content="{{ absolute_url(request, asset_url('/static/og-card.png')) }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Aetheron. Pay per call, on Solana.">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@Aetheron402">
+    <meta name="twitter:title" content="Aetheron | Pay per call, on Solana">
+    <meta name="twitter:description" content="{{ og_desc }}">
+    <meta name="twitter:image" content="{{ absolute_url(request, asset_url('/static/og-card.png')) }}">
     <script src="https://cdn.tailwindcss.com"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">

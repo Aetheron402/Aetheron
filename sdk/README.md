@@ -249,4 +249,3 @@ It treats AI compute as:
 
 - GitHub → https://github.com/Aetheron402  
 - X (Twitter) → https://x.com/Aetheron402  
-- Email → team@aetheron402.com

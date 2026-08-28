@@ -1668,3 +1668,37 @@ def test_the_token_page_is_reachable_from_the_header():
     html = TestClient(Aetheron.app).get("/shop").text
     # Desktop nav and mobile nav both.
     assert html.count('href="/token"') >= 2
+
+
+# ── social preview metadata ─────────────────────────────────────────────────
+
+def test_every_shareable_page_previews_as_a_card():
+    """
+    Without these, a posted link renders as a bare URL. The home page is the
+    one that gets pasted most and it does not extend base.html, so it needs its
+    own set and was the only page missing them.
+    """
+    from fastapi.testclient import TestClient
+    client = TestClient(Aetheron.app)
+
+    for path in ("/", "/shop", "/token", "/roadmap", "/agents"):
+        html = client.get(path).text
+        for tag in ('property="og:title"', 'property="og:image"',
+                    'property="og:url"', 'name="twitter:card"'):
+            assert tag in html, f"{path} is missing {tag}"
+        # Scrapers reject a relative og:image, so it has to be absolute.
+        assert 'property="og:image" content="http' in html, path
+
+
+def test_page_titles_are_not_all_the_same_card():
+    """A shared component link and a shared token link should not read alike."""
+    from fastapi.testclient import TestClient
+    import re
+    client = TestClient(Aetheron.app)
+
+    def og_title(path):
+        html = client.get(path).text
+        return re.search(r'property="og:title" content="([^"]*)"', html).group(1)
+
+    assert og_title("/token") != og_title("/shop")
+    assert "AETH" in og_title("/token")

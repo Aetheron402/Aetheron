@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>{% block title %}Aetheron{% endblock %}</title>
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -25,6 +26,34 @@
       },
     };
   </script>
+
+  {#
+    Social preview. Every link posted during a launch renders as a bare URL
+    without these. The URLs are absolute and built from the request, because
+    scrapers reject relative paths and a hardcoded host would break when the
+    domain changes.
+  #}
+  {% set og_title %}{% block og_title %}Aetheron{% endblock %}{% endset %}
+  {% set og_desc %}{% block og_description %}AI components you pay for per call, settled over HTTP 402 on Solana. No signup, no subscription, no card.{% endblock %}{% endset %}
+  {% set og_title = og_title | trim %}
+  {% set og_desc = og_desc | trim %}
+  <meta name="description" content="{{ og_desc }}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Aetheron">
+  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:description" content="{{ og_desc }}">
+  <meta property="og:url" content="{{ absolute_url(request, request.url.path) }}">
+  <meta property="og:image" content="{{ absolute_url(request, asset_url('/static/og-card.png')) }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Aetheron. Pay per call, on Solana.">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@Aetheron402">
+  <meta name="twitter:title" content="{{ og_title }}">
+  <meta name="twitter:description" content="{{ og_desc }}">
+  <meta name="twitter:image" content="{{ absolute_url(request, asset_url('/static/og-card.png')) }}">
 
   <link rel="stylesheet" href="/static/css/style.css">
 
@@ -57,7 +86,7 @@
     <!-- DESKTOP NAV -->
     <nav class="desktop-nav hidden md:flex gap-6 text-sm items-center">
       <a href="/token" class="text-cyan-300 hover:text-cyan-200 transition font-semibold">$AETH</a>
-      <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">GitHub</a>
+      <a href="https://github.com/Aetheron402/Aetheron" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">GitHub</a>
       <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">X</a>
       <a href="/learn" class="text-gray-400 hover:text-cyan-300 transition">Learn</a>
       <a href="/docs" class="text-gray-400 hover:text-cyan-300 transition">Docs</a>
@@ -83,7 +112,7 @@
         class="hidden flex-col gap-4 bg-[#030712]/95 border-t border-cyan-400/30 p-4 absolute left-0 right-0 top-full z-50 md:hidden">
 
       <a href="/token" class="text-cyan-300 font-semibold">$AETH</a>
-      <a href="https://github.com/Aetheron402" target="_blank" class="text-gray-300">GitHub</a>
+      <a href="https://github.com/Aetheron402/Aetheron" target="_blank" class="text-gray-300">GitHub</a>
       <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-300">X</a>
       <a href="/learn" class="text-gray-300">Learn</a>
       <a href="/docs" class="text-gray-300">Docs</a>
@@ -572,7 +601,7 @@
     <footer class="border-t border-cyan-900/30 mt-12 text-center text-sm text-gray-500 p-6">
       © {{ current_year() }} Aetheron · Powered by the X402 protocol.
       <div class="space-x-4 mt-2">
-        <a href="https://github.com/Aetheron402" target="_blank" class="hover:text-cyan-300 transition">GitHub</a>
+        <a href="https://github.com/Aetheron402/Aetheron" target="_blank" class="hover:text-cyan-300 transition">GitHub</a>
         <a href="https://x.com/Aetheron402" target="_blank" class="text-gray-400 hover:text-cyan-300 transition">X</a>
         <a href="/learn" class="hover:text-cyan-300 transition">Learn</a>
         <a href="/roadmap" class="hover:text-cyan-300 transition">Roadmap</a>
