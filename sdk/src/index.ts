@@ -24,9 +24,12 @@ function resolveEndpoint(configured?: string): string {
     return window.location.origin;
   }
 
+  // Naming the hosted instance, since "your-aetheron-host" left a reader who
+  // was not self hosting with nothing they could actually type.
   const err = new Error(
-    "No Aetheron endpoint configured. Pass { endpoint: 'https://your-aetheron-host' } " +
-      "when constructing the SDK outside a browser or from another origin."
+    "No Aetheron endpoint configured. Pass { endpoint: 'https://aetheronprotocol.com' } " +
+      "for the hosted instance, or your own URL if you are self hosting. " +
+      "Required outside a browser, or when calling from another origin."
   );
   (err as any).code = "ENDPOINT_REQUIRED";
   throw err;

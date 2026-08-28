@@ -307,7 +307,7 @@
       </p>
       <div class="code-card">
         <div class="code-card-label">REQUEST</div>
-<pre><code>curl -sX POST {{ request.base_url }}api/prompt-optimizer \
+<pre><code>curl -sX POST {{ absolute_url(request, '/api/prompt-optimizer') }} \
      -H 'Content-Type: application/json' \
      -d '{"text": "make this prompt better"}'</code></pre>
       </div>

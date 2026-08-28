@@ -1702,3 +1702,16 @@ def test_page_titles_are_not_all_the_same_card():
 
     assert og_title("/token") != og_title("/shop")
     assert "AETH" in og_title("/token")
+
+
+def test_documented_curl_examples_are_https():
+    """
+    Railway terminates TLS at its proxy, so request.base_url reports http even
+    though the site is served over https. Rendered straight into the docs, that
+    told every reader to post their payload, and later their payment signature,
+    to a plaintext URL.
+    """
+    from fastapi.testclient import TestClient
+    html = TestClient(Aetheron.app, base_url="https://aetheronprotocol.com").get("/docs").text
+    assert "curl -sX POST https://" in html
+    assert "curl -sX POST http://" not in html
