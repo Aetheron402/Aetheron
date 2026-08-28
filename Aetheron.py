@@ -39,6 +39,8 @@ import storage
 import agent_setup
 import ledger_utils
 import legacy_holders
+import pricing
+import burn_ledger
 
 from celery.result import AsyncResult
 from solders.signature import Signature
@@ -117,6 +119,7 @@ init_ledger()
 storage.init_storage()
 ledger_utils.init_examples()
 legacy_holders.init_legacy_holders()
+burn_ledger.init_burns()
 
 templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M")
 
@@ -181,7 +184,7 @@ def payment_required(component: str, message: str, price_usdc,
     the settlement check uses, so a discounted buyer is never quoted one number
     and measured against another.
     """
-    quoted = legacy_holders.price_for(wallet, price_usdc)
+    quoted = pricing.effective_usd(price_usdc, wallet, "USDC")
     discounted = quoted != float(price_usdc)
     return JSONResponse(
         status_code=402,
@@ -401,7 +404,11 @@ def verify_payment(
     # Only now that the caller is proven to be a signer of this transaction is
     # it safe to price against their wallet. Doing it earlier would let anybody
     # claim a stranger's discount by naming their address.
-    price_usdc = legacy_holders.price_for(user_wallet, price_usdc)
+    #
+    # The method is passed in so the AETH fee tier lands here as well. It used
+    # to apply only to the USDC branch, which quoted a discounted wallet the
+    # full AETH amount and then accepted the overpayment without comment.
+    price_usdc = pricing.effective_usd(price_usdc, user_wallet, payment_method)
 
     if payment_method == "USDC":
         decimals = USDC_DECIMALS
@@ -750,6 +757,22 @@ def roadmap_page(request: Request):
     return templates.TemplateResponse("roadmap.html", {"request": request})
 
 
+@app.get("/api/burns")
+def api_burns():
+    """
+    AETH taken as payment, and AETH destroyed.
+
+    Both sides are counted from records rather than held as a running total,
+    and every burn listed was confirmed against the chain before it was
+    recorded. The signatures are here so anyone can check the arithmetic
+    themselves instead of believing the totals.
+    """
+    try:
+        return {**burn_ledger.summary(), "recent": burn_ledger.recent()}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Burn ledger unavailable")
+
+
 @app.get("/token", response_class=HTMLResponse)
 def token_page(request: Request):
     """
@@ -759,7 +782,14 @@ def token_page(request: Request):
     template global and from nowhere else, so an unlaunched token shows an
     empty panel rather than anything that could be mistaken for an address.
     """
-    return templates.TemplateResponse("token.html", {"request": request})
+    try:
+        burns = {**burn_ledger.summary(), "recent": burn_ledger.recent(8)}
+    except Exception:
+        # The page is about the token, not the burn table. A database problem
+        # should not take it down during a launch.
+        burns = None
+    return templates.TemplateResponse("token.html",
+                                      {"request": request, "burns": burns})
     
 @app.get("/docs", response_class=HTMLResponse)
 def docs_page(request: Request):
@@ -831,20 +861,51 @@ def ledger_page(request: Request):
     })
 
 @app.get("/api/price/aeth")
-def api_price_aeth(usdc_price: float, refresh: bool = False):
+def api_price_aeth(request: Request, component: str | None = None,
+                   usdc_price: float | None = None, refresh: bool = False):
     """
-    Returns how many AETH are required to pay the given USDC price.
+    How many AETH this caller owes for a component.
+
+    Name the component and the server looks the price up, applies whatever this
+    wallet is entitled to, and converts. The price is deliberately not taken
+    from the caller any more: passing it in meant the browser decided what
+    something cost, and a discounted wallet was quoted the full amount, paid
+    it, and had the overpayment accepted in silence.
+
+    usdc_price is still honoured without a component so older clients keep
+    working, but it cannot carry a discount, because a raw number does not say
+    which component it belongs to.
     """
+    wallet = (request.headers.get("X-USER-WALLET") or "").strip() or None
+
+    if component:
+        try:
+            base = pricing.list_price(component)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Unknown component")
+        quote = pricing.quote(component, wallet, "AETH")
+        price_usd = quote["price"]
+    elif usdc_price is not None:
+        base = float(usdc_price)
+        quote = None
+        price_usd = base
+    else:
+        raise HTTPException(status_code=400, detail="Name a component")
+
     try:
-        required = calculate_required_aeth(usdc_price, force_refresh=refresh)
-        return {
-            "usdc_price": usdc_price,
-            "required_aeth": required
-        }
+        required = calculate_required_aeth(price_usd, force_refresh=refresh)
     except AethPricingError:
         raise HTTPException(status_code=502, detail="AETH pricing temporarily unavailable")
     except Exception:
         raise HTTPException(status_code=500, detail="Unexpected error")
+
+    return {
+        "component": component,
+        "usdc_price": price_usd,
+        "list_price": base,
+        "required_aeth": required,
+        "discounts": quote["discounts"] if quote else [],
+    }
 
 @app.get("/api/ledger")
 def ledger_api():

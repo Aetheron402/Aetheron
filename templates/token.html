@@ -273,6 +273,72 @@
     </table>
   </div>
 
+  {# ── the burn, counted rather than claimed ──────────────────────────────── #}
+
+  {% if burns %}
+  <h2 class="text-2xl font-semibold text-cyan-300 mb-2">Burned so far</h2>
+  <p class="text-gray-400 text-sm mb-6">
+    Counted from the records on both sides, not kept as a running total. Every
+    burn is confirmed against the chain before it is recorded here, so these are
+    transactions you can open and check rather than figures we published. If it
+    reads zero, nothing has been burned yet, and it will say so.
+  </p>
+
+  <div class="grid sm:grid-cols-3 gap-4 mb-6">
+    <div class="tk-stat">
+      <p class="tk-label">Taken as payment</p>
+      <p class="tk-value tk-num">{{ "%.2f"|format(burns.received) }}</p>
+      <p class="tk-note">across {{ burns.payments }} payment{{ "" if burns.payments == 1 else "s" }}</p>
+    </div>
+    <div class="tk-stat">
+      <p class="tk-label">Burned</p>
+      <p class="tk-value tk-num" style="color:#67e8f9">{{ "%.2f"|format(burns.burned) }}</p>
+      <p class="tk-note">across {{ burns.burns }} burn{{ "" if burns.burns == 1 else "s" }}</p>
+    </div>
+    <div class="tk-stat">
+      <p class="tk-label">Not yet burned</p>
+      <p class="tk-value tk-num">{{ "%.2f"|format(burns.outstanding) }}</p>
+      <p class="tk-note">waiting on the next burn</p>
+    </div>
+  </div>
+
+  {% if not burns.recent %}
+  <div class="tk-panel mb-12">
+    <p class="text-gray-400 text-sm leading-relaxed">
+      No burns yet. When AETH is taken as payment it gets destroyed rather than
+      kept, and every one of those transactions will be listed here with a link
+      to Solscan.{% if burns.mint %} You can also check the supply directly on
+      the mint:
+      <a class="tk-link" target="_blank" rel="noopener"
+         href="https://solscan.io/token/{{ burns.mint }}">solscan.io/token/{{ burns.mint[:8] }}...</a>{% endif %}
+    </p>
+  </div>
+  {% endif %}
+
+  {% if burns.recent %}
+  <div class="tk-panel mb-12">
+    <table class="tk-table">
+      <thead><tr><th>Burn transaction</th><th style="text-align:right">AETH</th></tr></thead>
+      <tbody>
+        {% for b in burns.recent %}
+        <tr>
+          <td><a class="tk-link" target="_blank" rel="noopener"
+                 href="https://solscan.io/tx/{{ b.signature }}">{{ b.signature[:12] }}...{{ b.signature[-8:] }}</a></td>
+          <td class="tk-num tk-aeth" style="text-align:right">{{ "%.2f"|format(b.amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="text-gray-500 text-xs mt-4">
+      {% if burns.mint %}Check the supply yourself on
+      <a class="tk-link" target="_blank" rel="noopener"
+         href="https://solscan.io/token/{{ burns.mint }}">Solscan</a>, or read{% else %}Read{% endif %}
+      the raw figures at <a class="tk-link" href="/api/burns">/api/burns</a>.
+    </p>
+  </div>
+  {% endif %}
+  {% endif %}
+
   {# ── the technical bit, which is the credible bit ───────────────────────── #}
 
   <h2 class="text-2xl font-semibold text-cyan-300 mb-2">What happens at launch</h2>

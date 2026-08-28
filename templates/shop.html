@@ -9,6 +9,13 @@
 {% block body_class %}page-shop{% endblock %}
 
 {% block content %}
+<script>
+// The wallet decides the price, so every AETH quote has to carry it.
+function aethHeaders() {
+  return window.currentWallet ? { "X-USER-WALLET": window.currentWallet } : {};
+}
+</script>
+
 
 <div class="page-fade">
 
@@ -681,7 +688,7 @@ async function updatePromptPayAmount() {
   amount.textContent = "Fetching AETH amount…";
 
   try {
-    const res = await fetch("/api/price/aeth?usdc_price=0.25");
+    const res = await fetch("/api/price/aeth?component=prompt-optimizer", { headers: aethHeaders() });
     const data = await res.json();
     amount.textContent = `${data.required_aeth} AETH`;
   } catch {
@@ -714,7 +721,7 @@ async function updateTesterPayAmount() {
   amount.textContent = "Fetching AETH amount…";
 
   try {
-    const res = await fetch("/api/price/aeth?usdc_price=0.50");
+    const res = await fetch("/api/price/aeth?component=prompt-tester", { headers: aethHeaders() });
     const data = await res.json();
     amount.textContent = `${data.required_aeth} AETH`;
   } catch {
@@ -747,7 +754,7 @@ async function updateCodePayAmount() {
   amount.textContent = "Fetching AETH amount…";
 
   try {
-    const res = await fetch("/api/price/aeth?usdc_price=0.50");
+    const res = await fetch("/api/price/aeth?component=code-explainer", { headers: aethHeaders() });
     const data = await res.json();
     amount.textContent = `${data.required_aeth} AETH`;
   } catch {
@@ -780,7 +787,7 @@ async function updateContractPayAmount() {
   amount.textContent = "Fetching AETH amount…";
 
   try {
-    const res = await fetch("/api/price/aeth?usdc_price=1.00");
+    const res = await fetch("/api/price/aeth?component=contract-intel", { headers: aethHeaders() });
     const data = await res.json();
     amount.textContent = `${data.required_aeth} AETH`;
   } catch {
@@ -1130,7 +1137,7 @@ async function updateRiskPayAmount() {
   amount.textContent = "Fetching AETH amount…";
 
   try {
-    const res = await fetch(`/api/price/aeth?usdc_price=${usdcPrice}`);
+    const res = await fetch("/api/price/aeth?component=risk-engine", { headers: aethHeaders() });
     const data = await res.json();
     amount.textContent = `${data.required_aeth} AETH`;
   } catch {

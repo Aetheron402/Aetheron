@@ -1753,8 +1753,8 @@ def test_the_quote_and_the_settlement_agree_on_the_discounted_price():
     quoted = json.loads(A.payment_required("x", "y", 0.25, wallet).body)["required"]
     assert quoted == legacy_holders.price_for(wallet, 0.25)
 
-    # And the settlement path prices through the same call, not its own copy.
-    assert "legacy_holders.price_for(user_wallet, price_usdc)" in inspect.getsource(A.verify_payment)
+    # And the settlement path prices through the same module, not its own copy.
+    assert "pricing.effective_usd" in inspect.getsource(A.verify_payment)
 
 
 def test_the_discount_is_applied_only_after_the_signer_is_proven():
@@ -1764,7 +1764,7 @@ def test_the_discount_is_applied_only_after_the_signer_is_proven():
     """
     import inspect, Aetheron as A
     src = inspect.getsource(A.verify_payment)
-    assert src.index("user_wallet not in signers") < src.index("legacy_holders.price_for")
+    assert src.index("user_wallet not in signers") < src.index("pricing.effective_usd")
 
 
 def test_an_ordinary_wallet_pays_full_price():
@@ -1812,3 +1812,216 @@ def test_eligibility_cannot_be_claimed_through_the_api():
         assert body["discount"] is None, headers
 
     assert stranger not in legacy_holders._eligible_set()
+
+
+# ── the AETH fee tier, and quote/settlement agreement ───────────────────────
+
+def test_the_aeth_fee_tier_stacks_under_the_legacy_discount():
+    import pricing
+    wallet = _legacy_wallet()
+
+    assert pricing.effective_usd(1.00, "stranger", "USDC") == 1.00
+    assert pricing.effective_usd(1.00, "stranger", "AETH") == 0.80   # 20% tier
+    assert pricing.effective_usd(1.00, wallet, "USDC") == 0.50       # 50% legacy
+    assert pricing.effective_usd(1.00, wallet, "AETH") == 0.40       # both
+
+
+def test_settlement_prices_through_the_same_function_as_the_quote():
+    """
+    The failure mode of a per wallet price is these two disagreeing. Quote low
+    and settle high and an eligible buyer is rejected as short; quote high and
+    settle low and anybody underpays.
+    """
+    import inspect, Aetheron as A
+    src = inspect.getsource(A.verify_payment)
+    assert "pricing.effective_usd(price_usdc, user_wallet, payment_method)" in src
+    # And the method has to reach it, or the AETH tier silently applies to USDC.
+    assert "payment_method" in src.split("pricing.effective_usd")[1][:80]
+
+
+def test_the_aeth_quote_is_priced_by_the_server_not_the_caller():
+    """
+    The endpoint took the price as a query parameter, so the browser decided
+    what a component cost. Settlement priced independently, so nothing was
+    stealable, but a discounted wallet was quoted the full amount, paid it, and
+    the overpayment was accepted without comment.
+    """
+    source = open("templates/shop.html").read()
+    assert "usdc_price=" not in source, "a client still sends its own price"
+    assert source.count("/api/price/aeth?component=") == 5
+
+
+def test_every_component_price_has_one_definition():
+    """
+    The shop had the prices written into it as literals as well. Two copies of
+    a price is one drift away from quoting something the settlement check will
+    reject.
+    """
+    import pricing, Aetheron as A
+    assert pricing.list_price("prompt-optimizer") == float(A.PROMPT_OPTIMIZER_PRICE_USDC)
+    assert pricing.list_price("code-explainer") == float(A.CODE_EXPLAINER_PRICE_USDC)
+    assert pricing.list_price("prompt-tester") == float(A.PROMPT_TESTER_PRICE_USDC)
+    assert pricing.list_price("contract-intel") == float(A.CONTRACT_INTEL_PRICE_USDC)
+    assert pricing.list_price("risk-engine") == float(A.RISK_ENGINE_PRICE_USDC)
+    assert pricing.list_price("agent") == float(A.AGENT_PRICE_USDC)
+
+
+def test_a_discount_never_floors_to_zero_in_either_currency():
+    import pricing
+    wallet = _legacy_wallet()
+    for base in (0.01, 0.02, 0.03):
+        for method in ("USDC", "AETH"):
+            assert pricing.effective_usd(base, wallet, method) >= 0.01
+
+
+# ── burn on use ─────────────────────────────────────────────────────────────
+
+def _tx(instructions, err=None, block_time=1700000000):
+    return {"transaction": {"message": {"instructions": instructions}},
+            "meta": {"err": err, "innerInstructions": []}, "blockTime": block_time}
+
+
+def _burn_ix(mint, amount, kind="burnChecked"):
+    return {"parsed": {"type": kind, "info": {"mint": mint, "amount": str(amount)}}}
+
+
+def test_a_burn_is_only_counted_for_our_own_mint():
+    """
+    Somebody else's burn, or a burn of a different token in the same
+    transaction, must not inflate our figure.
+    """
+    import burn_ledger
+    burn_ledger.AETH_MINT = "OurMint111111111111111111111111111111111111"
+
+    tx = _tx([_burn_ix("OurMint111111111111111111111111111111111111", 500),
+              _burn_ix("SomeOtherMint2222222222222222222222222222222", 9_000_000)])
+    assert burn_ledger._burned_in(tx) == 500
+
+
+def test_a_transfer_is_not_a_burn():
+    """
+    Sending tokens to a dead address looks like a burn and is not one: the
+    supply does not go down. Only a burn instruction counts.
+    """
+    import burn_ledger
+    burn_ledger.AETH_MINT = "OurMint111111111111111111111111111111111111"
+
+    transfer = {"parsed": {"type": "transfer", "info": {
+        "mint": "OurMint111111111111111111111111111111111111", "amount": "1000"}}}
+    assert burn_ledger._burned_in(_tx([transfer])) == 0
+
+
+def test_inner_instructions_count_too():
+    """A burn made through a program shows up nested, not at the top level."""
+    import burn_ledger
+    burn_ledger.AETH_MINT = "OurMint111111111111111111111111111111111111"
+
+    tx = _tx([])
+    tx["meta"]["innerInstructions"] = [
+        {"instructions": [_burn_ix("OurMint111111111111111111111111111111111111", 250)]}]
+    assert burn_ledger._burned_in(tx) == 250
+
+
+def test_a_transaction_with_no_burn_is_refused_rather_than_recorded_as_zero():
+    """
+    A mistyped signature must fail loudly. Recording it as a burn of nothing
+    would put a row in the public ledger that never happened.
+    """
+    import burn_ledger, pytest as pt
+    burn_ledger.AETH_MINT = "OurMint111111111111111111111111111111111111"
+
+    burn_ledger._rpc = lambda *a, **k: {"result": _tx([])}
+    with pt.raises(burn_ledger.BurnVerificationError):
+        burn_ledger.verify_burn("SomeSignature")
+
+
+def test_a_failed_transaction_is_refused():
+    import burn_ledger, pytest as pt
+    burn_ledger.AETH_MINT = "OurMint111111111111111111111111111111111111"
+
+    burn_ledger._rpc = lambda *a, **k: {"result": _tx(
+        [_burn_ix("OurMint111111111111111111111111111111111111", 100)],
+        err={"InstructionError": [0, "Custom"]})}
+    with pt.raises(burn_ledger.BurnVerificationError):
+        burn_ledger.verify_burn("FailedSignature")
+
+
+def test_the_same_burn_cannot_be_counted_twice():
+    import burn_ledger
+    burn_ledger.AETH_MINT = "OurMint111111111111111111111111111111111111"
+    burn_ledger._rpc = lambda *a, **k: {"result": _tx(
+        [_burn_ix("OurMint111111111111111111111111111111111111", 1_000_000)])}
+
+    import ledger_utils
+    # Clear first and after, so this never leaves a burn that did not happen in
+    # the ledger the site reads from.
+    def wipe():
+        with ledger_utils._cursor(commit=True) as cur:
+            cur.execute(ledger_utils._q(
+                "DELETE FROM burns WHERE tx_signature = %s;"), ("DoubleCountSig",))
+
+    burn_ledger.init_burns()
+    wipe()
+    try:
+        first = burn_ledger.record_burn("DoubleCountSig")
+        second = burn_ledger.record_burn("DoubleCountSig")
+        assert first["already_recorded"] is False
+        assert second["already_recorded"] is True
+        assert burn_ledger.summary()["burns"] >= 1
+    finally:
+        wipe()
+
+
+def test_the_server_still_cannot_sign_anything():
+    """
+    The burn is accounted for here and signed elsewhere. A key that can burn
+    can also transfer, so one in the web process would put every payment ever
+    received behind whatever protects this container.
+    """
+    import burn_ledger, inspect
+    src = inspect.getsource(burn_ledger)
+    for forbidden in ("Keypair", "from_secret_key", "sign_message",
+                      "PRIVATE_KEY", "SECRET_KEY", "sendTransaction"):
+        assert forbidden not in src, f"burn_ledger references {forbidden}"
+
+
+def test_the_parser_matches_a_real_solana_burn():
+    """
+    Every other burn test builds its own transaction dict, which only proves the
+    parser agrees with my idea of the format. This is the exact shape Solana
+    returned for a real burn, signature 2Ue9TjPWTLDZ..., taken from mainnet:
+    type "burn" rather than "burnChecked", and the amount as a string under
+    info, not under a tokenAmount object.
+    """
+    import burn_ledger
+    burn_ledger.AETH_MINT = "DGNicx6qMPKSL1deR3fZfbHYjnm5ZJWmHNdY2NhDpump"
+
+    real = {
+        "transaction": {"message": {"instructions": [{
+            "parsed": {
+                "type": "burn",
+                "info": {
+                    "account": "6Y5TWyRJin9bCohmShtLynWGY9Ba7Ub3DoifeJVVR3LF",
+                    "amount": "2",
+                    "authority": "AS6akYpZQydPnhrphuEkzAajBLYmkByHcKcMuLHfbEg8",
+                    "mint": "DGNicx6qMPKSL1deR3fZfbHYjnm5ZJWmHNdY2NhDpump",
+                },
+            }}]}},
+        "meta": {"err": None, "innerInstructions": []},
+        "blockTime": 1786645337,
+    }
+    assert burn_ledger._burned_in(real) == 2
+
+
+def test_the_token_page_survives_having_no_mint_configured():
+    """
+    The burn section slices the mint address to build a Solscan link. With no
+    mint set that value is None, and the slice took the whole page down with a
+    TypeError rather than just hiding a link.
+    """
+    from fastapi.testclient import TestClient
+    client = TestClient(Aetheron.app)
+    response = client.get("/token")
+    assert response.status_code == 200
+    # And the burn panel is still there, saying nothing has been burned.
+    assert "No burns yet" in response.text or "Burned so far" in response.text
