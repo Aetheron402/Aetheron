@@ -146,6 +146,35 @@ def fetch_asset(filename: str):
     return bytes(row[0]), row[1]
 
 
+def load_asset_text(filename: str) -> str | None:
+    """
+    Read a stored asset back as text, whichever backend holds it.
+
+    fetch_asset returns None under R2 by design, because the download route
+    redirects there rather than proxying bytes. A revision has to read the page
+    it is editing, though, and returning None there would quietly rebuild from
+    nothing and hand the buyer a different page than the one they asked to
+    change. So R2 is fetched over HTTP here instead.
+    """
+    if using_r2():
+        import requests
+        base = os.getenv("R2_PUBLIC_BASE", "").rstrip("/")
+        try:
+            response = requests.get(f"{base}/{filename}", timeout=30)
+            response.raise_for_status()
+            return response.text
+        except Exception:
+            return None
+
+    found = fetch_asset(filename)
+    if not found:
+        return None
+    try:
+        return found[0].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
 def purge_expired(max_age_days: int = 30) -> int:
     """
     Drop reports older than the retention window.

@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Prebuilt Agent Store | Aetheron
+{% block title %}Prebuilt Agent Store | Aetheron{% endblock %}
+
+{% block og_title %}Prebuilt Agent Store | Aetheron{% endblock %}
+{% block og_description %}Nine complete Python agent projects. Watch one run on live data before you buy, then download the source and keep it.{% endblock %}
+
+{% block body_class %}page-agents{% endblock %}
+
+{% block content %}
 <style>
   /* Only ever rendered for a wallet that actually won something. */
   .claim-btn {
@@ -124,14 +131,6 @@ document.addEventListener("DOMContentLoaded", refreshPrizes);
 window.addEventListener("aetheron:wallet", refreshPrizes);
 </script>
 
-{% endblock %}
-
-{% block og_title %}Prebuilt Agent Store | Aetheron{% endblock %}
-{% block og_description %}Nine complete Python agent projects. Watch one run on live data before you buy, then download the source and keep it.{% endblock %}
-
-{% block body_class %}page-agents{% endblock %}
-
-{% block content %}
 
 <div class="page-fade">
 

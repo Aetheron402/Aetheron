@@ -102,6 +102,68 @@ def complete(system_blocks, user_payload: str) -> str:
     return "".join(b.text for b in message.content if b.type == "text")
 
 
+def complete_streamed(system_blocks, user_payload: str, on_text=None) -> str:
+    """
+    The same completion, but handing back text as it arrives.
+
+    The studio shows a page building itself, which only means anything if the
+    browser sees it while it happens rather than after. `on_text` is called with
+    each fragment; the whole thing is still returned at the end so the caller
+    stores exactly what it showed.
+
+    The refusal check is the same as complete(), and matters more here: text may
+    already have reached the screen when a decline lands, and the caller needs
+    to know the page it was drawing is not going to finish.
+    """
+    client = get_client()
+
+    system = [{"type": "text", "text": b} for b in system_blocks if b]
+    if system:
+        system[-1]["cache_control"] = {"type": "ephemeral"}
+
+    parts = []
+    try:
+        with client.messages.stream(
+            model=MODEL,
+            max_tokens=MAX_TOKENS,
+            system=system,
+            thinking={"type": "adaptive"},
+            output_config={"effort": EFFORT},
+            messages=[{"role": "user", "content": user_payload}],
+        ) as stream:
+            for event in stream:
+                # Thinking deltas carry no page text and must not be shown or
+                # stored, so only text deltas are forwarded.
+                if (event.type == "content_block_delta"
+                        and getattr(event.delta, "type", None) == "text_delta"):
+                    parts.append(event.delta.text)
+                    if on_text:
+                        on_text(event.delta.text)
+            message = stream.get_final_message()
+    except anthropic.RateLimitError:
+        logger.warning("Claude rate limited this request")
+        raise
+    except anthropic.APIStatusError as exc:
+        logger.warning("Claude returned %s: %s", exc.status_code, exc.message)
+        raise
+    except anthropic.APIConnectionError:
+        logger.warning("Could not reach the Claude API")
+        raise
+
+    if message.stop_reason == "refusal":
+        detail = getattr(message.stop_details, "category", None)
+        raise RuntimeError(f"The model declined this request ({detail or 'unspecified'})")
+
+    usage = message.usage
+    logger.info(
+        "Claude %s effort=%s in=%s out=%s cached=%s streamed",
+        MODEL, EFFORT, usage.input_tokens, usage.output_tokens,
+        getattr(usage, "cache_read_input_tokens", 0),
+    )
+
+    return "".join(parts)
+
+
 T = TypeVar("T")
 
 

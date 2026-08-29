@@ -290,7 +290,7 @@
         and the ways to drive it.
       </p>
       <div class="grid sm:grid-cols-3 gap-3">
-        <div class="doc-card"><p class="text-white font-semibold text-sm mb-1">5 components</p><p class="text-xs text-slate-400">$0.25 to $1.00 per call</p></div>
+        <div class="doc-card"><p class="text-white font-semibold text-sm mb-1">6 components</p><p class="text-xs text-slate-400">$0.25 to $2.50 per call</p></div>
         <div class="doc-card"><p class="text-white font-semibold text-sm mb-1">9 agent templates</p><p class="text-xs text-slate-400">$4.99, yours to keep</p></div>
         <div class="doc-card"><p class="text-white font-semibold text-sm mb-1">Non-custodial</p><p class="text-xs text-slate-400">This code cannot sign</p></div>
       </div>
@@ -359,6 +359,7 @@
             <tr><td class="text-white">Prompt Tester</td><td>$0.50</td><td>One prompt run past several personas, each reaction reported</td></tr>
             <tr><td class="text-white">Risk Engine</td><td>$0.75</td><td>Monte Carlo simulation, charted paths and outcome distribution</td></tr>
             <tr><td class="text-white">Contract Intelligence</td><td>$1.00</td><td>Holder concentration, LP lock, admin powers, honeypot checks</td></tr>
+            <tr><td class="text-white">Launch Site Builder</td><td>$2.50</td><td>A landing page for a token, from a contract address or from a name and ticker before launch. One self-contained HTML file</td></tr>
           </tbody>
         </table>
       </div>
@@ -426,6 +427,7 @@
             <tr><td><span class="doc-method">POST</span><span class="doc-code">/api/prompt-tester</span></td><td>$0.50</td><td><span class="doc-code">text</span>, <span class="doc-code">format</span></td></tr>
             <tr><td><span class="doc-method">POST</span><span class="doc-code">/api/risk-engine</span></td><td>$0.75</td><td><span class="doc-code">runs</span>, <span class="doc-code">steps</span>, <span class="doc-code">start_price</span>, <span class="doc-code">mu</span>, <span class="doc-code">sigma</span></td></tr>
             <tr><td><span class="doc-method">POST</span><span class="doc-code">/api/contract-intel</span></td><td>$1.00</td><td><span class="doc-code">contract_address</span>, <span class="doc-code">network</span></td></tr>
+              <tr><td><span class="doc-method">POST</span><span class="doc-code">/api/site-builder</span></td><td>$2.50</td><td><span class="doc-code">mint</span>, or <span class="doc-code">name</span> + <span class="doc-code">symbol</span> before launch</td></tr>
             <tr><td><span class="doc-method">GET</span><span class="doc-code">/api/download_agent/{id}</span></td><td>$4.99</td><td>none</td></tr>
           </tbody>
         </table>
@@ -636,7 +638,7 @@ cd Aetheron
 
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
-cp .env.example .env          # set PAYMENT_WALLET and OPENAI_API_KEY
+cp .env.example .env          # set PAYMENT_WALLET and ANTHROPIC_API_KEY
 
 redis-server --daemonize yes
 .venv/bin/uvicorn Aetheron:app --reload
@@ -655,7 +657,7 @@ redis-server --daemonize yes
           <thead><tr><th>Variable</th><th>Required</th><th>Purpose</th></tr></thead>
           <tbody>
             <tr><td><span class="doc-code">PAYMENT_WALLET</span></td><td>yes</td><td>The Solana wallet that receives every payment.</td></tr>
-            <tr><td><span class="doc-code">OPENAI_API_KEY</span></td><td>yes</td><td>Powers all five components.</td></tr>
+            <tr><td><span class="doc-code">ANTHROPIC_API_KEY</span></td><td>yes</td><td>Powers every component.</td></tr>
             <tr><td><span class="doc-code">REDIS_URL</span></td><td>yes</td><td>Celery broker and result backend.</td></tr>
             <tr><td><span class="doc-code">AETH_MINT_ADDRESS</span></td><td>no</td><td>Setting it activates AETH payments everywhere, with no redeploy.</td></tr>
             <tr><td><span class="doc-code">DB_HOST</span></td><td>no</td><td>Empty means SQLite. Set it to use Postgres.</td></tr>

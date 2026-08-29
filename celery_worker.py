@@ -16,7 +16,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from celery import Celery
 from celery.worker.control import control_command
-from storage import store_asset
+from storage import store_asset, load_asset_text
 from pydantic import BaseModel, Field
 
 import llm
@@ -55,6 +55,12 @@ def load_last_snapshot(address, network):
 
 
 print("CELERY WORKER LOADING UPDATED FILE")
+
+# The rest of this file reports with print, which goes to the same place under
+# Railway. This exists because the site revision path wants structured lines
+# that can be grepped for how much a patch actually wrote.
+import logging as _logging
+logger = _logging.getLogger("aetheron.worker")
 
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -3240,3 +3246,703 @@ def preview_agent(agent_id, seconds=20):
     """
     import agent_preview
     return agent_preview.run(agent_id, seconds)
+
+
+# ── site builder ────────────────────────────────────────────────────────────
+
+@celery.task(name="celery_worker.process_site_builder")
+def process_site_builder(asset_id, mint, notes, wallet, details=None,
+                         direction_offset=0, project_id=None):
+    """
+    Build a landing page for a token from its contract address.
+
+    Everything on the page comes from the mint: the real name, ticker, image,
+    supply, socials and market figures. That is the whole difference between
+    this and any other generator, which can only work from what somebody types
+    into a box.
+
+    Anything a source did not return is left out of the page rather than
+    invented. A landing page carrying a market cap nobody measured, or a
+    Telegram link that goes nowhere, is worse than one without the section.
+
+    The output is a single self contained HTML file, so it can be dropped on any
+    host, opened locally, or handed to somebody who has never deployed anything.
+    """
+    import site_data
+
+    # Two ways in. Most people need the page before they launch, so there is no
+    # mint yet and they describe the token instead. Once it exists, the address
+    # is enough on its own and nothing has to be typed.
+    try:
+        if mint:
+            token = site_data.lookup(mint)
+            direction = site_data.direction_for(token["mint"], direction_offset)
+        else:
+            token = site_data.from_details(**(details or {}))
+            direction = site_data.direction_for_name(
+                f"{token['name']} {token['symbol']}", direction_offset)
+    except site_data.TokenLookupError as exc:
+        # The row stays pending, the same as every other task that fails, and
+        # the buyer sees the reason rather than a generic error.
+        raise ValueError(str(exc))
+
+    # Opened before the page is generated, so a build that fails still leaves
+    # something the buyer can see and revise from rather than vanishing.
+    #
+    # A reroll passes the project it belongs to, because it is another version
+    # of a site that already exists rather than a new one. Without that, asking
+    # for a different look would leave two projects in the list and the older
+    # one unreachable from the newer.
+    import site_projects
+    if project_id:
+        site_projects.update_details(project_id, {}, direction=direction["name"])
+    else:
+        project_id = site_projects.start(
+            wallet, token, direction["name"], notes, asset_id)
+
+    known = {k: v for k, v in {
+        "name": token["name"],
+        "symbol": token["symbol"],
+        "description": token["description"],
+        "image": token["image"],
+        "market cap (USD)": token["market_cap_usd"],
+        "price (USD)": token["price_usd"],
+        "liquidity (USD)": token["liquidity_usd"],
+        "24h volume (USD)": token["volume_24h_usd"],
+        "total supply": token["supply"],
+        "graduated from the bonding curve": token["graduated"],
+        "twitter": token["socials"]["twitter"],
+        "telegram": token["socials"]["telegram"],
+        "website": token["socials"]["website"],
+    }.items() if v not in (None, "")}
+
+    SYSTEM_PROMPT = """
+You build a single landing page for one token, and you return nothing but the
+page.
+
+Output rules, and they are absolute:
+
+- Return one complete HTML document and nothing else. No commentary, no
+  markdown fences, no explanation before or after. The first characters are
+  <!DOCTYPE html> and the last are </html>.
+- Everything inline. All CSS in one <style>, any script in one <script>, no
+  external stylesheets, no font imports, no CDN links, no build step. The file
+  must render correctly opened straight off a disk with no network beyond the
+  images it is given. The two faces named below are embedded into the page for
+  you after you write it, so use them by name and add no import of your own.
+- Use only the facts supplied. Do not invent a market cap, a holder count, a
+  roadmap, a team, an audit, a partnership or a launch date. If a fact is not
+  in the brief it does not appear on the page. A section with nothing real to
+  put in it is dropped, not filled.
+- Never imply price will rise, never promise returns, and do not write the word
+  guaranteed anywhere.
+- The contract address must appear in full, exactly as given, and be selectable
+  as text. People copy it from pages like this and a truncated one is useless.
+
+The page is always built from the same sections, each with the id given. The
+look changes from token to token. Which sections exist does not, because a
+buyer should be able to know what they are getting before they pay, and because
+a page that leaves out how to buy is not doing its job.
+
+The order below is the default, not a rule. If the owner asks for a section
+moved, move it. Somebody who says put how to buy near the top has a reason,
+usually that their audience has never used a wallet, and they know their
+audience better than this list does. What cannot change is which sections
+exist: reordering is not an opening to add one.
+
+1. `#hero` The name, the ticker, one line saying what it is, and the main
+   button pointing at the pump.fun link. Nothing else competes with it.
+2. `#contract` The contract address in full, selectable, with a copy button, or
+   the pre-launch state described below.
+3. `#about` What the token is, in two to four short blocks, drawn only from the
+   description supplied. This is where the personality goes.
+4. `#how-to-buy` Three or four numbered steps: get a Solana wallet, put SOL in
+   it, open the pump.fun link, swap. Keep it generic. Naming a wallet people
+   already use is fine. Do not state fees, slippage, amounts, prices, or how
+   long anything takes, because those are not yours to know. If the token has
+   not launched, say the address goes live at launch and the steps stay the
+   same.
+5. `#market` Only when real market figures were supplied. If there are none,
+   this section does not exist. Never a placeholder, never a zero, never soon.
+6. `#links` The socials that were supplied, and only those.
+7. `#footer` A plain line that this is a token with no promises attached and
+   nothing here is financial advice.
+
+No other top level sections. No roadmap, no team, no partners, no audit, no
+tokenomics, no FAQ, no newsletter. If it is not on that list it does not go on
+the page, however much empty space is left, and asking for one directly does
+not change that. A request for a roadmap is a request to invent one, since
+there are no facts behind it, and the honest answer is a page without it rather
+than a page with three quarters somebody made up.
+
+`#hero` stays first and `#footer` stays last. Everything between them may be
+ordered however the owner asks.
+
+That list is the skeleton, never the wording. Do not print the section names or
+their numbers anywhere a reader can see them, no Section 01, no ABOUT sitting
+above the paragraph, no id spelled out as a label. Headings are written for this
+token in its own voice, or there is no heading. A page with SECTION 03 printed
+on it reads as a form somebody filled in, which is the one thing it must never
+look like.
+
+Build it properly:
+
+- If the page has a scrolling strip of text, a ticker or marquee, it must never
+  show a gap. Repeat the phrases until one run is wider than the widest screen
+  it could be read on, duplicate that whole run once inside a single nowrap
+  track, give the track min-width:200vw, and animate it from translateX(0) to
+  translateX(-50%). A short list of phrases duplicated once is narrower than the
+  window, so the strip plays the text and then scrolls emptiness, which is the
+  most common way this effect ships broken.
+
+- Every background runs the full width of the window. Put colour, gradients,
+  glows and texture on a full width section, and constrain only the text inside
+  it with an inner wrapper. Never put a max-width and a background on the same
+  element: the background then stops where the text column stops and leaves bare
+  strips down both sides of the screen on a wide monitor. This is the single
+  most common way one of these pages comes out looking broken.
+- Responsive, and readable on a phone first, since that is where it is opened.
+- One clear call to action pointing at the pump.fun link supplied.
+- Real visual hierarchy, not a wall of centred divs. Use the token image if one
+  is supplied.
+- The image is only ever the thing given as the image. A social link is a link
+  and never a picture: putting an x.com or t.me address in a src produces a
+  broken image that the onerror then hides, so the page looks finished while a
+  supplied fact has silently disappeared. If no image was given, the page has
+  no image and is designed without one.
+- Every social that was supplied appears in `#links`. None of them is used
+  anywhere else instead.
+- No emoji unless the owner asked for them. They are the fastest way for a page
+  to read as generated rather than made, and a buyer who wants them says so.
+  When they do ask, use them properly and do not ration them.
+- Every <img> must carry an onerror that removes it along with any frame,
+  caption or wrapper drawn around it, so a picture that fails to load leaves a
+  page with no image rather than a page with a broken one. Token images are
+  pasted in by hand and usually point at IPFS gateways or social media, which
+  go down, block hotlinking, or simply have the wrong address in them. A broken
+  image icon sitting in a styled box is the most visible way one of these pages
+  can embarrass the person who published it.
+- The page should feel alive when it opens. Bring the hero in rather than
+  having it appear all at once, and reveal each section as it comes into view,
+  once, with a short fade and a small rise. Give anything clickable a hover and
+  a pressed state. These pages are opened from a link on X and judged in two
+  seconds, and a page with no motion at all reads as a screenshot.
+- Motion serves the reading and never interrupts it. Nothing bounces, nothing
+  loops for ever except a deliberate ticker, nothing slides in from off screen,
+  and nothing delays text by more than about a third of a second. If an effect
+  would make somebody wait to read a sentence, it is the wrong effect.
+- A reveal must never be the reason something cannot be read. If it works by
+  starting at opacity zero, that opacity is applied by script rather than sat
+  in the stylesheet, so the page is complete and readable when javascript is
+  off, blocked, or broken. Never ship a page whose text is invisible when a
+  script fails.
+- Under prefers-reduced-motion, all of it is off: no transitions, no reveals,
+  no ticker, everything in its final position on load.
+- Body copy has to be plainly readable, and this is not negotiable for the sake
+  of a mood. Never dark grey on black, never pale grey on white. Body text needs
+  to sit at least around 60 percent of the way from its background to white on a
+  dark page, or to black on a light one, and headings are allowed to be quieter
+  than that only when they are large. Restraint comes from space, type and
+  colour choice, never from making words hard to see. A page nobody can read is
+  worse than a plain one.
+- Content is centred in the page. If a column is narrower than the page, it is
+  centred too, not left in place inside a wider centred wrapper, which strands
+  everything against one edge and leaves half the screen empty. A layout may be
+  deliberately asymmetric, and if it is, the other side has to carry something
+  real: an image, a panel, a rule, a block of colour.
+- Whitespace is a tool, not filler. Space between sections should feel chosen. A
+  section that is mostly empty is not restrained, it is unfinished.
+- Real alt text, and a <title> naming the token.
+- A favicon, so the tab does not show a blank page icon. Draw it as an inline
+  SVG data uri in a <link rel="icon">: the ticker's first one or two letters on
+  the page's main colour, in the display face if it will render, and nothing
+  fussier than that. It is sixteen pixels and it needs to read at that size.
+- The page carries link preview tags, because these get posted on X and Discord
+  and a bare url with no card is the difference between a link people open and
+  one they scroll past. In the head: og:title with the name and ticker,
+  og:description with one honest line about the token, og:type website,
+  twitter:card summary_large_image, and og:image set to the image url given
+  below if there is one. If no image was supplied, leave og:image out entirely
+  rather than pointing it at nothing.
+- If the page renders its address from a CONTRACT_ADDRESS constant, add a small
+  market block with the id `market`, hidden until it has something to show, and
+  a script that fills it once the constant is filled in. Read
+  https://api.dexscreener.com/latest/dex/tokens/ plus the address, take the pair
+  with the most liquidity, and show price, market cap and 24 hour volume. If the
+  request fails, returns no pairs, or the constant is still empty, the block
+  stays hidden. Never render a zero, a dash or a loading state in place of a
+  figure: a page that has not launched shows nothing there, and one that has
+  shows real numbers or nothing at all.
+""".strip()
+
+    if token["mint"]:
+        contract_brief = (
+            f"Contract address, print in full: {token['mint']}\n"
+            "Put it somewhere obvious, selectable, with a copy button.\n"
+        )
+    else:
+        contract_brief = (
+            "This token has not launched, so there is no contract address yet.\n"
+            "Near the top of the <script>, declare exactly this line and nothing "
+            'like it anywhere else:  const CONTRACT_ADDRESS = "";\n'
+            "Everywhere the address should appear, render it from that constant. "
+            "While it is empty, show the words 'Contract address at launch' in its "
+            "place and hide any copy button. The moment somebody pastes their "
+            "address between those quotes the whole page updates, and that is the "
+            "only edit they should ever need to make.\n"
+            "Everything else that says the token has not launched yet, any badge, "
+            "any status line, any wording of the kind, must be driven by that same "
+            "constant too, so filling it in stops the page claiming the token is "
+            "unlaunched. One edit has to be enough, or it is not one edit.\n"
+            "Say plainly in a comment at the top of the file that this is the one "
+            "line to change after launching.\n"
+        )
+
+    import site_fonts
+
+    user_prompt = (
+        f"Design direction for this token: {direction['name']}. {direction['note']}.\n"
+        f"Commit to it fully. Two tokens must not come out looking the same.\n\n"
+        f"{site_fonts.brief_for(direction['name'])}\n\n"
+        "Never use an em dash. Not in the copy, not in a heading, not as a "
+        "separator between a label and a value. Use a colon, a full stop, or "
+        "rewrite the line. Buyers publish this page under their own name and an "
+        "em dash is the first thing that makes writing read as machine written.\n\n"
+        f"{contract_brief}\n"
+        "Everything known about the token:\n"
+        + "\n".join(f"- {k}: {v}" for k, v in known.items())
+        + ("\n\nLinks to use:\n" + "\n".join(
+            f"- {k}: {v}" for k, v in token["links"].items())
+           if token["links"] else "")
+    )
+
+    if token["missing"]:
+        user_prompt += (
+            "\n\nNot available, so leave these out entirely rather than filling "
+            "them in:\n" + "\n".join(f"- {m}" for m in token["missing"])
+        )
+    if (notes or "").strip():
+        user_prompt += f"\n\nWhat the owner asked for:\n{notes.strip()[:1200]}"
+
+    # A list of blocks, not a string. Passing the string iterated it character
+    # by character and every space became a whitespace only block, which the API
+    # rejects outright.
+    # Streamed so the studio can show the page building itself. The buffer is
+    # a convenience: if nobody is watching, or the browser goes away, the build
+    # still finishes and still stores, because it was paid for.
+    import site_stream
+    site_stream.begin(asset_id)
+    try:
+        html = llm.complete_streamed(
+            [SYSTEM_PROMPT], user_prompt,
+            on_text=lambda t: site_stream.push(asset_id, t))
+    except Exception as exc:
+        site_stream.fail(asset_id, str(exc))
+        site_projects.fail(asset_id)
+        raise
+
+    # Models wrap HTML in a fence often enough that it is worth undoing rather
+    # than shipping a file whose first line is three backticks.
+    html = html.strip()
+    if html.startswith("```"):
+        html = re.sub(r"^```[a-zA-Z]*\n", "", html)
+        html = re.sub(r"\n```$", "", html).strip()
+
+    lowered = html.lower()
+    if "<html" not in lowered or "</html>" not in lowered:
+        site_stream.fail(asset_id, "The generated page was not a complete HTML document")
+        site_projects.fail(asset_id)
+        raise ValueError("The generated page was not a complete HTML document")
+
+    # Written straight out, not through export_generic. That helper is for
+    # reports: its html path wraps the content in an Aetheron Export document
+    # and turns every newline into a <br/>, which nested this page inside
+    # another one and shipped the markup as visible text.
+    # The faces go in here rather than being written by the model, which would
+    # mean asking it for twenty kilobytes of base64 and getting twenty
+    # kilobytes of something that looks like base64.
+    html = site_fonts.inject(html, direction["name"])
+
+    fname = asset_filename(asset_id, "html")
+    url = store_asset(html.encode("utf-8"), fname)
+    finalize_asset(asset_id, fname)
+    site_projects.finish(asset_id, fname)
+    site_stream.finish(asset_id, fname, project_id)
+
+    return {"download_url": url, "filename": fname, "format": "html",
+            "token": token["symbol"], "direction": direction["name"],
+            "project_id": project_id, "version": 1}
+
+
+@celery.task(name="celery_worker.process_site_section")
+def process_site_section(asset_id, project_id, section, instruction, wallet):
+    """
+    Rewrite one section of a page and leave the rest alone.
+
+    Between changing a line of text and rebuilding the whole thing there was
+    nothing. Somebody who wants the about section written differently either
+    fiddles with edits until it is right or pays for a rebuild and loses the
+    design they liked. This is the middle: one section regenerated, everything
+    outside it byte for byte identical.
+
+    Cheaper than a build because it writes one section rather than a document,
+    and more capable than an edit because it is allowed to start over within
+    those bounds.
+    """
+    import site_fonts
+    import site_projects
+    import site_stream
+
+    project = site_projects.get(project_id)
+    if not project:
+        raise ValueError("That site could not be found.")
+
+    previous_name = site_projects.latest_file(project_id)
+    previous = load_asset_text(previous_name) if previous_name else None
+    if not previous:
+        raise ValueError(
+            "The previous version of this site is no longer stored, so there is "
+            "nothing to rewrite part of.")
+
+    # The bounds of the section, found in the page rather than guessed. A
+    # regeneration that replaced the wrong span would quietly delete something
+    # somebody paid for.
+    opening = re.search(
+        rf'<(section|header|footer|div)\b[^>]*\bid=["\']{re.escape(section)}["\'][^>]*>',
+        previous, re.I)
+    if not opening:
+        raise ValueError(f"This page has no {section} section to rewrite.")
+
+    tag = opening.group(1)
+    start = opening.start()
+    cursor, depth = opening.end(), 1
+    pattern = re.compile(rf"</?{tag}\b", re.I)
+
+    while depth and cursor < len(previous):
+        found = pattern.search(previous, cursor)
+        if not found:
+            break
+        depth += -1 if found.group(0).startswith("</") else 1
+        cursor = found.end()
+
+    if depth:
+        raise ValueError("That section could not be read cleanly.")
+
+    end = previous.index(">", cursor) + 1
+    current = previous[start:end]
+
+    facts = {k: v for k, v in (project["details"] or {}).items()
+             if v not in (None, "")}
+    if project.get("mint"):
+        facts["contract address"] = project["mint"]
+
+    SYSTEM = """
+You are rewriting one section of an HTML page. You return that section and
+nothing else.
+
+- Return one element, opening tag to closing tag, keeping the same tag and the
+  same id. No commentary, no fences, nothing around it.
+- It has to sit inside a page you cannot see, so use the class names and the
+  css variables already in the section you are given. Do not invent new ones,
+  and do not add a <style> block: any styling belongs on the classes that are
+  already there.
+- Invent nothing. No market cap, no holder count, no roadmap, no team, no
+  audit, no partnership, no launch date beyond the facts given.
+- Never imply price will rise, never promise returns, never write the word
+  guaranteed.
+- Never use an em dash. No emoji unless the section already has them.
+- Body copy stays plainly readable.
+""".strip()
+
+    prompt = (
+        f"The section as it stands:\n\n{current}\n\n"
+        f"What the owner wants instead:\n{(instruction or '').strip()[:1200]}\n\n"
+        "The facts about this token, for reference. Do not add any that are not "
+        "already shown unless asked:\n"
+        + "\n".join(f"- {k}: {v}" for k, v in facts.items())
+    )
+
+    site_stream.begin(asset_id)
+    try:
+        replacement = llm.complete([SYSTEM], prompt)
+    except Exception as exc:
+        site_stream.fail(asset_id, str(exc))
+        site_projects.fail(asset_id)
+        raise
+
+    replacement = replacement.strip()
+    if replacement.startswith("```"):
+        replacement = re.sub(r"^```[a-zA-Z]*\n", "", replacement)
+        replacement = re.sub(r"\n```$", "", replacement).strip()
+
+    if f'id="{section}"' not in replacement and f"id='{section}'" not in replacement:
+        site_stream.fail(asset_id, "The rewritten section lost its id")
+        site_projects.fail(asset_id)
+        raise ValueError("The rewritten section lost its id")
+
+    html = previous[:start] + replacement + previous[end:]
+
+    lowered = html.lower()
+    if "<html" not in lowered or "</html>" not in lowered:
+        site_stream.fail(asset_id, "The page was left incomplete")
+        site_projects.fail(asset_id)
+        raise ValueError("The page was left incomplete")
+
+    site_stream.push(asset_id, html)
+
+    fname = asset_filename(asset_id, "html")
+    url = store_asset(html.encode("utf-8"), fname)
+    finalize_asset(asset_id, fname)
+    site_projects.finish(asset_id, fname)
+    site_stream.finish(asset_id, fname, project_id)
+
+    logger.info("Rewrote %s of %s: %d chars in, %d out",
+                section, project_id, len(current), len(replacement))
+
+    return {"download_url": url, "filename": fname, "format": "html",
+            "section": section, "project_id": project_id}
+
+
+@celery.task(name="celery_worker.process_site_revision")
+def process_site_revision(asset_id, project_id, notes, wallet, details=None):
+    """
+    Apply a change to a page that already exists.
+
+    This edits rather than regenerates. The previous file is handed to the model
+    with the change asked for, and everything not mentioned is required to come
+    back byte for byte identical. That is the whole point: somebody who wants a
+    different headline should not get a different site, and a buyer who paid for
+    a look they liked should not lose it because they wanted a Telegram link
+    added.
+
+    Costs less than a build because it is a smaller job, and because a page
+    nobody can adjust is a page people stop paying for.
+    """
+    import site_projects
+
+    project = site_projects.get(project_id)
+    if not project:
+        raise ValueError("That site could not be found.")
+
+    previous_name = site_projects.latest_file(project_id)
+    if not previous_name:
+        raise ValueError(
+            "There is no finished version of this site to revise yet. Build it "
+            "first, then changes can be applied to it."
+        )
+
+    previous = load_asset_text(previous_name)
+    if not previous:
+        # Assets are purged after the retention window, so an old enough project
+        # genuinely has nothing left to edit. Saying so beats rebuilding from
+        # scratch and calling it a revision.
+        raise ValueError(
+            "The previous version of this site is no longer stored, so there is "
+            "nothing to apply changes to. Building it again will start a new site."
+        )
+
+    # A revision may also change the facts, not just the styling: a Telegram
+    # that did not exist at build time, a contract address after launch.
+    if details:
+        site_projects.update_details(project_id, details)
+        project = site_projects.get(project_id)
+
+    facts = {k: v for k, v in (project["details"] or {}).items()
+             if v not in (None, "")}
+    if project.get("mint"):
+        facts["contract address"] = project["mint"]
+
+    PATCH_PROMPT = """
+You are changing one HTML page. You do not return the page. You return the
+smallest set of exact replacements that make the change.
+
+Reply with nothing but a JSON array:
+
+[{"find": "<h1>Old headline</h1>", "replace": "<h1>New headline</h1>"}]
+
+Rules, and every one of them matters:
+
+- `find` must be text copied exactly from the page, character for character,
+  including whitespace and indentation. It is matched literally, not as a
+  pattern.
+- `find` must appear exactly once in the whole file. If the text you want is
+  not unique, widen it until it is by taking in the tag or line around it. A
+  match that appears twice is rejected and the change is not made.
+- Keep each `find` as short as it can be while staying unique. The point of
+  this is to write out what changes and nothing else.
+- Return one entry per distinct change. Several entries are fine and expected
+  when the request covers more than one thing.
+- Change only what the request asks for. Everything the request does not
+  mention stays exactly as it is, which is automatic here, because anything you
+  do not name is untouched.
+- To change how something looks, patch the CSS rule in the <style> block rather
+  than adding an inline style, so the page keeps one place where its look
+  lives.
+- Invent nothing. No market cap, no holder count, no roadmap, no team, no
+  audit, no partnership, no launch date unless it is given below.
+- Never imply price will rise, never promise returns, never write the word
+  guaranteed.
+- Never use an em dash. Use a colon, a full stop, or rewrite the line.
+- A social link is never used as an image source, and every supplied social
+  belongs in #links.
+- Do not add emoji unless the request asks for them.
+- Do not print section names or numbers where a reader can see them.
+- Body copy stays plainly readable. Do not answer a request to make something
+  quieter or more minimal by lowering text contrast until it cannot be read.
+- Keep the section ids as they are: #hero, #contract, #about, #how-to-buy,
+  #market, #links, #footer.
+- If the page renders its contract address from a CONTRACT_ADDRESS constant,
+  leave that mechanism alone unless the request is to fill it in.
+
+If the change genuinely cannot be expressed as replacements, for instance
+because it needs a whole new section written, return the single entry
+[{"find": "IMPOSSIBLE", "replace": "IMPOSSIBLE"}] and the page will be rebuilt
+instead.
+""".strip()
+
+    SYSTEM_PROMPT = """
+You are editing one HTML page that already exists. You return the edited page
+and nothing else.
+
+Rules, and they are absolute:
+
+- Return one complete HTML document. First characters <!DOCTYPE html>, last
+  characters </html>. No commentary, no markdown fences, nothing around it.
+- Change only what the request asks for. Every section, style, class name,
+  animation and line of copy that the request does not mention must come back
+  exactly as it went in. This is an edit, not a rebuild, and the buyer chose
+  this design already.
+- Keep it one self contained file. All CSS in the existing <style>, all script
+  in the existing <script>, no external stylesheets, no font imports, no CDN.
+- Invent nothing. No market cap, no holder count, no roadmap, no team, no
+  audit, no partnership, no launch date unless it is given below. If the
+  request asks for a section there are no facts for, leave it out.
+- Never imply price will rise, never promise returns, never write the word
+  guaranteed.
+- Never use an em dash, in copy, in a heading, or as a separator. Use a colon,
+  a full stop, or rewrite the line.
+- Backgrounds run the full width of the window. Colour and gradients belong on
+  a full width section with the text constrained by an inner wrapper, never a
+  max-width and a background on the same element.
+- Every <img> must carry an onerror that removes it along with any frame,
+  caption or wrapper drawn around it, so a picture that fails to load leaves a
+  page with no image rather than a page with a broken one. Token images are
+  pasted in by hand and usually point at IPFS gateways or social media, which
+  go down, block hotlinking, or simply have the wrong address in them. A broken
+  image icon sitting in a styled box is the most visible way one of these pages
+  can embarrass the person who published it.
+- If the page renders its contract address from a CONTRACT_ADDRESS constant,
+  that mechanism stays exactly as it is unless the request is to fill it in.
+- The section ids stay: #hero, #contract, #about, #how-to-buy, #market, #links,
+  #footer. Do not rename them and do not add a top level section that is not
+  one of them. Changes are aimed at these ids, so renaming one breaks the next
+  change somebody asks for.
+- Reordering them is allowed when that is what the request asks for, keeping
+  #hero first and #footer last. Moving a section is not an opening to add one:
+  a request for a roadmap or a team is still refused, because there are no
+  facts behind either.
+- Never print the section names or numbers where a reader can see them. The ids
+  are structure, not copy.
+- Body copy stays plainly readable. Do not answer a request to make something
+  quieter or more minimal by lowering text contrast until it cannot be read.
+- If the page has a scrolling ticker or marquee, it must never show a gap: one
+  run of the phrases wider than the screen, duplicated once in a single nowrap
+  track with min-width:200vw, animated translateX(0) to translateX(-50%).
+""".strip()
+
+    user_prompt = (
+        "Here is the page as it stands.\n\n"
+        f"{previous}\n\n"
+        "The change the owner has asked for:\n"
+        f"{(notes or '').strip()[:2000]}\n\n"
+    )
+
+    # Anything typed into the details fields is part of the request, not
+    # background reading. The first revision that supplied a Telegram link got
+    # a page without one, because the rule about changing only what was asked
+    # for beat a fact sitting in a reference list.
+    if details:
+        supplied = {k: v for k, v in details.items() if (v or "")}
+        if supplied:
+            user_prompt += (
+                "The owner also supplied these details, and they are part of the "
+                "request. Put each one on the page, in the place the design "
+                "already keeps that kind of thing, and update it if it is "
+                "already there:\n"
+                + "\n".join(f"- {k}: {v}" for k, v in supplied.items())
+                + "\n\n"
+            )
+
+    user_prompt += (
+        "The rest of the facts about this token, for reference only. Do not add "
+        "any of these that are not already shown:\n"
+        + "\n".join(f"- {k}: {v}" for k, v in facts.items()
+                     if k not in (details or {}))
+    )
+
+    import site_patch
+    import site_stream
+    site_stream.begin(asset_id)
+
+    # First ask for the change rather than the page. Rewriting the whole
+    # document to alter one headline wrote thirteen thousand characters to
+    # change forty of them, and output is the expensive half of a call.
+    try:
+        raw = llm.complete([PATCH_PROMPT], user_prompt)
+    except Exception as exc:
+        site_stream.fail(asset_id, str(exc))
+        site_projects.fail(asset_id)
+        raise
+
+    html = None
+    try:
+        edits = site_patch.parse(raw)
+        html = site_patch.apply(previous, edits)
+        logger.info("Site revision %s applied as a patch: %s", asset_id,
+                    site_patch.summarise(previous, html, edits))
+    except site_patch.PatchError as exc:
+        # A patch that cannot be trusted is not applied at all, and the whole
+        # page is asked for instead. Slower and dearer, but it always works,
+        # which matters more than saving tokens on somebody who has paid.
+        logger.info("Site revision %s falling back to a rewrite: %s",
+                    asset_id, exc)
+        html = None
+
+    if html is None:
+        try:
+            html = llm.complete_streamed(
+                [SYSTEM_PROMPT], user_prompt,
+                on_text=lambda t: site_stream.push(asset_id, t))
+        except Exception as exc:
+            site_stream.fail(asset_id, str(exc))
+            site_projects.fail(asset_id)
+            raise
+
+        html = html.strip()
+        if html.startswith("```"):
+            html = re.sub(r"^```[a-zA-Z]*\n", "", html)
+            html = re.sub(r"\n```$", "", html).strip()
+
+        lowered = html.lower()
+        if "<html" not in lowered or "</html>" not in lowered:
+            site_stream.fail(asset_id,
+                             "The revised page was not a complete HTML document")
+            site_projects.fail(asset_id)
+            raise ValueError("The revised page was not a complete HTML document")
+    else:
+        # The patch path produces nothing to watch, so the finished page goes
+        # to the stream in one piece and the studio paints it when it lands.
+        site_stream.push(asset_id, html)
+
+    fname = asset_filename(asset_id, "html")
+    url = store_asset(html.encode("utf-8"), fname)
+    finalize_asset(asset_id, fname)
+    site_projects.finish(asset_id, fname)
+    site_stream.finish(asset_id, fname, project_id)
+
+    version = next((v["version"] for v in site_projects.get(project_id)["versions"]
+                    if v["asset_id"] == asset_id), None)
+
+    return {"download_url": url, "filename": fname, "format": "html",
+            "token": project["symbol"], "project_id": project_id,
+            "version": version}

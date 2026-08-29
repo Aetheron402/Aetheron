@@ -1,0 +1,1339 @@
+{% extends "base.html" %}
+
+{% block title %}Launch Site Builder{% endblock %}
+
+{% block og_title %}Aetheron Launch Site Builder{% endblock %}
+{% block og_description %}Build your token a landing page, watch it generate, then point at anything you want changed.{% endblock %}
+
+{% block body_class %}page-studio{% endblock %}
+
+{% block content %}
+<style>
+  .studio {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 24px;
+    max-width: 1700px;
+    margin: 24px auto 60px;
+    padding: 0 24px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .studio { grid-template-columns: 1fr; }
+    .studio-preview { min-height: 60vh; }
+  }
+  .studio-panel {
+    background: rgba(9, 14, 22, .72);
+    border: 1px solid rgba(34, 211, 238, .18);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .studio-preview {
+    background: #06090f;
+    border: 1px solid rgba(34, 211, 238, .22);
+    border-radius: 16px;
+    overflow: hidden;
+    height: calc(100vh - 190px);
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+    /* Sticky already establishes a containing block for the edit box, which
+       is positioned absolutely inside it. Do not add position:relative here:
+       a later rule saying so overrides this one and the preview stops
+       following the page as it scrolls. */
+    position: sticky;
+    top: 90px;
+  }
+  .studio-preview iframe { flex: 1; width: 100%; border: 0; background: #06090f; }
+  .studio-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(34, 211, 238, .16);
+    font-size: .8rem; color: #9fb3c4;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .studio-field {
+    width: 100%;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(34, 211, 238, .2);
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #e5edf4;
+    outline: none;
+    font-size: .9rem;
+  }
+  .studio-field::placeholder { color: #64748b; }
+  .studio-label { display:block; font-size: .78rem; color: #94a3b8; margin: 12px 0 6px; }
+  .studio-tab {
+    padding: 7px 14px; border-radius: 8px; font-size: .82rem;
+    border: 1px solid rgba(34, 211, 238, .2); color: #94a3b8; cursor: pointer;
+    background: transparent;
+  }
+  .studio-tab.on { background: rgba(34, 211, 238, .14); color: #67e8f9; }
+  .edit-row {
+    display: flex; justify-content: space-between; gap: 10px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(34, 211, 238, .12);
+    border-radius: 10px; padding: 9px 11px; font-size: .82rem;
+  }
+  .meter {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-top: 1px solid rgba(34, 211, 238, .18);
+    margin-top: 14px; padding-top: 12px;
+  }
+  .meter-total { font-size: 1.6rem; font-weight: 700; color: #67e8f9; }
+  .picking { cursor: crosshair !important; }
+
+  /* The studio needs a pointer and a wide window. Editing works by clicking one
+     exact element inside the preview, and on a phone that is a broken feature
+     rather than a smaller one: the panel stacks under a shrunken frame and the
+     edit box covers most of the screen. Somebody paying and then finding they
+     cannot change anything is the worst outcome this has, so it is refused
+     rather than half offered. */
+  .studio-mobile { display: none; }
+  @media (max-width: 900px) {
+    .studio { display: none; }
+    .studio-mobile {
+      display: block; max-width: 560px; margin: 0 auto; padding: 40px 22px 80px;
+    }
+  }
+  .m-card {
+    background: rgba(9, 14, 22, .72);
+    border: 1px solid rgba(34, 211, 238, .18);
+    border-radius: 16px; padding: 20px; margin-top: 20px;
+  }
+  .m-step { display: flex; gap: 14px; padding: 11px 0; }
+  .m-step b {
+    flex: 0 0 26px; height: 26px; border-radius: 999px; font-weight: 500;
+    border: 1px solid rgba(34,211,238,.35); color: #67e8f9; font-size: .78rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .m-step p { margin: 0; color: #b6c6d4; font-size: .92rem; line-height: 1.6; }
+
+  /* The box that opens on the page itself. Anchored to where somebody
+     clicked, because a panel on the far side of the screen makes them look
+     away from the thing they are changing. */
+  .spot {
+    position: absolute;
+    width: 300px;
+    background: rgba(9, 14, 22, .97);
+    border: 1px solid rgba(34, 211, 238, .45);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .6);
+    z-index: 40;
+  }
+  .spot textarea {
+    width: 100%;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(34, 211, 238, .25);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #e5edf4;
+    font-size: .85rem;
+    outline: none;
+    resize: vertical;
+  }
+  .spot-what {
+    font-size: .72rem; color: #67e8f9;
+    margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .spot-row { display: flex; gap: 8px; margin-top: 8px; }
+  .spot-row button { flex: 1; font-size: .78rem; padding: 6px 8px; }
+
+  /* While a page is being written. A black rectangle for sixty seconds reads
+     as broken, so this shows the shape of a page filling in. It sits over the
+     frame rather than inside it, because the frame is holding the real page as
+     it arrives underneath. */
+  .skeleton {
+    position: absolute;
+    inset: 44px 0 0 0;
+    background: #06090f;
+    padding: 36px 44px;
+    overflow: hidden;
+    z-index: 20;
+    transition: opacity .45s ease;
+  }
+  .skeleton.going { opacity: 0; pointer-events: none; }
+  .sk {
+    background: linear-gradient(90deg,
+      rgba(34,211,238,.06) 0%, rgba(34,211,238,.16) 50%, rgba(34,211,238,.06) 100%);
+    background-size: 200% 100%;
+    border-radius: 8px;
+    animation: sweep 1.6s ease-in-out infinite;
+  }
+  .sk-row { display: flex; gap: 16px; }
+  .sk-row .sk { flex: 1; }
+  @keyframes sweep {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Indeterminate, because the model does not report how far through it is and
+     a bar that guesses would be inventing a number. */
+  .progress {
+    position: absolute;
+    top: 44px; left: 0; right: 0; height: 2px;
+    background: rgba(34,211,238,.12);
+    overflow: hidden; z-index: 30;
+  }
+  .progress span {
+    position: absolute; inset: 0; width: 34%;
+    background: linear-gradient(90deg, transparent, #22d3ee, transparent);
+    animation: run 1.5s ease-in-out infinite;
+  }
+  @keyframes run {
+    0% { left: -34%; }
+    100% { left: 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sk, .progress span { animation: none; }
+    .sk { background: rgba(34,211,238,.12); }
+  }
+</style>
+
+<!-- ── on a phone, where the editing cannot work ─────────────────────────── -->
+<div class="studio-mobile">
+  <p style="font-size:.75rem;letter-spacing:.22em;text-transform:uppercase;color:#67e8f9;margin-bottom:12px">
+    Launch Site Builder
+  </p>
+  <h1 class="text-3xl font-semibold text-white mb-4">This one needs a desktop.</h1>
+  <p style="color:#b6c6d4;line-height:1.75">
+    You build the page and then click straight onto it to change things, which
+    needs a pointer and a window wide enough to see the page and your changes at
+    once. On a phone that is a broken version rather than a smaller one, and we
+    would rather you did it properly than paid for something half working.
+  </p>
+
+  <div class="m-card">
+    <p style="color:#e5edf4;font-weight:600;margin-bottom:4px">What it does</p>
+    <div class="m-step"><b>1</b><p>Paste your contract address and it reads your
+      token itself, the name, ticker, image and socials, then builds the page
+      around what it found.</p></div>
+    <div class="m-step"><b>2</b><p>Not launched yet? A name and a ticker is
+      enough. The page ships with one line for your address, so launch day is a
+      single edit.</p></div>
+    <div class="m-step"><b>3</b><p>Watch it write itself, then click any part of
+      the page to change it. You see what a change costs before anything is
+      charged.</p></div>
+    <div class="m-step"><b>4</b><p>You get one HTML file with everything already
+      inside it. Drop it on any host and it is live.</p></div>
+  </div>
+
+  <button class="btn w-full mt-5" onclick="copyStudioLink()">
+    Copy the link and open it on a desktop
+  </button>
+  <p id="m-copied" class="text-xs text-center mt-3"
+     style="color:#67e8f9;visibility:hidden">Copied. Send it to yourself.</p>
+
+  <p class="text-xs mt-7" style="color:#6b7f90;text-align:center">
+    Everything else on Aetheron works on a phone.
+    <a href="/shop" style="color:#67e8f9">Browse the rest</a>
+  </p>
+</div>
+
+<div class="studio">
+
+  <!-- ── left: what you are building, and what it is costing ─────────────── -->
+  <div>
+    <div class="studio-panel">
+      <div class="flex items-center justify-between mb-1">
+        <h1 class="text-cyan-300 text-lg font-semibold">Launch Site Builder</h1>
+        <a href="/shop" class="text-xs text-gray-500 hover:text-cyan-300">back to shop</a>
+      </div>
+      {% if dev_mode %}
+      <p class="text-xs mb-4 px-3 py-2 rounded-lg"
+         style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);color:#fbbf24">
+        Dev mode. Nothing is charged and no payment is asked for.
+      </p>
+      {% else %}
+      <p id="studio-price-line" class="text-xs text-gray-500 mb-4">
+        {{ site_builder_price }} USDC to build. Changes after that are priced by
+        what they are, from a few cents for wording.
+      </p>
+      {% endif %}
+
+      <!-- form, shown until the first build lands -->
+      <div id="studio-form">
+        <div class="flex gap-2 mb-3">
+          <button type="button" id="tab-new" class="studio-tab on" onclick="setMode('new')">Not launched yet</button>
+          <button type="button" id="tab-live" class="studio-tab" onclick="setMode('live')">Already live</button>
+        </div>
+
+        <div id="mode-live" class="hidden">
+          <label class="studio-label">Contract address</label>
+          <input id="f-mint" maxlength="44" class="studio-field" placeholder="the token's mint address" />
+          <p id="mint-note" class="text-xs mt-1"></p>
+        </div>
+
+        <div id="mode-new">
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <label class="studio-label">Name</label>
+              <input id="f-name" maxlength="80" class="studio-field" placeholder="Aurelia" />
+            </div>
+            <div style="width: 120px">
+              <label class="studio-label">Ticker</label>
+              <input id="f-symbol" maxlength="20" class="studio-field" placeholder="AUR" />
+            </div>
+          </div>
+
+          <label class="studio-label">What is it</label>
+          <textarea id="f-description" rows="3" maxlength="600" class="studio-field"
+            placeholder="a sentence or two, in your own words"></textarea>
+
+          <label class="studio-label">Token image URL</label>
+          <input id="f-image" maxlength="400" class="studio-field" placeholder="https://..." />
+
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <label class="studio-label">X</label>
+              <input id="f-twitter" maxlength="200" class="studio-field" placeholder="optional" />
+            </div>
+            <div class="flex-1">
+              <label class="studio-label">Telegram</label>
+              <input id="f-telegram" maxlength="200" class="studio-field" placeholder="optional" />
+            </div>
+          </div>
+        </div>
+
+        <label class="studio-label">Anything specific you want</label>
+        <textarea id="f-notes" rows="2" maxlength="1200" class="studio-field"
+          placeholder="e.g. keep it dark, lead with the chart"></textarea>
+
+        {% if not dev_mode %}
+        <label class="studio-label">Payment</label>
+        <div class="text-sm text-gray-300">
+          <label class="mr-4"><input type="radio" name="pay_studio" value="USDC" checked> USDC</label>
+          {% if aeth_enabled %}
+          <label><input type="radio" name="pay_studio" value="AETH"> AETH</label>
+          {% endif %}
+        </div>
+        {% endif %}
+        <button id="studio-build" class="btn w-full mt-4" onclick="startBuild()">
+          {% if dev_mode %}Build it, free in dev{% else %}Build it, {{ site_builder_price }} USDC{% endif %}
+        </button>
+        <p id="studio-pay-note" class="text-xs text-gray-500 mt-2"></p>
+      </div>
+
+      <!-- editing, shown once there is a page to edit -->
+      <div id="studio-edit" class="hidden">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm text-gray-300">Change something</p>
+          <button type="button" id="pick-btn" class="studio-tab" onclick="togglePick()">
+            Point at it
+          </button>
+        </div>
+
+        <p id="pick-hint" class="text-xs text-gray-500 mb-3">
+          Click "Point at it", then click any part of the page on the right.
+        </p>
+
+        <div id="edit-list" class="space-y-2 mt-4"></div>
+
+        <!-- Between changing a line and rebuilding the page there was nothing. -->
+        <details class="mt-4 pt-4 border-t border-cyan-400/15">
+          <summary class="text-sm text-gray-300 cursor-pointer hover:text-cyan-300">
+            Rewrite a whole section instead
+          </summary>
+          <p class="text-xs text-gray-500 mt-2 mb-3">
+            Starts that section over rather than editing it, and leaves the rest
+            of the page exactly as it is. {{ site_section_price }} USDC.
+          </p>
+          <select id="section-pick" class="studio-field mb-2">
+            <option value="hero">Hero</option>
+            <option value="about">About</option>
+            <option value="how-to-buy">How to buy</option>
+            <option value="contract">Contract</option>
+            <option value="links">Links</option>
+            <option value="footer">Footer</option>
+          </select>
+          <textarea id="section-note" rows="3" maxlength="1200" class="studio-field"
+            placeholder="how should this section be different?"></textarea>
+          <button class="btn-ghost w-full mt-2 text-sm" onclick="rewriteSection()">
+            Rewrite it, {{ site_section_price }} USDC
+          </button>
+        </details>
+
+        <div class="meter">
+          <div>
+            <div class="text-xs text-gray-500">queued</div>
+            <div id="edit-count" class="text-sm text-gray-300">nothing yet</div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-gray-500">total</div>
+            <div id="edit-total" class="meter-total">0.00</div>
+            <div id="edit-why" class="text-xs text-gray-500"></div>
+          </div>
+        </div>
+
+        {% if not dev_mode %}
+        <div class="mt-4">
+          <p class="text-sm text-gray-400 mb-2">Payment</p>
+          <label class="mr-4 text-sm text-gray-300">
+            <input type="radio" name="pay_edit" value="USDC" checked> USDC
+          </label>
+          {% if aeth_enabled %}
+          <label class="text-sm text-gray-300">
+            <input type="radio" name="pay_edit" value="AETH"> AETH
+          </label>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <button id="apply-btn" class="btn w-full mt-3" onclick="applyEdits()" disabled>
+          Apply changes
+        </button>
+        <button class="btn-ghost w-full mt-2 text-sm" onclick="discardEdits()">
+          Discard, keep what I have
+        </button>
+        <p class="text-xs text-gray-600 mt-2">
+          Nothing is charged until you apply. Discarding costs nothing and leaves
+          the page exactly as it is.
+        </p>
+
+        <!-- Launch day. A string replacement rather than a generation, so it
+             is instant and costs nothing. -->
+        <div id="address-box" class="mt-4 pt-4 border-t border-cyan-400/15">
+          <p class="text-sm text-gray-300 mb-2">Launched? Put your address in.</p>
+          <input id="fill-address" class="studio-field" maxlength="44"
+                 placeholder="your contract address" />
+          <button class="btn-ghost w-full mt-2 text-sm" onclick="fillAddress()">
+            Fill it in, free
+          </button>
+          <p class="text-xs text-gray-600 mt-2">
+            Updates the address, the copy button and every line saying it has
+            not launched.
+          </p>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-cyan-400/15">
+          <button id="reroll-btn" class="btn-ghost w-full text-sm mb-2"
+                  onclick="rerollDesign()">
+            Try a different design
+          </button>
+          <!-- No href until there is a file. A link to # looks like a button
+               that does nothing when pressed. -->
+          <a id="dl-link" class="btn-ghost w-full text-sm block text-center">
+            Download this version
+          </a>
+          <a id="bundle-link" class="btn-ghost w-full mt-2 text-sm block text-center">
+            Download with hosting instructions
+          </a>
+          <button class="btn-ghost w-full mt-2 text-sm" onclick="location.reload()">
+            Start another site
+          </button>
+        </div>
+      </div>
+
+      <pre id="studio-status" class="hidden mt-4 text-xs text-gray-300 bg-white/5 border border-cyan-400/10 rounded-lg p-3 whitespace-pre-wrap"></pre>
+    </div>
+
+    <div id="studio-versions" class="studio-panel mt-4 hidden">
+      <div class="flex items-baseline justify-between mb-3">
+        <h2 class="text-cyan-300 text-sm font-semibold">Your sites</h2>
+        <span class="text-xs text-gray-500">open one to keep working on it</span>
+      </div>
+      <div id="versions-list" class="space-y-2 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- ── right: the page itself ──────────────────────────────────────────── -->
+  <div class="studio-preview">
+    <div class="studio-bar">
+      <span class="dot" style="background:#ff5f56"></span>
+      <span class="dot" style="background:#ffbd2e"></span>
+      <span class="dot" style="background:#27c93f"></span>
+      <span id="preview-label" class="ml-3">nothing built yet</span>
+      <span id="preview-spinner" class="ml-auto text-cyan-400 hidden">building…</span>
+      <!-- Whoever is building is on a desktop by definition now, while almost
+           everyone who opens their link will be on a phone. -->
+      <button type="button" id="width-btn" class="studio-tab"
+              style="margin-left:auto;font-size:.72rem;padding:4px 10px"
+              onclick="togglePhone()">Phone</button>
+    </div>
+    <div id="progress" class="progress hidden"><span></span></div>
+
+    <!-- The shape of a page, while the real one is being written under it. -->
+    <div id="skeleton" class="skeleton hidden" aria-hidden="true">
+      <div class="sk" style="height:14px;width:34%"></div>
+      <div class="sk" style="height:56px;width:62%;margin-top:26px"></div>
+      <div class="sk" style="height:56px;width:44%;margin-top:12px"></div>
+      <div class="sk" style="height:12px;width:52%;margin-top:28px"></div>
+      <div class="sk" style="height:12px;width:46%;margin-top:10px"></div>
+      <div class="sk" style="height:40px;width:150px;margin-top:30px;border-radius:999px"></div>
+      <div class="sk-row" style="margin-top:44px">
+        <div class="sk" style="height:120px"></div>
+        <div class="sk" style="height:120px"></div>
+        <div class="sk" style="height:120px"></div>
+      </div>
+      <div class="sk" style="height:12px;width:70%;margin-top:34px"></div>
+      <div class="sk" style="height:12px;width:58%;margin-top:10px"></div>
+    </div>
+
+    <iframe id="preview" title="Your site as it is built"></iframe>
+
+    <!-- Opened where somebody clicks on the page. -->
+    <div id="spot" class="spot hidden">
+      <div id="spot-what" class="spot-what"></div>
+      <textarea id="spot-note" rows="3"
+        placeholder="what should be different here?"></textarea>
+      <div class="spot-row">
+        <button class="btn" onclick="addSpotEdit()">Add</button>
+        <button class="btn-ghost" onclick="closeSpot()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BUILD_PRICE = parseFloat("{{ site_builder_price }}");
+// Set when the dev cookie is present. Everything below leaves the prices
+// alone when it is on, because none of them are going to be charged and a
+// button quoting one is a button telling a lie.
+const DEV_MODE = {{ 'true' if dev_mode else 'false' }};
+// Only the ceiling, for showing what a change can never exceed. What a batch
+// actually costs comes from /api/site-builder/quote.
+const EDIT_CEILING = parseFloat("{{ site_revision_price }}");
+const SOL_MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+let mode = "new";
+let projectId = null;
+let currentFile = null;
+let queued = [];
+let picking = false;
+let pickedSelector = null, pickedLabel = null;
+
+function val(id) { return (document.getElementById(id).value || "").trim() || null; }
+function status(text) {
+  const box = document.getElementById("studio-status");
+  box.classList.remove("hidden");
+  box.textContent = text;
+}
+
+function setMode(next) {
+  mode = next;
+  document.getElementById("mode-new").classList.toggle("hidden", next !== "new");
+  document.getElementById("mode-live").classList.toggle("hidden", next !== "live");
+  document.getElementById("tab-new").classList.toggle("on", next === "new");
+  document.getElementById("tab-live").classList.toggle("on", next === "live");
+}
+
+document.getElementById("f-mint").addEventListener("input", e => {
+  const note = document.getElementById("mint-note");
+  const v = e.target.value.trim();
+  if (!v) { note.textContent = ""; return; }
+  const ok = SOL_MINT.test(v);
+  note.textContent = ok ? "looks like a Solana mint" : "that is not a Solana mint address";
+  note.className = "text-xs mt-1 " + (ok ? "text-emerald-400" : "text-amber-400");
+});
+
+// ── AETH quote, priced by the server so a discount is never lost ───────────
+
+// The 402 body always quotes USDC, whatever method was asked for, because the
+// server prices in dollars and converts at settlement. So the AETH figure has
+// to come from /api/price/aeth, which also holds the rate for ten minutes so
+// the number somebody is shown is the number that settles. Reading an AETH
+// amount off the 402 would have told anybody paying in AETH to send 2.50 USDC.
+let aethBuild = null;
+let aethEdit = null;
+
+// ── the mobile gate, and the preview width ─────────────────────────────────
+
+function copyStudioLink() {
+  const note = document.getElementById("m-copied");
+  const url = window.location.href;
+  const done = () => {
+    note.style.visibility = "visible";
+    setTimeout(() => { note.style.visibility = "hidden"; }, 3000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done, done);
+  } else {
+    // Older browsers, and any context where the clipboard api is unavailable.
+    const field = document.createElement("textarea");
+    field.value = url;
+    document.body.appendChild(field);
+    field.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    document.body.removeChild(field);
+  }
+}
+
+// The frame is narrowed rather than the page reloaded, so a build in progress
+// keeps streaming into it while somebody checks the phone layout.
+let phoneWidth = false;
+
+function togglePhone() {
+  phoneWidth = !phoneWidth;
+  const frame = document.getElementById("preview");
+  const button = document.getElementById("width-btn");
+
+  frame.style.maxWidth = phoneWidth ? "390px" : "";
+  frame.style.margin = phoneWidth ? "0 auto" : "";
+  frame.style.borderLeft = phoneWidth ? "1px solid rgba(34,211,238,.18)" : "";
+  frame.style.borderRight = phoneWidth ? "1px solid rgba(34,211,238,.18)" : "";
+  button.classList.toggle("on", phoneWidth);
+  button.textContent = phoneWidth ? "Desktop" : "Phone";
+}
+
+function methodFor(name) {
+  return document.querySelector(`input[name="${name}"]:checked`)?.value || "USDC";
+}
+
+async function aethQuote(component) {
+  const headers = window.currentWallet ? { "X-USER-WALLET": window.currentWallet } : {};
+  const r = await fetch(`/api/price/aeth?component=${component}`, { headers });
+  if (!r.ok) throw new Error("no quote");
+  return r.json();
+}
+
+function aethAmount(quote) {
+  return `${Math.round(quote.required_aeth).toLocaleString()} AETH`;
+}
+
+async function refreshAeth() {
+  const button = document.getElementById("studio-build");
+  const note = document.getElementById("studio-pay-note");
+
+  if (DEV_MODE) {
+    button.textContent = "Build it, free in dev";
+    note.textContent = "";
+    return;
+  }
+
+  if (methodFor("pay_studio") !== "AETH") {
+    aethBuild = null;
+    button.textContent = `Build it, ${BUILD_PRICE.toFixed(2)} USDC`;
+    note.textContent = "";
+    return;
+  }
+
+  button.textContent = "Build it";
+  note.textContent = "getting the rate…";
+  try {
+    aethBuild = await aethQuote("site-builder");
+    button.textContent = `Build it, ${aethAmount(aethBuild)}`;
+    note.textContent = aethBuild.discounts?.length
+      ? aethBuild.discounts.join(", ") : "";
+  } catch (e) {
+    aethBuild = null;
+    button.textContent = `Build it, ${BUILD_PRICE.toFixed(2)} USDC`;
+    note.textContent = "could not get the AETH rate, try again";
+  }
+}
+
+async function refreshEditAeth() {
+  const button = document.getElementById("apply-btn");
+  const count = queued.length;
+  const label = count ? `Apply ${count} change${count > 1 ? "s" : ""}` : "Apply changes";
+
+  if (DEV_MODE) {
+    button.textContent = count ? `${label}, free in dev` : label;
+    return;
+  }
+
+  if (methodFor("pay_edit") !== "AETH") {
+    aethEdit = null;
+    button.textContent = count
+      ? `${label}, ${(currentQuote.price || 0).toFixed(2)} USDC` : label;
+    return;
+  }
+
+  try {
+    aethEdit = await aethQuote("site-revision");
+    // The AETH endpoint prices the ceiling, so the batch is converted at the
+    // same rate rather than quoted at it. One rate, one price, both from the
+    // server.
+    // Scaled straight off the quoted ceiling, which already carries whatever
+    // discounts this wallet has. Working from the discounted dollar figure
+    // instead applied the AETH tier twice on one side and not at all on the
+    // other. This is only what the button shows before committing: the amount
+    // actually owed comes back with the 402 and is what gets locked.
+    const share = (currentQuote.price || 0) / (aethEdit.list_price || 1);
+    const total = Math.round(aethEdit.required_aeth * share);
+    button.textContent = count
+      ? `${label}, about ${total.toLocaleString()} AETH` : label;
+  } catch (e) {
+    aethEdit = null;
+    button.textContent = count
+      ? `${label}, ${(currentQuote.price || 0).toFixed(2)} USDC` : label;
+  }
+}
+
+document.addEventListener("change", e => {
+  if (e.target?.name === "pay_studio") refreshAeth();
+  if (e.target?.name === "pay_edit") refreshEditAeth();
+});
+
+// ── building ───────────────────────────────────────────────────────────────
+
+function buildPayload() {
+  if (mode === "live") {
+    const mint = val("f-mint") || "";
+    if (!SOL_MINT.test(mint)) {
+      alert("That is not a Solana mint address. It is the token address, not a wallet.");
+      return null;
+    }
+    return { mint, notes: val("f-notes") };
+  }
+  const name = val("f-name"), symbol = val("f-symbol");
+  if (!name || !symbol) {
+    alert("A name and a ticker are needed to build the page.");
+    return null;
+  }
+  return {
+    name, symbol,
+    description: val("f-description"),
+    image: val("f-image"),
+    twitter: val("f-twitter"),
+    telegram: val("f-telegram"),
+    notes: val("f-notes"),
+  };
+}
+
+async function startBuild() {
+  if (!window.currentWallet) return alert("Connect your wallet first.");
+  const payload = buildPayload();
+  if (!payload) return;
+
+  const build = document.getElementById("studio-build");
+  const wasLabel = build.textContent;
+  build.disabled = true;
+  build.textContent = "Building…";
+  startWaiting("starting");
+  status("Submitting…");
+
+  const res = await paidCall("/api/site-builder", payload, "pay_studio", BUILD_PRICE);
+  build.disabled = false;
+  build.textContent = wasLabel;
+  if (!res) {
+    // Cancelled or refused, so nothing is coming and the pane should not sit
+    // there pretending otherwise.
+    stopWaiting("nothing built yet");
+    status("");
+    document.getElementById("studio-status").classList.add("hidden");
+    return;
+  }
+
+  // No project id here on purpose: the worker makes the project, so it arrives
+  // with the finished stream rather than with the acknowledgement.
+  status("Building. The page appears on the right as it is written.");
+  watch(res.asset_id);
+}
+
+// ── the payment handshake, the same one every component uses ───────────────
+
+function aethFor(payMethodName) {
+  return payMethodName === "pay_edit" ? aethEdit : aethBuild;
+}
+
+async function paidCall(endpoint, payload, payMethodName, expected) {
+  const method = methodFor(payMethodName);
+  const headers = {
+    "Content-Type": "application/json",
+    "X-USER-WALLET": window.currentWallet,
+    "X-PAYMENT-METHOD": method,
+  };
+
+  let res = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(payload) });
+
+  if (res.status === 402) {
+    const quote = await res.json();
+    // Whatever the server says, and nothing worked out here. Computing it in
+    // the browser put one number on the button and another in this dialog, and
+    // since settlement measures the transfer against the amount the server
+    // locked, the smaller of the two would have been rejected as short after
+    // the money had already gone.
+    const amount = quote.required_aeth
+      ? `${Math.round(quote.required_aeth).toLocaleString()} AETH`
+      : `${quote.required} ${quote.currency || "USDC"}`;
+    alert(`Payment required.\n\nSend ${amount} to:\n${quote.wallet}\n\nThen paste the transaction signature.`);
+    const sig = prompt("Paste your Solana transaction signature:");
+    if (!sig) return null;
+    res = await fetch(endpoint, {
+      method: "POST",
+      headers: { ...headers, "X-TX-SIG": sig.trim() },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(readError(data));
+    return null;
+  }
+  return data;
+}
+
+// FastAPI answers a validation failure with a list of objects, so passing
+// `detail` straight to alert prints [object Object] and the person is left
+// looking at a page that appears to have done nothing. Turned into the sentence
+// it should have been.
+function readError(data) {
+  const detail = data && data.detail;
+
+  if (Array.isArray(detail)) {
+    return detail.map(e => {
+      const field = (e.loc || []).filter(p => p !== "body").join(" ");
+      const label = ({
+        name: "Name", symbol: "Ticker", description: "What is it",
+        image: "Token image URL", twitter: "X", telegram: "Telegram",
+        website: "Website", notes: "Anything specific you want",
+        mint: "Contract address",
+      })[field] || field || "Something";
+      return `${label}: ${e.msg || "is not valid"}`;
+    }).join("\n");
+  }
+
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (typeof data?.error === "string" && data.error.trim()) return data.error;
+  if (typeof data?.message === "string" && data.message.trim()) return data.message;
+  return "That did not go through, and nothing was charged.";
+}
+
+// ── watching a build write itself ──────────────────────────────────────────
+
+function startWaiting(label) {
+  document.getElementById("progress").classList.remove("hidden");
+  const skeleton = document.getElementById("skeleton");
+  skeleton.classList.remove("hidden", "going");
+  document.getElementById("preview-spinner").classList.remove("hidden");
+  document.getElementById("preview-label").textContent = label;
+  lockDownload(true);
+}
+
+function stopWaiting(label) {
+  document.getElementById("progress").classList.add("hidden");
+  clearSkeleton();
+  document.getElementById("preview-spinner").classList.add("hidden");
+  if (label) document.getElementById("preview-label").textContent = label;
+  lockDownload(false);
+}
+
+// While a version is being written the panel is still on screen from the last
+// one, so the download link sits there live and pointing at the previous file.
+// Clicking it then hands somebody the old page with nothing to say it is stale,
+// which is worse than not offering it, because they would think the change had
+// not worked.
+function lockDownload(busy) {
+  const link = document.getElementById("dl-link");
+  if (!link) return;
+
+  if (busy) {
+    link.dataset.href = link.getAttribute("href") || "";
+    link.removeAttribute("href");
+    link.style.opacity = ".45";
+    link.style.pointerEvents = "none";
+    link.textContent = "Download, once this finishes";
+    const bundle = document.getElementById("bundle-link");
+    if (bundle) {
+      bundle.removeAttribute("href");
+      bundle.style.opacity = ".45";
+      bundle.style.pointerEvents = "none";
+    }
+    return;
+  }
+
+  const target = currentFile ? "/download/" + currentFile : link.dataset.href;
+  if (target && target !== "#") {
+    link.setAttribute("href", target);
+    link.style.opacity = "";
+    link.style.pointerEvents = "";
+    link.textContent = "Download this version";
+  }
+
+  const bundle = document.getElementById("bundle-link");
+  if (bundle && projectId) {
+    bundle.setAttribute("href", `/api/site-builder/bundle/${projectId}`);
+    bundle.style.opacity = "";
+    bundle.style.pointerEvents = "";
+  }
+}
+
+function clearSkeleton() {
+  const skeleton = document.getElementById("skeleton");
+  if (skeleton.classList.contains("hidden")) return;
+  // Faded rather than cut, so the real page arriving underneath is a reveal
+  // instead of a flash of black between the two.
+  skeleton.classList.add("going");
+  setTimeout(() => skeleton.classList.add("hidden"), 500);
+}
+
+async function watch(assetId) {
+  const frame = document.getElementById("preview");
+
+  startWaiting("building");
+
+  let index = 0, text = "", painted = 0;
+
+  while (true) {
+    let d;
+    try {
+      const r = await fetch(`/api/site-builder/stream/${assetId}?from=${index}`);
+      d = await r.json();
+    } catch (e) {
+      await new Promise(r => setTimeout(r, 1200));
+      continue;
+    }
+
+    if (d.text) {
+      text += d.text;
+      index = d.next;
+      // Repainting on every chunk makes the iframe flicker, so it is done on a
+      // cadence and always at the end.
+      if (text.length - painted > 900) {
+        frame.srcdoc = text;
+        painted = text.length;
+        // Enough of a document to be worth looking at. The skeleton goes now
+        // rather than at the end, so the page is watched being written.
+        if (text.length > 2200) clearSkeleton();
+      }
+      document.getElementById("preview-label").textContent =
+        `writing, ${text.length.toLocaleString()} characters`;
+    }
+
+    if (d.status === "done") {
+      frame.srcdoc = text;
+      stopWaiting("your site");
+      currentFile = d.filename;
+      // The project is created by the worker, so the build request cannot
+      // return its id and the stream is the only place it arrives. Without
+      // this every edit after a fresh build fails with nothing to change.
+      if (d.project_id) projectId = d.project_id;
+      onBuilt();
+      return;
+    }
+    if (d.status === "error") {
+      stopWaiting("failed");
+      status("That build did not finish: " + (d.error || "unknown reason"));
+      return;
+    }
+
+    await new Promise(r => setTimeout(r, 700));
+  }
+}
+
+function onBuilt() {
+  document.getElementById("studio-form").classList.add("hidden");
+  document.getElementById("studio-edit").classList.remove("hidden");
+  document.getElementById("studio-status").classList.add("hidden");
+  lockDownload(false);
+  readyToPoint = true;
+  // The load event does the attaching. This covers the case where the document
+  // finished parsing before the flag was set.
+  attachPicker();
+  loadVersions();
+}
+
+// ── pointing at things ─────────────────────────────────────────────────────
+//
+// The preview is written with srcdoc, so it shares this page's origin and its
+// document can be reached directly. Clicking is how somebody says which part
+// of the page they mean, which is far more exact than describing it in words.
+
+function cssPath(el) {
+  const parts = [];
+  while (el && el.nodeType === 1 && parts.length < 5 && el.tagName !== "BODY") {
+    let part = el.tagName.toLowerCase();
+    if (el.id) { parts.unshift(`#${el.id}`); break; }
+    const cls = (el.className || "").toString().trim().split(/\s+/).filter(Boolean).slice(0, 2);
+    if (cls.length) part += "." + cls.join(".");
+    const parent = el.parentElement;
+    if (parent) {
+      const same = [...parent.children].filter(c => c.tagName === el.tagName);
+      if (same.length > 1) part += `:nth-of-type(${same.indexOf(el) + 1})`;
+    }
+    parts.unshift(part);
+    el = el.parentElement;
+  }
+  return parts.join(" > ");
+}
+
+// Pointing is on by default once there is a page, because it is the whole
+// reason the preview is there. Turning it off lets somebody scroll and click
+// links normally, which they want when checking the page rather than changing
+// it.
+// Whether there is a finished page worth pointing at. Set once the build
+// lands, because during streaming the document is replaced every second and
+// half of it does not exist yet.
+let readyToPoint = false;
+
+// srcdoc parses asynchronously. Attaching to contentDocument on the line after
+// setting srcdoc reaches the document being replaced, so every listener is
+// thrown away the moment the new one loads, and clicking the page does
+// nothing at all. Attaching on load is the only point at which the document
+// being listened to is the document on screen.
+// Attached straight away rather than on DOMContentLoaded: this script sits
+// below the iframe in the document, so the element exists, and waiting for an
+// event that may already have fired is a listener that never gets registered.
+(function () {
+  const frame = document.getElementById("preview");
+  if (frame) frame.addEventListener("load", () => {
+    if (readyToPoint) attachPicker();
+  });
+})();
+
+function attachPicker() {
+  const frame = document.getElementById("preview");
+  let doc;
+  try { doc = frame.contentDocument; } catch (e) { return; }
+  if (!doc || !doc.body) return;
+
+  // A document only needs listeners once. Streaming repaints it repeatedly and
+  // each repaint is a new document, so this guards the case where load and the
+  // explicit call both land on the same one.
+  if (doc.__aetheronPicker) return;
+  doc.__aetheronPicker = true;
+
+  let outlined = null;
+  const clear = () => { if (outlined) { outlined.style.outline = ""; outlined = null; } };
+
+  doc.addEventListener("mouseover", e => {
+    if (!picking) return;
+    clear();
+    outlined = e.target;
+    outlined.style.outline = "2px solid #22d3ee";
+    outlined.style.outlineOffset = "2px";
+  }, true);
+
+  doc.addEventListener("mouseout", () => { if (picking) clear(); }, true);
+
+  doc.addEventListener("click", e => {
+    if (!picking) return;
+    // Stops a link in the generated page navigating the preview away from the
+    // thing being edited.
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = e.target.getBoundingClientRect();
+    clear();
+
+    pickedSelector = cssPath(e.target);
+    const text = (e.target.innerText || "").trim().replace(/\s+/g, " ").slice(0, 48);
+    pickedLabel = `${e.target.tagName.toLowerCase()}${text ? ` "${text}"` : ""}`;
+
+    openSpot(rect);
+  }, true);
+
+  togglePick(true);
+}
+
+function openSpot(rect) {
+  const shell = document.querySelector(".studio-preview");
+  const frame = document.getElementById("preview");
+  const spot = document.getElementById("spot");
+
+  document.getElementById("spot-what").textContent = pickedLabel;
+  document.getElementById("spot-note").value = "";
+  spot.classList.remove("hidden");
+
+  // Positioned against the preview shell, and kept inside it, so a click near
+  // an edge does not open the box off the side of the screen.
+  const offsetTop = frame.offsetTop;
+  const maxLeft = shell.clientWidth - spot.offsetWidth - 12;
+  const maxTop = shell.clientHeight - spot.offsetHeight - 12;
+
+  spot.style.left = Math.max(12, Math.min(rect.left, maxLeft)) + "px";
+  spot.style.top = Math.max(12, Math.min(offsetTop + rect.bottom + 8, maxTop)) + "px";
+
+  document.getElementById("spot-note").focus();
+}
+
+function closeSpot() {
+  document.getElementById("spot").classList.add("hidden");
+  pickedSelector = null;
+  pickedLabel = null;
+}
+
+function addSpotEdit() {
+  const note = document.getElementById("spot-note");
+  const description = note.value.trim();
+  if (description.length < 2) {
+    note.focus();
+    return;
+  }
+  queued.push({ selector: pickedSelector, label: pickedLabel, description });
+  closeSpot();
+  renderQueue();
+}
+
+function togglePick(next) {
+  picking = next === undefined ? !picking : next;
+  const btn = document.getElementById("pick-btn");
+  btn.classList.toggle("on", picking);
+  btn.textContent = picking ? "Pointing, click the page" : "Point at something";
+  document.getElementById("preview").classList.toggle("picking", picking);
+  document.getElementById("pick-hint").textContent = picking
+    ? "Click any part of the page and say what should change."
+    : "Pointing is off, so you can scroll and click links normally.";
+  if (!picking) closeSpot();
+}
+
+// ── the queue, and the meter ───────────────────────────────────────────────
+
+function removeEdit(i) {
+  queued.splice(i, 1);
+  renderQueue();
+}
+
+// What the queue costs, as the server works it out. Never multiplied here:
+// two implementations of a price disagree eventually, and the half that is
+// wrong is either the number somebody was shown or the number they are
+// charged.
+let currentQuote = { price: 0, tier_labels: [] };
+
+async function refreshQuote() {
+  if (!queued.length) {
+    currentQuote = { price: 0, tier_labels: [] };
+    paintTotal();
+    return;
+  }
+  try {
+    const r = await fetch("/api/site-builder/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId || "pending", edits: queued }),
+    });
+    currentQuote = await r.json();
+  } catch (e) {
+    // Leave the last known figure rather than showing a wrong one.
+  }
+  paintTotal();
+}
+
+function paintTotal() {
+  const count = queued.length;
+  document.getElementById("edit-count").textContent =
+    count ? `${count} change${count > 1 ? "s" : ""}` : "nothing yet";
+  document.getElementById("edit-total").textContent =
+    DEV_MODE ? "0.00" : (currentQuote.price || 0).toFixed(2);
+
+  const why = document.getElementById("edit-why");
+  const labels = currentQuote.tier_labels || [];
+  why.textContent = !count ? ""
+    : DEV_MODE ? "dev mode"
+    : currentQuote.capped ? "capped, however many more you add"
+    : [...new Set(labels)].join(", ");
+
+  document.getElementById("apply-btn").disabled = count === 0;
+  refreshEditAeth();
+}
+
+function renderQueue() {
+  const list = document.getElementById("edit-list");
+
+  list.innerHTML = queued.map((e, i) => `
+    <div class="edit-row">
+      <div class="min-w-0">
+        <div class="text-gray-200 truncate">${escapeHtml(e.description)}</div>
+        ${e.label ? `<div class="text-xs text-gray-500 truncate">on ${escapeHtml(e.label)}</div>` : ""}
+      </div>
+      <button type="button" onclick="removeEdit(${i})"
+        class="text-gray-500 hover:text-amber-400 text-xs shrink-0">remove</button>
+    </div>`).join("");
+
+  paintTotal();
+  refreshQuote();
+}
+
+function discardEdits() {
+  if (!queued.length) return;
+  queued = [];
+  renderQueue();
+  status("Discarded. Nothing was charged and the page is unchanged.");
+  setTimeout(() => document.getElementById("studio-status").classList.add("hidden"), 2600);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function applyEdits() {
+  if (!queued.length) return;
+  if (!projectId) return alert("No site to change yet.");
+
+  document.getElementById("apply-btn").disabled = true;
+  status("Submitting your changes…");
+
+  const res = await paidCall("/api/site-builder/revise",
+    { project_id: projectId, edits: queued }, "pay_edit",
+    currentQuote.price || 0);
+
+  document.getElementById("apply-btn").disabled = false;
+  if (!res) { status("Nothing was charged."); return; }
+
+  queued = [];
+  renderQueue();
+  status("Applying. The page updates on the right.");
+  startWaiting("applying your changes");
+  watch(res.asset_id);
+}
+
+// ── launch day, and a second opinion on the design ─────────────────────────
+
+async function fillAddress() {
+  const field = document.getElementById("fill-address");
+  const address = (field.value || "").trim();
+  if (!address) return field.focus();
+  if (!projectId) return alert("Open a site first.");
+
+  status("Filling it in…");
+  try {
+    const r = await fetch("/api/site-builder/address", {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+                 "X-USER-WALLET": window.currentWallet || "" },
+      body: JSON.stringify({ project_id: projectId, address }),
+    });
+    const data = await r.json();
+    if (!r.ok) { status(readError(data)); return; }
+
+    // No generation, so there is nothing to stream and the finished page can
+    // simply be fetched and painted.
+    const page = await (await fetch("/download/" + data.filename)).text();
+    document.getElementById("preview").srcdoc = page;
+    currentFile = data.filename;
+    lockDownload(false);
+    field.value = "";
+    status(`Done. Your address is on the page, v${data.version}.`);
+    loadVersions();
+  } catch (e) {
+    status("That did not go through. Nothing was charged.");
+  }
+}
+
+async function rewriteSection() {
+  const section = document.getElementById("section-pick").value;
+  const instruction = document.getElementById("section-note").value.trim();
+
+  if (!projectId) return alert("Build something first.");
+  if (instruction.length < 3) return alert("Say how it should be different.");
+
+  status("Rewriting that section…");
+  const res = await paidCall("/api/site-builder/section",
+    { project_id: projectId, section, instruction }, "pay_edit", 0);
+
+  if (!res) { status("Nothing was charged."); return; }
+
+  document.getElementById("section-note").value = "";
+  startWaiting(`rewriting the ${section} section`);
+  watch(res.asset_id);
+}
+
+async function rerollDesign() {
+  if (!projectId) return alert("Build something first.");
+
+  const button = document.getElementById("reroll-btn");
+  button.disabled = true;
+  status("Asking for a different design…");
+
+  const res = await paidCall("/api/site-builder/reroll",
+    { project_id: projectId }, "pay_edit", 0);
+
+  button.disabled = false;
+  if (!res) { status("Nothing was charged."); return; }
+
+  status(res.free
+    ? "Building a different design. This one is free."
+    : "Building a different design.");
+  startWaiting("a different design");
+  watch(res.asset_id);
+}
+
+// ── the sites this wallet already has ──────────────────────────────────────
+
+async function loadVersions() {
+  if (!window.currentWallet) return;
+  let data;
+  try {
+    const r = await fetch(`/api/my-sites/${window.currentWallet}`);
+    data = await r.json();
+  } catch (e) { return; }
+
+  const projects = data.projects || [];
+  if (!projects.length) return;
+
+  document.getElementById("studio-versions").classList.remove("hidden");
+  document.getElementById("versions-list").innerHTML = projects.map(p => {
+    const done = (p.versions || []).filter(v => v.status === "complete" && v.filename);
+    const latest = done[0];
+    const older = done.slice(1, 4).map(v =>
+      `<button type="button" class="text-gray-500 hover:text-cyan-300"
+         onclick="openProject('${p.project_id}', '${v.filename}', ${v.version})">v${v.version}</button>`
+    ).join(" ");
+
+    return `
+      <div class="edit-row">
+        <div class="min-w-0">
+          <div class="text-gray-200 truncate">${escapeHtml(p.name || "Untitled")}${p.symbol ? " (" + escapeHtml(p.symbol) + ")" : ""}</div>
+          <div class="text-xs text-gray-500">
+            ${escapeHtml(p.direction || "")}${latest ? " · v" + latest.version : ""}
+            ${older ? " · open an earlier one: " + older : ""}
+          </div>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          ${latest ? `<button type="button" class="btn-ghost text-xs px-2 py-1"
+             onclick="openProject('${p.project_id}', '${latest.filename}', ${latest.version})">open</button>` : ""}
+          ${latest ? `<a href="/download/${latest.filename}"
+             class="text-cyan-300 hover:text-cyan-200 text-xs">download</a>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+// Loading a site back in, which is the difference between having bought a file
+// and having bought a page you can keep working on. Without this a change
+// meant building the whole thing again at full price, which is exactly the
+// thing revisions exist to avoid.
+async function openProject(id, filename, version) {
+  const frame = document.getElementById("preview");
+
+  startWaiting("opening");
+  status("Opening that site…");
+
+  let html;
+  try {
+    const r = await fetch(`/download/${filename}`);
+    if (!r.ok) throw new Error(r.status);
+    html = await r.text();
+  } catch (e) {
+    // Assets are purged after a retention window, so an old enough one is
+    // genuinely gone and saying so beats a spinner that never stops.
+    stopWaiting("could not open");
+    status("That version is no longer stored, so it cannot be opened. Files are "
+           + "kept for a while after they are made.");
+    return;
+  }
+
+  projectId = id;
+  currentFile = filename;
+
+  // Anything queued belonged to whatever was open before. Carrying it over
+  // would apply somebody's changes to the wrong page.
+  queued = [];
+  closeSpot();
+
+  frame.srcdoc = html;
+  stopWaiting(`your site, v${version}`);
+  onBuilt();
+  renderQueue();
+
+  status(`Opened v${version}. Click anything on the page to change it.`);
+  setTimeout(() => document.getElementById("studio-status").classList.add("hidden"), 4000);
+}
+
+// A wallet may connect after this script runs, and nothing publishes an event
+// for it, so the panel waits for one rather than checking once.
+let tries = 0;
+const timer = setInterval(() => {
+  if (window.currentWallet) { loadVersions(); refreshAeth(); clearInterval(timer); }
+  else if (++tries > 40) clearInterval(timer);
+}, 500);
+
+renderQueue();
+</script>
+{% endblock %}
