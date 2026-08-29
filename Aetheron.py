@@ -42,6 +42,7 @@ import legacy_holders
 import pricing
 import burn_ledger
 import aeth_quotes
+import grants
 
 from celery.result import AsyncResult
 from solders.signature import Signature
@@ -122,6 +123,7 @@ ledger_utils.init_examples()
 legacy_holders.init_legacy_holders()
 burn_ledger.init_burns()
 aeth_quotes.init_quotes()
+grants.init_grants()
 
 templates.env.filters["fmt_ts"] = lambda ts: datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M")
 
@@ -949,9 +951,39 @@ class AgentSetup(BaseModel):
 
 
 def _deliver_agent(agent_id: str, request: Request, x_payment, x_payment_method, answers):
-    """Shared by both download routes: verify payment, then build the archive."""
+    """Shared by both download routes: verify payment or a claim, then build."""
     payment_method = (x_payment_method or "USDC").upper()
     user_wallet = request.headers.get("X-USER-WALLET")
+
+    # A giveaway winner downloads without paying, but only against a signature
+    # from the wallet the prize was granted to. The header alone proves nothing:
+    # winners post their addresses publicly, so anybody reading the thread could
+    # otherwise claim somebody else's prize by typing it in.
+    claim_nonce = request.headers.get("X-CLAIM-NONCE")
+    claim_signature = request.headers.get("X-CLAIM-SIGNATURE")
+    if claim_nonce and claim_signature:
+        try:
+            grants.verify_claim(user_wallet, agent_id, claim_nonce, claim_signature)
+        except grants.ClaimError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
+
+        if agent_id not in agent_setup.AGENT_PATHS:
+            raise HTTPException(status_code=404, detail="Invalid agent ID")
+        try:
+            data = agent_setup.build_zip(agent_id, answers or {})
+        except agent_setup.SetupError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        # Spent only once the archive exists, so a build that fails leaves the
+        # prize claimable rather than burning it.
+        if not grants.mark_claimed(user_wallet, agent_id):
+            raise HTTPException(status_code=409, detail="That prize was already claimed")
+
+        return Response(
+            content=data,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{agent_id}.zip"'},
+        )
 
     payment_check = verify_payment(
         x_payment,
@@ -1157,6 +1189,28 @@ def example_allowance(request: Request):
         "seen": seen,
         "remaining": max(0, ledger_utils.EXAMPLE_ALLOWANCE - len(seen)),
     }
+
+
+@app.get("/api/my-prizes")
+def api_my_prizes(request: Request):
+    """Which agents this wallet can download for free, if any."""
+    wallet = (request.headers.get("X-USER-WALLET") or "").strip() or None
+    return {"wallet": wallet, "agents": grants.unclaimed(wallet)}
+
+
+@app.post("/api/claim/{agent_id}/challenge")
+def api_claim_challenge(agent_id: str, request: Request):
+    """
+    Issue a one time message for the winner's wallet to sign.
+
+    Refused unless this wallet actually has an unclaimed prize for this agent,
+    so the endpoint cannot be used to fish for who won what.
+    """
+    wallet = (request.headers.get("X-USER-WALLET") or "").strip() or None
+    try:
+        return grants.challenge(wallet, agent_id)
+    except grants.ClaimError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
 
 @app.get("/api/agents/{agent_id}/setup")

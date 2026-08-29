@@ -2168,3 +2168,95 @@ def test_the_ledger_does_not_print_a_usd_price_as_a_token_amount():
     """
     source = open("templates/ledger.html").read()
     assert 'format(e.price or 0) }} USD' in source
+
+
+# ── free agent claims ───────────────────────────────────────────────────────
+
+def _winner():
+    from solders.keypair import Keypair
+    import grants
+    kp = Keypair()
+    wallet = str(kp.pubkey())
+    grants.init_grants()
+    grants.grant(wallet, "wallet-watcher", "test")
+    return kp, wallet
+
+
+def _sign(kp, message):
+    return str(kp.sign_message(message.encode()))
+
+
+def test_a_winner_can_claim_the_prize_granted_to_them():
+    import grants
+    kp, wallet = _winner()
+    ch = grants.challenge(wallet, "wallet-watcher")
+    grants.verify_claim(wallet, "wallet-watcher", ch["nonce"], _sign(kp, ch["message"]))
+    assert grants.mark_claimed(wallet, "wallet-watcher") is True
+
+
+def test_a_stranger_cannot_claim_a_winners_prize_by_naming_their_wallet():
+    """
+    The whole reason claims are signed. Winners post their addresses publicly in
+    the giveaway comments, so a header carrying somebody else's wallet is the
+    obvious attack.
+    """
+    import grants, pytest as pt
+    from solders.keypair import Keypair
+
+    kp, wallet = _winner()
+    ch = grants.challenge(wallet, "wallet-watcher")
+
+    # A thief signs the winner's challenge with their own key.
+    thief = Keypair()
+    with pt.raises(grants.ClaimError):
+        grants.verify_claim(wallet, "wallet-watcher", ch["nonce"], _sign(thief, ch["message"]))
+
+    assert "wallet-watcher" in grants.unclaimed(wallet), "prize must survive the attempt"
+
+
+def test_a_challenge_is_spent_even_when_the_signature_is_wrong():
+    """Otherwise a captured challenge could be attacked indefinitely."""
+    import grants, pytest as pt
+    from solders.keypair import Keypair
+
+    kp, wallet = _winner()
+    ch = grants.challenge(wallet, "wallet-watcher")
+    with pt.raises(grants.ClaimError):
+        grants.verify_claim(wallet, "wallet-watcher", ch["nonce"], _sign(Keypair(), ch["message"]))
+    # Same nonce again, now with the correct signature, is still refused.
+    with pt.raises(grants.ClaimError):
+        grants.verify_claim(wallet, "wallet-watcher", ch["nonce"], _sign(kp, ch["message"]))
+
+
+def test_a_signature_for_one_agent_cannot_collect_another():
+    import grants, pytest as pt
+    kp, wallet = _winner()
+    grants.grant(wallet, "market-tracker", "test")
+
+    ch = grants.challenge(wallet, "wallet-watcher")
+    with pt.raises(grants.ClaimError):
+        grants.verify_claim(wallet, "market-tracker", ch["nonce"], _sign(kp, ch["message"]))
+
+
+def test_a_prize_cannot_be_claimed_twice():
+    import grants
+    kp, wallet = _winner()
+    ch = grants.challenge(wallet, "wallet-watcher")
+    grants.verify_claim(wallet, "wallet-watcher", ch["nonce"], _sign(kp, ch["message"]))
+    assert grants.mark_claimed(wallet, "wallet-watcher") is True
+    assert grants.mark_claimed(wallet, "wallet-watcher") is False
+    assert grants.unclaimed(wallet) == ["market-tracker"] or "wallet-watcher" not in grants.unclaimed(wallet)
+
+
+def test_a_challenge_is_refused_for_a_wallet_with_no_prize():
+    """The endpoint must not double as a way to find out who won."""
+    import grants, pytest as pt
+    from solders.keypair import Keypair
+    with pt.raises(grants.ClaimError):
+        grants.challenge(str(Keypair().pubkey()), "wallet-watcher")
+
+
+def test_granting_the_same_prize_twice_does_not_hand_out_two():
+    import grants
+    kp, wallet = _winner()
+    assert grants.grant(wallet, "wallet-watcher", "test") is False
