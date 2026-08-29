@@ -2260,3 +2260,37 @@ def test_granting_the_same_prize_twice_does_not_hand_out_two():
     import grants
     kp, wallet = _winner()
     assert grants.grant(wallet, "wallet-watcher", "test") is False
+
+
+def test_the_claim_button_is_never_in_the_page_for_someone_who_has_not_won():
+    """
+    The button is built by script only after /api/my-prizes answers for the
+    connected wallet. Rendering it server side, even hidden, would tell every
+    visitor that a prize exists and which agent it is for.
+    """
+    from fastapi.testclient import TestClient
+    import re
+    html = TestClient(Aetheron.app).get("/agents").text
+    markup = re.sub(r"<(script|style).*?</\1>", "", html, flags=re.S)
+    assert "claim-btn" not in markup
+    assert "Claim free" not in markup
+
+
+def test_my_prizes_only_answers_for_the_connected_wallet():
+    """It must not be usable to work out who won what."""
+    from fastapi.testclient import TestClient
+    from solders.keypair import Keypair
+    import grants
+
+    client = TestClient(Aetheron.app)
+    kp = Keypair(); winner = str(kp.pubkey())
+    grants.init_grants()
+    grants.grant(winner, "alpha-scanner", "test")
+
+    mine = client.get("/api/my-prizes", headers={"X-USER-WALLET": winner}).json()
+    assert "alpha-scanner" in mine["agents"]
+
+    stranger = client.get("/api/my-prizes",
+                          headers={"X-USER-WALLET": str(Keypair().pubkey())}).json()
+    assert stranger["agents"] == []
+    assert client.get("/api/my-prizes").json()["agents"] == []

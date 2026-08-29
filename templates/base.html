@@ -739,6 +739,7 @@
         await window.solana.disconnect().catch(() => {});
         const res = await window.solana.connect({ onlyIfTrusted: false });
         currentWallet = res.publicKey.toString();
+        window.currentProvider = window.solana;
         currentChain = "solana";
         window.currentWallet = currentWallet;
         window.dispatchEvent(new CustomEvent('aetheron:wallet', { detail: currentWallet }));
@@ -766,6 +767,7 @@
         await provider.disconnect?.().catch(() => {});
         const res = await provider.connect({ onlyIfTrusted: false });
         currentWallet = (res?.publicKey ?? provider.publicKey).toString();
+        window.currentProvider = provider;
         currentChain = "solana";
         window.currentWallet = currentWallet;
         window.dispatchEvent(new CustomEvent('aetheron:wallet', { detail: currentWallet }));

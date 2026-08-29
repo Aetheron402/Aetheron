@@ -1,6 +1,130 @@
 {% extends "base.html" %}
 
-{% block title %}Prebuilt Agent Store | Aetheron{% endblock %}
+{% block title %}Prebuilt Agent Store | Aetheron
+<style>
+  /* Only ever rendered for a wallet that actually won something. */
+  .claim-btn {
+    padding: .5rem 1.1rem; font-size: .85rem; font-weight: 700;
+    color: #052e16; background: #6ee7b7;
+    border: none; border-radius: .6rem; cursor: pointer;
+    white-space: nowrap; transition: background .15s;
+  }
+  .claim-btn:hover { background: #a7f3d0; }
+  .claim-btn:disabled { opacity: .6; cursor: default; }
+</style>
+
+<script>
+// Free agent claims for giveaway winners.
+//
+// The button exists only for a wallet with an unclaimed prize, and only that
+// wallet is ever told about it: /api/my-prizes answers for the connected wallet
+// and nobody else, so a visitor who has not won sees nothing and cannot tell
+// that anyone has.
+//
+// Claiming is signed. The address alone proves nothing, because winners post
+// their wallets publicly in the giveaway thread, so without a signature anyone
+// reading it could take somebody else's prize.
+
+async function refreshPrizes() {
+  document.querySelectorAll(".claim-btn").forEach(b => {
+    const buy = b.parentElement.querySelector(".buy-agent-btn");
+    if (buy) buy.style.display = "";
+    b.remove();
+  });
+
+  if (!window.currentWallet) return;
+
+  let prizes = [];
+  try {
+    const r = await fetch("/api/my-prizes", { headers: { "X-USER-WALLET": window.currentWallet } });
+    prizes = (await r.json()).agents || [];
+  } catch (e) { return; }
+
+  prizes.forEach(agentId => {
+    const buy = document.querySelector(`.buy-agent-btn[data-id="${agentId}"]`);
+    if (!buy) return;
+    const claim = document.createElement("button");
+    claim.className = "claim-btn";
+    claim.textContent = "Claim free";
+    claim.title = "You won this. Sign to prove the wallet is yours and download it.";
+    claim.onclick = () => claimAgent(agentId, claim);
+    buy.style.display = "none";
+    buy.parentElement.insertBefore(claim, buy);
+  });
+}
+
+async function claimAgent(agentId, btn) {
+  const provider = window.currentProvider;
+  if (!provider?.signMessage) {
+    alert("This wallet cannot sign messages, so the claim cannot be verified. Try Phantom, Solflare or Backpack.");
+    return;
+  }
+
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Check your wallet...";
+
+  try {
+    const headers = { "X-USER-WALLET": window.currentWallet };
+    const cr = await fetch(`/api/claim/${agentId}/challenge`, { method: "POST", headers });
+    if (!cr.ok) throw new Error((await cr.json()).detail || "Could not start the claim");
+    const ch = await cr.json();
+
+    // Signing a plain message. Nothing goes on chain and no funds move, which
+    // the message itself says so the wallet prompt is not alarming.
+    const signed = await provider.signMessage(new TextEncoder().encode(ch.message), "utf8");
+    const raw = signed?.signature ?? signed;
+    const sig = window.bs58ish(raw);
+
+    btn.textContent = "Building...";
+    const dr = await fetch(`/api/download_agent/${agentId}`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json",
+                 "X-CLAIM-NONCE": ch.nonce, "X-CLAIM-SIGNATURE": sig },
+      body: "{}",
+    });
+    if (!dr.ok) throw new Error((await dr.json().catch(() => ({}))).detail || "Claim refused");
+
+    const blob = await dr.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${agentId}.zip`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+
+    btn.textContent = "Claimed";
+    // The prize is spent, so the button goes and the normal Buy returns.
+    setTimeout(refreshPrizes, 1200);
+  } catch (err) {
+    alert(err.message || "That claim could not be completed");
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+// Wallets hand back raw bytes; the server reads base58.
+window.bs58ish = function (bytes) {
+  if (typeof bytes === "string") return bytes;
+  const A = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let digits = [0];
+  for (const b of bytes) {
+    let carry = b;
+    for (let i = 0; i < digits.length; i++) {
+      carry += digits[i] << 8; digits[i] = carry % 58; carry = (carry / 58) | 0;
+    }
+    while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+  }
+  let out = "";
+  for (const b of bytes) { if (b === 0) out += "1"; else break; }
+  for (let i = digits.length - 1; i >= 0; i--) out += A[digits[i]];
+  return out;
+};
+
+document.addEventListener("DOMContentLoaded", refreshPrizes);
+window.addEventListener("aetheron:wallet", refreshPrizes);
+</script>
+
+{% endblock %}
 
 {% block og_title %}Prebuilt Agent Store | Aetheron{% endblock %}
 {% block og_description %}Nine complete Python agent projects. Watch one run on live data before you buy, then download the source and keep it.{% endblock %}
