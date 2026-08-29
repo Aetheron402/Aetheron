@@ -2143,3 +2143,28 @@ def test_a_database_blip_does_not_start_charging_eligible_buyers_full_price():
         assert legacy_holders.is_legacy_holder("BlipWallet11111111111111111111111111111")
     finally:
         ledger_utils._cursor = original
+
+
+def test_the_ledger_page_reads_rows_by_name_not_position():
+    """
+    The template indexed tuple positions. Production carries a currency column
+    that local sqlite did not, so every field from six onward was off by one:
+    the status cell rendered the currency, and the date cell was handed the
+    filename, which took the whole page down with a 500 in production while
+    passing locally.
+    """
+    import re
+    source = open("templates/ledger.html").read()
+    assert not re.findall(r"e\[\d+\]", source), "ledger.html still indexes by position"
+
+    import inspect, Aetheron as A
+    assert "row_to_dict(e) for e in entries" in inspect.getsource(A.ledger_page)
+
+
+def test_the_ledger_does_not_print_a_usd_price_as_a_token_amount():
+    """
+    price is a USD figure. Printed beside the currency it read as "0.25 AETH",
+    when twenty five cents of AETH is tens of thousands of them.
+    """
+    source = open("templates/ledger.html").read()
+    assert 'format(e.price or 0) }} USD' in source

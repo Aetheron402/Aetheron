@@ -867,6 +867,11 @@ def ledger_page(request: Request):
         total_pages = 1
         page = 1
 
+    # Named, not positional. row_to_dict already knew about the currency column
+    # the template did not, so handing over dicts is what keeps the two in step
+    # when the schema grows another field.
+    entries = [row_to_dict(e) for e in entries]
+
     return templates.TemplateResponse("ledger.html", {
         "request": request,
         "entries": entries,

@@ -32,32 +32,34 @@
       <tbody>
         {% if entries and entries|length > 0 %}
           {% for e in entries %}
-          {# e = (id, asset_id, wallet, tx_sig, component, price, status, filename, timestamp) #}
+          {# Read by name. These were tuple positions, and production has a currency
+   column local sqlite lacks, so everything from six onward was off by one. #}
           <tr class="border-t border-gray-800 hover:bg-gray-900 transition">
-            <td class="p-3">{{ e[8] | fmt_ts }}</td>
-            <td class="p-3 text-cyan-300">{{ e[4] }}</td>
+            <td class="p-3">{{ e.timestamp | fmt_ts }}</td>
+            <td class="p-3 text-cyan-300">{{ e.component }}</td>
             <td class="p-3">
-              {% if e[2] %}
-                <span class="font-mono text-gray-400">{{ e[2][:4] }}…{{ e[2][-4:] }}</span>
+              {% if e.wallet %}
+                <span class="font-mono text-gray-400">{{ e.wallet[:4] }}…{{ e.wallet[-4:] }}</span>
               {% else %}-{% endif %}
             </td>
             <td class="p-3">
-              {% if e[3] %}
-                <a href="https://solscan.io/tx/{{ e[3] }}" target="_blank"
-                   class="text-cyan-400 hover:text-cyan-200 font-mono">{{ e[3][:6] }}…{{ e[3][-6:] }}</a>
+              {% if e.tx_signature %}
+                <a href="https://solscan.io/tx/{{ e.tx_signature }}" target="_blank"
+                   class="text-cyan-400 hover:text-cyan-200 font-mono">{{ e.tx_signature[:6] }}…{{ e.tx_signature[-6:] }}</a>
               {% else %}-{% endif %}
             </td>
-            <td class="p-3 text-cyan-200 font-mono">{{ "%.2f"|format(e[5] or 0) }} USDC</td>
+            <td class="p-3 text-cyan-200 font-mono">{{ "%.2f"|format(e.price or 0) }} USD{% if e.currency and e.currency != "USDC" %}
+                <span class="text-gray-500">paid in {{ e.currency }}</span>{% endif %}</td>
             <td class="p-3">
-              {% if e[6] == "success" %}
+              {% if e.status == "success" %}
                 <span class="text-emerald-400 font-semibold">success</span>
               {% else %}
                 <span class="text-red-400 font-semibold">failed</span>
               {% endif %}
             </td>
             <td class="p-3">
-              {% if e[7] %}
-                <a href="/download/{{ e[7] }}" class="text-cyan-300 hover:underline">Download</a>
+              {% if e.filename %}
+                <a href="/download/{{ e.filename }}" class="text-cyan-300 hover:underline">Download</a>
               {% else %}-{% endif %}
             </td>
           </tr>

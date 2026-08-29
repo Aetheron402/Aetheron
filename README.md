@@ -5,7 +5,7 @@
 <br/><br/>
 
 [![License](https://img.shields.io/badge/license-MIT-3b82f6?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-198_passing-3b82f6?style=for-the-badge)](tests/)
+[![Tests](https://img.shields.io/badge/tests-200_passing-3b82f6?style=for-the-badge)](tests/)
 [![SDK](https://img.shields.io/badge/SDK-TypeScript_0.3.0-3b82f6?style=for-the-badge)](sdk/)
 [![Python](https://img.shields.io/badge/Python-3.11-3b82f6?style=for-the-badge)](requirements.txt)
 
@@ -168,7 +168,7 @@ wallet, an Anthropic key, and Redis.
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/pytest -q          # 198 tests
+.venv/bin/pytest -q          # 200 tests
 ```
 
 ---
