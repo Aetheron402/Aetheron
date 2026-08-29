@@ -135,7 +135,7 @@
   <p class="text-gray-300 mb-10">
     The token that pays for Aetheron. It is not a separate product, a governance
     wrapper or a claim on revenue: it is a second way to pay for the same calls,
-    priced under USDC, and burned rather than kept when it is spent.
+    priced under USDC, and burned rather than kept once it is spent.
   </p>
 
   {# ── the contract address ───────────────────────────────────────────────── #}
@@ -232,10 +232,12 @@
         <span class="tk-mech-when">Q3 2026</span>
       </div>
       <p class="text-gray-300 text-sm leading-relaxed">
-        The AETH taken as payment is burned instead of kept. Supply falls
-        because the product is being used, not because of a buyback or an
-        announcement, and every burn is a transaction on chain that anyone can
-        count without asking us.
+        The AETH taken as payment is burned instead of kept. Burns are made
+        in batches rather than one per payment, so the counter below will show
+        an amount waiting to be burned between them. Supply falls because the
+        product is being used, not because of a buyback or an announcement, and
+        every burn is a transaction on chain that anyone can count without
+        asking us.
       </p>
     </div>
   </div>
