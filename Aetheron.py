@@ -1743,6 +1743,18 @@ def site_builder(
     return {"task_id": task.id, "asset_id": asset_id, "status": "queued"}
 
 
+@app.get("/telegram")
+def telegram_page(request: Request):
+    """
+    What the bot and the channels are for, written before they ship.
+
+    Here rather than in a thread because the thing people most want to know
+    about a bot that takes payments is what it will not do, and that is worth a
+    page somebody can read twice.
+    """
+    return templates.TemplateResponse("telegram.html", {"request": request})
+
+
 @app.get("/build")
 def site_studio(request: Request):
     """

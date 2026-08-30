@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Aetheron on Telegram{% endblock %}
+
+{% block og_title %}Aetheron on Telegram{% endblock %}
+{% block og_description %}A bot that runs components in the chat, an announcements channel, and a community group. What each one is for, and what it can and cannot do.{% endblock %}
+
+{% block body_class %}page-telegram{% endblock %}
+
+{% block content %}
+<style>
+  .tg-wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 90px; }
+  .tg-hero { padding: 64px 0 40px; }
+  .tg-eyebrow {
+    font-size: .78rem; letter-spacing: .22em; text-transform: uppercase;
+    color: #67e8f9; margin-bottom: 14px;
+  }
+  .tg-card {
+    background: rgba(9, 14, 22, .7);
+    border: 1px solid rgba(34, 211, 238, .18);
+    border-radius: 16px;
+    padding: 26px 28px;
+  }
+  .tg-grid { display: grid; gap: 18px; }
+  @media (min-width: 820px) { .tg-grid.two { grid-template-columns: 1fr 1fr; } }
+  .cmd {
+    /* Wide enough for the longest of these, which is a pasted contract
+       address. At 210px it overran the column and sat on top of the
+       description beside it. */
+    display: grid; grid-template-columns: 258px 1fr; gap: 20px;
+    padding: 16px 0; border-top: 1px solid rgba(34, 211, 238, .12);
+  }
+  .cmd:first-of-type { border-top: 0; }
+  .cmd code {
+    color: #67e8f9; font-size: .92rem; overflow-wrap: anywhere;
+  }
+  .cmd p { margin: 0; color: #9fb3c4; font-size: .93rem; line-height: 1.6; }
+  @media (max-width: 640px) { .cmd { grid-template-columns: 1fr; gap: 6px; } }
+  .tg-note {
+    border-left: 2px solid rgba(34, 211, 238, .4);
+    padding-left: 16px; color: #9fb3c4;
+  }
+  .soon {
+    display: inline-block; font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, .4); border-radius: 999px;
+    padding: 3px 10px; vertical-align: middle; margin-left: 10px;
+  }
+  h2.tg-h { font-size: 1.6rem; color: #67e8f9; margin: 54px 0 8px; }
+  h3.tg-sub { font-size: 1.05rem; color: #e5edf4; margin: 26px 0 8px; }
+  /* Nothing else sets this, and without it consecutive paragraphs sit flush
+     against each other and read as one block. */
+  .tg-wrap p { color: #b6c6d4; line-height: 1.75; margin-bottom: 1.05em; }
+  .tg-wrap p:last-child { margin-bottom: 0; }
+</style>
+
+<div class="tg-wrap page-fade">
+
+  <section class="tg-hero">
+    <p class="tg-eyebrow">Telegram</p>
+    <h1 class="text-4xl md:text-5xl font-semibold text-white mb-5">
+      Aetheron, in a chat
+      <span class="soon">opens Tuesday</span>
+    </h1>
+    <p class="text-lg" style="max-width: 62ch">
+      Three things: a bot you can buy from without leaving the conversation, a
+      channel that posts what the protocol does on chain, and a group where
+      people talk. This page is what each one is for, and what the bot can and
+      cannot do, written before it ships rather than after.
+    </p>
+  </section>
+
+  <!-- ── the bot ─────────────────────────────────────────────────────────── -->
+
+  <h2 class="tg-h">The bot</h2>
+  <p style="max-width: 66ch">
+    Everything the website does, the bot does, because it is the same service
+    underneath. It has no prices of its own and no allowances of its own. It
+    asks the protocol and repeats the answer, which is the only way the number
+    you are shown and the number you are charged can be guaranteed to match.
+  </p>
+
+  <h3 class="tg-sub">Linking a wallet</h3>
+  <p style="max-width: 66ch">
+    Before anything costs money, the bot needs to know which wallet it is acting
+    for, and it will only accept one you can prove you own. You send your
+    address, it gives you a one time message, you sign it in your wallet and
+    paste the signature back.
+  </p>
+  <div class="tg-note" style="max-width: 66ch; margin-bottom: 8px">
+    That signature moves nothing and grants nothing. It signs no transaction and
+    gives the bot no permission to spend. It exists because prices are worked
+    out from the wallet: a previous mint holder pays half, and paying in AETH
+    takes a further fifth off. If a chat could simply name any address, anyone
+    could buy at half price on somebody else's entitlement and read their
+    purchase history besides.
+  </div>
+
+  <div class="tg-card" style="margin-top: 22px">
+    <div class="cmd">
+      <code>/link &lt;wallet&gt;</code>
+      <p>Start linking. The bot replies with a message to sign.</p>
+    </div>
+    <div class="cmd">
+      <code>/wallet</code>
+      <p>Show which wallet this chat is linked to.</p>
+    </div>
+    <div class="cmd">
+      <code>/unlink</code>
+      <p>Forget it. For a phone you are selling, or a chat you now share.</p>
+    </div>
+  </div>
+
+  <h3 class="tg-sub">Trying it before paying</h3>
+  <p style="max-width: 66ch">
+    The free tier is the same three per wallet the site gives you, counted by
+    the protocol rather than by the bot, so a second Telegram account gains you
+    nothing. Both of these work in group chats, because watching an agent run in
+    front of a room is the entire reason to be in one.
+  </p>
+
+  <div class="tg-card" style="margin-top: 18px">
+    <div class="cmd">
+      <code>/example &lt;component&gt;</code>
+      <p>A real report from that component, in full, free.</p>
+    </div>
+    <div class="cmd">
+      <code>/preview &lt;agent&gt;</code>
+      <p>Runs a store agent on live chain data for 25 seconds and sends back
+         exactly what it printed. If it prints nothing because the chain is
+         quiet, it says so rather than sending an empty message.</p>
+    </div>
+    <div class="cmd">
+      <code>/agents</code>
+      <p>Which agents can be watched running.</p>
+    </div>
+  </div>
+
+  <h3 class="tg-sub">Buying</h3>
+  <p style="max-width: 66ch">
+    You send a component and your input, the bot quotes the amount and the
+    wallet to pay, you send it on chain and paste the transaction signature. It
+    then runs the job and sends the file back into the chat. Any discount you
+    are owed is already in the quote, because the price came from the protocol
+    with your wallet attached.
+  </p>
+
+  <div class="tg-card" style="margin-top: 18px">
+    <div class="cmd">
+      <code>/components</code>
+      <p>What can be run, and what each costs you specifically.</p>
+    </div>
+    <div class="cmd">
+      <code>/buy &lt;component&gt; &lt;input&gt;</code>
+      <p>Quote it. Nothing is charged until you pay.</p>
+    </div>
+    <div class="cmd">
+      <code>&lt;paste a signature&gt;</code>
+      <p>No command needed. You have just come back from your wallet with it on
+         the clipboard, and asking for ceremony there is how a purchase gets
+         abandoned.</p>
+    </div>
+    <div class="cmd">
+      <code>&lt;paste a contract address&gt;</code>
+      <p>Offers to pull the holders, the authorities and the known risks on that
+         token. In a private chat only, because a group where people paste
+         addresses all day does not want an offer every time.</p>
+    </div>
+    <div class="cmd">
+      <code>/pending</code>
+      <p>What you have waiting on payment, and what is running.</p>
+    </div>
+    <div class="cmd">
+      <code>/cancel</code>
+      <p>Drop a quote you have not paid. Nothing was charged.</p>
+    </div>
+  </div>
+
+  <h3 class="tg-sub">Getting things back</h3>
+  <p style="max-width: 66ch">
+    A file sent into a chat lives there until somebody clears a cache or changes
+    phone. What you bought should not disappear with it, so everything is
+    keyed to the wallet rather than the conversation. Link the same wallet on a
+    new device and your history is there.
+  </p>
+
+  <div class="tg-card" style="margin-top: 18px">
+    <div class="cmd">
+      <code>/assets</code>
+      <p>Everything this wallet has bought that produced a file.</p>
+    </div>
+    <div class="cmd">
+      <code>/get &lt;number&gt;</code>
+      <p>Send one of them again.</p>
+    </div>
+  </div>
+
+  <h3 class="tg-sub">What it will not do</h3>
+  <p style="max-width: 66ch">
+    Buying, your wallet and your files are private chat only. In a group the bot
+    refuses and tells you why. A purchase flow in public shows everyone what you
+    bought and what you paid, and that is not the bot's to share. It never asks
+    for a private key or a seed phrase, and it never will: signing a message and
+    handing over a key are not the same thing, and nothing Aetheron does needs
+    the second one.
+  </p>
+  <p style="max-width: 66ch">
+    It also stays quiet. It answers commands, a pasted signature and a pasted
+    contract address. It does not reply to ordinary conversation, and an unknown
+    slash command in a group is ignored rather than answered, because it is
+    usually meant for a different bot.
+  </p>
+
+  <!-- ── the channels ────────────────────────────────────────────────────── -->
+
+  <h2 class="tg-h">The channels</h2>
+
+  <div class="tg-grid two" style="margin-top: 18px">
+    <div class="tg-card">
+      <h3 style="color:#e5edf4; font-size:1.05rem; margin-bottom:10px">
+        Announcements
+      </h3>
+      <p style="font-size:.95rem; margin-bottom:10px">
+        Read only, and deliberately slow. Three things get posted and nothing
+        else.
+      </p>
+      <p style="font-size:.95rem; margin-bottom:10px">
+        Every AETH burn, with the Solscan link so you can check it rather than
+        take our word for it. A short note of what has been bought since the
+        last one, counted by component and never by buyer. And the service
+        going down or coming back, which is posted on the way down and on the
+        way up and never in between.
+      </p>
+      <p style="font-size:.95rem; margin:0">
+        A channel that says all systems operational every ten minutes trains
+        people to ignore it, and then they ignore the one that matters.
+      </p>
+    </div>
+
+    <div class="tg-card">
+      <h3 style="color:#e5edf4; font-size:1.05rem; margin-bottom:10px">
+        Community
+      </h3>
+      <p style="font-size:.95rem; margin-bottom:10px">
+        Open, and where the bot is most useful. Anyone can watch an agent run on
+        live data or pull up a real example report without spending anything,
+        in front of everybody, which is a far better answer to is this real than
+        any thread we could write.
+      </p>
+      <p style="font-size:.95rem; margin:0">
+        Buying happens in a private chat with the bot instead. Not because it is
+        hidden, but because the flow would otherwise show the whole room what
+        somebody bought and what they paid for it.
+      </p>
+    </div>
+  </div>
+
+  <h2 class="tg-h">When</h2>
+  <p style="max-width: 66ch">
+    Tuesday. The bot and both channels open together, and the links appear here
+    and on X the same day.
+  </p>
+  <p style="max-width: 66ch">
+    Everything on this page is what it does on the day it opens, not a list of
+    intentions. It is written now rather than after so it can be held against
+    what actually turns up.
+  </p>
+  <p style="max-width: 66ch">
+    Everything above already exists as endpoints the website uses, which is why
+    the bot can be a way in rather than a second product. There is one protocol
+    and one ledger. The chat is just another door into it.
+  </p>
+
+  <div class="mt-10 flex flex-wrap gap-4">
+    <a href="/shop" class="btn">Use it on the site now</a>
+    <a href="/docs" class="btn-ghost">Read the docs</a>
+  </div>
+</div>
+{% endblock %}
