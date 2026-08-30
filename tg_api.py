@@ -95,6 +95,15 @@ class ApiClient:
     def my_assets(self, wallet):
         raise NotImplementedError
 
+    def example(self, slug, wallet):
+        raise NotImplementedError
+
+    def start_preview(self, agent_id, wallet):
+        raise NotImplementedError
+
+    def preview_result(self, task_id):
+        raise NotImplementedError
+
 
 class HttpApiClient(ApiClient):
     """
@@ -165,6 +174,44 @@ class HttpApiClient(ApiClient):
         except (requests.RequestException, ValueError) as exc:
             raise ApiError(f"Could not read your assets: {exc}")
 
+    def example(self, slug, wallet):
+        """
+        One example report against the wallet's allowance.
+
+        The status is returned rather than raised on, because 429 means the
+        allowance is spent and 401 means no wallet, and both are things to tell
+        somebody rather than errors to swallow.
+        """
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/examples/{slug}",
+                headers={"X-USER-WALLET": wallet or ""}, timeout=self.timeout)
+            body = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise ApiError(f"Could not read that example: {exc}")
+        body["_status"] = response.status_code
+        return body
+
+    def start_preview(self, agent_id, wallet):
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/agents/{agent_id}/preview",
+                headers={"X-USER-WALLET": wallet or ""}, timeout=self.timeout)
+            body = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise ApiError(f"Could not start that preview: {exc}")
+        body["_status"] = response.status_code
+        return body
+
+    def preview_result(self, task_id):
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/agents/preview/{task_id}",
+                timeout=self.timeout)
+            return response.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise ApiError(f"Could not read that preview: {exc}")
+
 
 class FakeApiClient(ApiClient):
     """
@@ -189,6 +236,17 @@ class FakeApiClient(ApiClient):
         self.job_error = None
         self.assets = {"entries": []}
         self._next_task = 1
+
+        self.allowance = 3
+        self.example_slugs = set(COMPONENTS) | {"risk-engine"}
+        self.previewable = {"wallet-watcher", "market-tracker", "alpha-scanner"}
+        self.example_text = "EXAMPLE REPORT\n\n" + "line of a report\n" * 20
+        self.preview_output = "[12:00:01] watching\n[12:00:04] transfer seen\n"
+        self.preview_failure = None
+        self.example_calls = []
+        self.preview_calls = []
+        self._seen_examples = {}
+        self._seen_previews = {}
 
     def call_component(self, slug, payload, wallet, method="USDC", tx_sig=None):
         self.calls.append({"slug": slug, "payload": payload, "wallet": wallet,
@@ -239,3 +297,67 @@ class FakeApiClient(ApiClient):
 
     def my_assets(self, wallet):
         return self.assets
+
+    # ── the free tier ───────────────────────────────────────────────────────
+    #
+    # Metered server side, three per wallet, shared across the whole shop. The
+    # fake counts the same way so the bot can be shown behaving correctly when
+    # somebody runs out, which is the case worth getting right: it is the last
+    # thing they see before deciding whether to pay.
+
+    def example(self, slug, wallet):
+        self.example_calls.append((slug, wallet))
+
+        if not wallet:
+            return {"_status": 401,
+                    "detail": "Connect a wallet to read an example."}
+        if slug not in self.example_slugs:
+            return {"_status": 404, "detail": "No example for that component."}
+
+        seen = self._seen_examples.setdefault(wallet, set())
+        already = slug in seen
+        if not already and len(seen) >= self.allowance:
+            return {"_status": 429,
+                    "detail": f"You have opened all {self.allowance} of your "
+                              "examples. You can still reopen the ones you chose."}
+        seen.add(slug)
+
+        return {"_status": 200, "slug": slug, "report": self.example_text,
+                "as_page": False, "already_seen": already,
+                "remaining": max(0, self.allowance - len(seen))}
+
+    def start_preview(self, agent_id, wallet):
+        self.preview_calls.append((agent_id, wallet))
+
+        if not wallet:
+            return {"_status": 401,
+                    "detail": "Connect a wallet to watch an agent run."}
+        if agent_id not in self.previewable:
+            return {"_status": 404, "detail": "Invalid agent ID"}
+
+        seen = self._seen_previews.setdefault(wallet, set())
+        already = agent_id in seen
+        if not already and len(seen) >= self.allowance:
+            return {"_status": 429,
+                    "detail": f"You have watched all {self.allowance} of your "
+                              "agent runs. You can still rewatch the ones you chose."}
+        seen.add(agent_id)
+
+        task_id = f"preview-{self._next_task}"
+        self._next_task += 1
+        return {"_status": 200, "task_id": task_id, "agent_id": agent_id,
+                "seconds": 25, "already_seen": already,
+                "remaining": max(0, self.allowance - len(seen))}
+
+    def preview_result(self, task_id):
+        if self.preview_failure:
+            return {"ready": True, "ok": False, "reason": self.preview_failure}
+
+        seen = self._poll_counts.get(task_id, 0) + 1
+        self._poll_counts[task_id] = seen
+        if seen < self.polls_before_done:
+            return {"ready": False, "state": "PENDING"}
+
+        return {"ready": True, "ok": True, "agent_id": "wallet-watcher",
+                "output": self.preview_output, "seconds": 25,
+                "stopped_on_deadline": True, "exit_code": None}
