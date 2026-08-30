@@ -31,6 +31,7 @@ the payment was never seen.
 import logging
 
 import tg_api
+import tg_link
 import tg_purchase
 from tg_transport import TransportError
 
@@ -46,6 +47,19 @@ _B58 = set("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 def looks_like_a_signature(text: str) -> bool:
     text = (text or "").strip()
     return 80 <= len(text) <= 100 and set(text) <= _B58
+
+
+def looks_like_a_mint(text: str) -> bool:
+    """
+    Whether this could be a token address.
+
+    Shorter than a signature and in the same alphabet, so the two are told
+    apart by length. Anything ambiguous is treated as neither, because guessing
+    wrong here either spends a payment on the wrong thing or quotes somebody
+    for a report on their own transaction.
+    """
+    text = (text or "").strip()
+    return 32 <= len(text) <= 44 and set(text) <= _B58
 
 
 def start_purchase(ctx, api, component, user_input, method="USDC"):
@@ -340,6 +354,54 @@ def register(router, api):
             return
         tg_purchase.mark_failed(record["purchase_id"], "cancelled")
         ctx.say("Dropped. Nothing was charged.")
+
+    @router.fallback
+    def _pasted(ctx):
+        """
+        A message with no command in it.
+
+        Two things arrive this way and both are worth catching. A signature,
+        because somebody has just come back from their wallet with it on the
+        clipboard and asking them to prefix it with a command is how a
+        purchase gets abandoned. And a contract address, because that is what
+        gets typed all day in a chat full of traders.
+
+        Everything else is ignored in silence. A bot that answers ordinary
+        conversation is a bot that gets muted.
+        """
+        text = (ctx.args or "").strip()
+
+        if looks_like_a_signature(text):
+            # A signature is a payment, so it is only ever acted on in a direct
+            # message, the same as the purchase it belongs to.
+            if ctx.update.is_group:
+                return
+            wallet = tg_link.wallet_for(ctx.chat_id)
+            if not wallet:
+                ctx.say("That looks like a transaction signature, but no wallet "
+                        "is linked here. Send /link first.")
+                return
+            ctx.wallet = wallet
+            submit_signature(ctx, api, text)
+            return
+
+        if looks_like_a_mint(text):
+            # Deliberately quiet in groups. A room where people paste addresses
+            # constantly would get an offer every time, which is how a bot gets
+            # removed from a chat.
+            if ctx.update.is_group:
+                return
+
+            wallet = tg_link.wallet_for(ctx.chat_id)
+            if not wallet:
+                ctx.say(
+                    "That looks like a token address. I can pull the holders, "
+                    "the authorities and the known risks on it.\n\n"
+                    "Link a wallet with /link and paste it again.")
+                return
+
+            ctx.wallet = wallet
+            start_purchase(ctx, api, "contract-intel", text)
 
     @router.command("pending", help="What you have in flight.",
                     private_only=True)
