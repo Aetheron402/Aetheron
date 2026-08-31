@@ -146,12 +146,44 @@ def fetch_asset(filename: str):
     return bytes(row[0]), row[1]
 
 
+# Anything stored under this prefix is stock rather than a deliverable, and is
+# never purged. The agent sources live here once they are out of the repo, and
+# deleting them after thirty days would quietly take the store offline.
+PERMANENT_PREFIX = "agents/"
+
+
+def load_asset_bytes(filename: str) -> bytes | None:
+    """
+    Read a stored asset back as bytes, whichever backend holds it.
+
+    The text version decodes utf-8, which is wrong for a zip. Same reasoning
+    otherwise: fetch_asset returns None under R2 by design, so R2 is fetched
+    over http here instead.
+    """
+    if using_r2():
+        import requests
+        base = os.getenv("R2_PUBLIC_BASE", "").rstrip("/")
+        try:
+            response = requests.get(f"{base}/{filename}", timeout=60)
+            response.raise_for_status()
+            return response.content
+        except Exception:
+            return None
+
+    found = fetch_asset(filename)
+    return found[0] if found else None
+
+
 def purge_expired(max_age_days: int = 30) -> int:
     """
     Drop reports older than the retention window.
 
     Without this the table grows for the life of the service. Customers keep
     their downloaded copy; this is a cache of deliverables, not an archive.
+
+    Stock is exempt. The agent sources are stored the same way deliverables are
+    but they are the product itself, and a purge that took them would empty the
+    store thirty days after an upload with nothing to say it had happened.
     """
     if using_r2():
         return 0
@@ -159,7 +191,10 @@ def purge_expired(max_age_days: int = 30) -> int:
     cutoff = time.time() - max_age_days * 86400
     init_storage()
     with _cursor(commit=True) as cur:
-        cur.execute(_q("DELETE FROM assets WHERE created_at < %s;"), (cutoff,))
+        cur.execute(
+            _q("DELETE FROM assets WHERE created_at < %s AND filename NOT LIKE %s;"),
+            (cutoff, PERMANENT_PREFIX + "%"),
+        )
         removed = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
 
     if removed:
