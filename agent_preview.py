@@ -154,14 +154,22 @@ def run(agent_id: str, seconds: int = MAX_SECONDS) -> dict:
         return {"ok": False, "output": "", "reason": "This agent has no live preview."}
 
     src = agent_setup.AGENT_PATHS.get(agent_id)
-    if not src or not os.path.isdir(src):
+    if not src:
         return {"ok": False, "output": "", "reason": "Agent not found."}
 
     seconds = max(5, min(int(seconds or MAX_SECONDS), MAX_SECONDS))
     workdir = tempfile.mkdtemp(prefix=f"preview-{agent_id}-")
 
     try:
-        shutil.copytree(src, workdir, dirs_exist_ok=True)
+        # A preview starts a real process, so the sources have to exist as real
+        # files. They come from the folder when it is checked out and from
+        # storage when it is not, which is the case on the public deployment.
+        import agent_store
+        try:
+            agent_store.materialise(agent_id, workdir, src)
+        except agent_store.AgentStoreError:
+            return {"ok": False, "output": "",
+                    "reason": "That agent's sources are not available here."}
 
         config_path = os.path.join(workdir, "config.json")
         if os.path.exists(config_path):

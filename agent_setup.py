@@ -304,6 +304,28 @@ python {entrypoint}
 """
 
 
+def entrypoint_from(names) -> str:
+    """
+    The file that starts an agent, chosen from a list of names rather than a
+    directory, because the sources may never touch a disk.
+
+    Same rule as before: main.py across every agent in this store.
+    project-planner also has an app.py, but that is the module defining the
+    application rather than a way to run it, and preferring it produced a run
+    script that started nothing and exited zero, which looks exactly like an
+    agent that is broken.
+    """
+    names = set(names or ())
+    if "main.py" in names:
+        return "main.py"
+    if "app.py" in names:
+        return "app.py"
+    for name in sorted(names):
+        if name.endswith(".py") and "/" not in name and "\\" not in name:
+            return name
+    return "main.py"
+
+
 def entrypoint_for(directory: str) -> str:
     """
     The file that starts an agent.
@@ -331,29 +353,34 @@ def build_zip(agent_id: str, answers: dict) -> bytes:
     filesystem at all.
     """
     src = AGENT_PATHS.get(agent_id)
-    if not src or not os.path.isdir(src):
+    if not src:
         raise SetupError("Unknown agent")
 
-    config_path = os.path.join(src, "config.json")
+    # From the folder when it is checked out, from storage when it is not. The
+    # sources are the product, so they do not ship in the public repository.
+    import agent_store
+    try:
+        files = agent_store.files_for(agent_id, src)
+    except agent_store.AgentStoreError as exc:
+        raise SetupError(str(exc))
+
     source_config = {}
-    if os.path.exists(config_path):
-        with open(config_path) as handle:
-            source_config = json.load(handle)
+    if "config.json" in files:
+        try:
+            source_config = json.loads(files["config.json"].decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            source_config = {}
 
     config, applied = apply_config(agent_id, source_config, answers)
-    entrypoint = entrypoint_for(src)
+    entrypoint = entrypoint_from(files)
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for root, dirs, files in os.walk(src):
-            # A shipped virtualenv or cache is megabytes of someone else's paths.
-            dirs[:] = [d for d in dirs if d not in
-                       (".venv", "venv", "__pycache__", ".git", "node_modules")]
-            for name in files:
-                if name.endswith((".pyc", ".pyo")) or name == "config.json":
-                    continue
-                full = os.path.join(root, name)
-                archive.write(full, os.path.relpath(full, src))
+        for relative, data in sorted(files.items()):
+            # The buyer's own config is written below, filled in for them.
+            if relative == "config.json":
+                continue
+            archive.writestr(relative, data)
 
         if source_config or config:
             archive.writestr("config.json", json.dumps(config, indent=2) + "\n")
