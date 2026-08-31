@@ -84,6 +84,44 @@
   .meter-total { font-size: 1.6rem; font-weight: 700; color: #67e8f9; }
   .picking { cursor: crosshair !important; }
 
+  .pay-modal {
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(3, 6, 11, .78);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .pay-modal.hidden { display: none; }
+  .pay-box {
+    width: 100%; max-width: 520px;
+    background: #0b1119;
+    border: 1px solid rgba(34, 211, 238, .28);
+    border-radius: 18px; padding: 26px 28px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+  }
+  .pay-label {
+    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+    color: #7f93a6; margin: 0 0 8px;
+  }
+  .pay-row {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(34, 211, 238, .18);
+    border-radius: 10px; padding: 12px 12px 12px 14px; margin-bottom: 18px;
+  }
+  .pay-value {
+    flex: 1; color: #e5edf4; font-size: .98rem;
+    user-select: all; overflow-wrap: anywhere;
+  }
+  .pay-mono { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .84rem; }
+  .pay-copy {
+    flex: 0 0 auto; font-size: .74rem; letter-spacing: .08em;
+    text-transform: uppercase; color: #67e8f9;
+    background: rgba(34, 211, 238, .1);
+    border: 1px solid rgba(34, 211, 238, .3);
+    border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  }
+  .pay-copy:hover { background: rgba(34, 211, 238, .2); }
+
   /* The studio needs a pointer and a wide window. Editing works by clicking one
      exact element inside the preview, and on a phone that is a broken feature
      rather than a smaller one: the panel stacks under a shrunken frame and the
@@ -232,6 +270,50 @@
     Everything else on Aetheron works on a phone.
     <a href="/shop" style="color:#67e8f9">Browse the rest</a>
   </p>
+</div>
+
+<!-- ── paying ──────────────────────────────────────────────────────────────
+     An alert cannot be copied out of, so the wallet address and the amount
+     could be read and not used, which is the one thing somebody needs to do
+     with them. -->
+<div id="pay-modal" class="pay-modal hidden">
+  <div class="pay-box">
+    <div class="flex justify-between items-start mb-1">
+      <h3 class="text-cyan-300 text-lg font-semibold">Payment required</h3>
+      <button type="button" onclick="payCancel()" aria-label="Close"
+              class="text-gray-400 hover:text-cyan-300 text-2xl leading-none px-2">&times;</button>
+    </div>
+    <p id="pay-what" class="text-sm text-gray-400 mb-5"></p>
+
+    <p class="pay-label">Amount</p>
+    <div class="pay-row">
+      <span id="pay-amount" class="pay-value"></span>
+      <button type="button" class="pay-copy" onclick="payCopy('pay-amount', this)">Copy</button>
+    </div>
+
+    <p class="pay-label">Send it to</p>
+    <div class="pay-row">
+      <span id="pay-wallet" class="pay-value pay-mono"></span>
+      <button type="button" class="pay-copy" onclick="payCopy('pay-wallet', this)">Copy</button>
+    </div>
+
+    <p class="text-xs text-gray-500 mt-4 mb-4">
+      Send it from the wallet you connected, on Solana. Then paste the
+      transaction signature below.
+    </p>
+
+    <p class="pay-label">Transaction signature</p>
+    <input id="pay-sig" class="studio-field" spellcheck="false"
+           placeholder="paste it here" />
+
+    <div class="flex gap-3 mt-5">
+      <button class="btn flex-1" onclick="payConfirm()">I have paid</button>
+      <button class="btn-ghost" onclick="payCancel()">Cancel</button>
+    </div>
+    <p class="text-xs text-gray-600 mt-3">
+      Nothing is charged until the payment is found on chain.
+    </p>
+  </div>
 </div>
 
 <div class="studio">
@@ -416,12 +498,12 @@
           </button>
           <!-- No href until there is a file. A link to # looks like a button
                that does nothing when pressed. -->
-          <a id="dl-link" class="btn-ghost w-full text-sm block text-center">
-            Download this version
-          </a>
-          <a id="bundle-link" class="btn-ghost w-full mt-2 text-sm block text-center">
-            Download with hosting instructions
-          </a>
+          <!-- One download. It hands over the page and a page of instructions
+               for putting it online, because a buyer holding a bare html file
+               and no idea what to do with it is the common case. -->
+          <button id="dl-link" class="btn-ghost w-full text-sm" onclick="downloadSite()">
+            Download your site
+          </button>
           <button class="btn-ghost w-full mt-2 text-sm" onclick="location.reload()">
             Start another site
           </button>
@@ -644,14 +726,11 @@ async function refreshEditAeth() {
 
   try {
     aethEdit = await aethQuote("site-revision");
-    // The AETH endpoint prices the ceiling, so the batch is converted at the
-    // same rate rather than quoted at it. One rate, one price, both from the
-    // server.
-    // Scaled straight off the quoted ceiling, which already carries whatever
-    // discounts this wallet has. Working from the discounted dollar figure
-    // instead applied the AETH tier twice on one side and not at all on the
-    // other. This is only what the button shows before committing: the amount
-    // actually owed comes back with the 402 and is what gets locked.
+    // Scaled straight off the quoted ceiling, which carries whatever discounts
+    // this wallet has already. Working from the discounted dollar figure
+    // instead meant applying the AETH tier twice on one side and not at all on
+    // the other. This is only what the button shows before committing: the
+    // amount actually owed comes back with the 402 and is what gets locked.
     const share = (currentQuote.price || 0) / (aethEdit.list_price || 1);
     const total = Math.round(aethEdit.required_aeth * share);
     button.textContent = count
@@ -726,6 +805,77 @@ async function startBuild() {
 
 // ── the payment handshake, the same one every component uses ───────────────
 
+// ── the payment dialog ─────────────────────────────────────────────────────
+//
+// This was an alert and a prompt. Neither can be copied out of, so the wallet
+// address and the amount could be read and not used, which is the only thing
+// anybody needs to do with them. Both are selectable here, with a copy button
+// each, and the signature goes into a field that accepts a paste.
+
+let payResolve = null;
+
+function askForPayment({ what, amount, wallet }) {
+  document.getElementById("pay-what").textContent = what;
+  document.getElementById("pay-amount").textContent = amount;
+  document.getElementById("pay-wallet").textContent = wallet || "";
+
+  const field = document.getElementById("pay-sig");
+  field.value = "";
+
+  document.getElementById("pay-modal").classList.remove("hidden");
+  setTimeout(() => field.focus(), 50);
+
+  return new Promise((resolve) => { payResolve = resolve; });
+}
+
+function payClose(value) {
+  document.getElementById("pay-modal").classList.add("hidden");
+  const resolve = payResolve;
+  payResolve = null;
+  if (resolve) resolve(value);
+}
+
+function payConfirm() {
+  const value = document.getElementById("pay-sig").value.trim();
+  if (!value) {
+    document.getElementById("pay-sig").focus();
+    return;
+  }
+  payClose(value);
+}
+
+function payCancel() { payClose(null); }
+
+async function payCopy(id, button) {
+  const text = document.getElementById(id).textContent.trim();
+  const was = button.textContent;
+
+  const done = () => {
+    button.textContent = "Copied";
+    setTimeout(() => { button.textContent = was; }, 1600);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try { await navigator.clipboard.writeText(text); done(); return; } catch (e) {}
+  }
+
+  // Older browsers, and any page not served over https, where the clipboard
+  // api is unavailable. Selecting the text at least lets them copy it by hand.
+  const field = document.createElement("textarea");
+  field.value = text;
+  document.body.appendChild(field);
+  field.select();
+  try { document.execCommand("copy"); done(); } catch (e) {}
+  document.body.removeChild(field);
+}
+
+// Enter confirms, escape cancels, the same as any dialog.
+document.addEventListener("keydown", (e) => {
+  if (!payResolve) return;
+  if (e.key === "Escape") payCancel();
+  if (e.key === "Enter" && document.activeElement?.id === "pay-sig") payConfirm();
+});
+
 function aethFor(payMethodName) {
   return payMethodName === "pay_edit" ? aethEdit : aethBuild;
 }
@@ -750,8 +900,11 @@ async function paidCall(endpoint, payload, payMethodName, expected) {
     const amount = quote.required_aeth
       ? `${Math.round(quote.required_aeth).toLocaleString()} AETH`
       : `${quote.required} ${quote.currency || "USDC"}`;
-    alert(`Payment required.\n\nSend ${amount} to:\n${quote.wallet}\n\nThen paste the transaction signature.`);
-    const sig = prompt("Paste your Solana transaction signature:");
+    const sig = await askForPayment({
+      what: quote.message || "Payment required",
+      amount,
+      wallet: quote.wallet,
+    });
     if (!sig) return null;
     res = await fetch(endpoint, {
       method: "POST",
@@ -823,33 +976,16 @@ function lockDownload(busy) {
   if (!link) return;
 
   if (busy) {
-    link.dataset.href = link.getAttribute("href") || "";
-    link.removeAttribute("href");
+    link.disabled = true;
     link.style.opacity = ".45";
-    link.style.pointerEvents = "none";
     link.textContent = "Download, once this finishes";
-    const bundle = document.getElementById("bundle-link");
-    if (bundle) {
-      bundle.removeAttribute("href");
-      bundle.style.opacity = ".45";
-      bundle.style.pointerEvents = "none";
-    }
     return;
   }
 
-  const target = currentFile ? "/download/" + currentFile : link.dataset.href;
-  if (target && target !== "#") {
-    link.setAttribute("href", target);
+  if (currentFile) {
+    link.disabled = false;
     link.style.opacity = "";
-    link.style.pointerEvents = "";
-    link.textContent = "Download this version";
-  }
-
-  const bundle = document.getElementById("bundle-link");
-  if (bundle && projectId) {
-    bundle.setAttribute("href", `/api/site-builder/bundle/${projectId}`);
-    bundle.style.opacity = "";
-    bundle.style.pointerEvents = "";
+    link.textContent = "Download your site";
   }
 }
 
@@ -868,6 +1004,12 @@ async function watch(assetId) {
   startWaiting("building");
 
   let index = 0, text = "", painted = 0;
+
+  // A build that stops writing has usually lost its worker. Without a limit
+  // the page polls a stream that will never reach an end, and somebody who has
+  // paid watches a spinner indefinitely rather than being told anything.
+  let quiet = 0;
+  const QUIET_LIMIT = 90;   // polls, roughly two minutes of silence
 
   while (true) {
     let d;
@@ -893,6 +1035,21 @@ async function watch(assetId) {
       }
       document.getElementById("preview-label").textContent =
         `writing, ${text.length.toLocaleString()} characters`;
+      quiet = 0;
+    } else {
+      quiet += 1;
+    }
+
+    if (quiet > QUIET_LIMIT) {
+      stopWaiting("stopped");
+      status(
+        "That build stopped partway through, which usually means it was "
+        + "interrupted rather than that anything was wrong with it. Your "
+        + "payment is on the ledger, so nothing is lost. It should pick itself "
+        + "back up, and it will appear under your sites when it does."
+      );
+      loadVersions();
+      return;
     }
 
     if (d.status === "done") {
@@ -1171,6 +1328,58 @@ async function applyEdits() {
   status("Applying. The page updates on the right.");
   startWaiting("applying your changes");
   watch(res.asset_id);
+}
+
+// ── getting it out ─────────────────────────────────────────────────────────
+
+async function downloadSite() {
+  if (!projectId) return;
+
+  const button = document.getElementById("dl-link");
+  const was = button.textContent;
+  button.disabled = true;
+  button.textContent = "Packaging…";
+
+  try {
+    // Fetched rather than linked, because a plain href cannot carry the wallet
+    // header and the server has no way to tell whose site it is without one.
+    // A link straight to this returned "that site is not yours".
+    const response = await fetch(`/api/site-builder/bundle/${projectId}`, {
+      headers: { "X-USER-WALLET": window.currentWallet || "" },
+    });
+
+    if (!response.ok) throw new Error(response.status);
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    // The filename comes from the server, which names it after the ticker.
+    const disposition = response.headers.get("content-disposition") || "";
+    const named = /filename="([^"]+)"/.exec(disposition);
+
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = named ? named[1] : "site.zip";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+
+    button.textContent = "Downloaded";
+    setTimeout(() => { button.textContent = was; }, 2200);
+  } catch (e) {
+    // The page itself is the thing they paid for, so if packaging fails they
+    // still get it rather than nothing.
+    if (currentFile) {
+      window.location.href = "/download/" + currentFile;
+      button.textContent = was;
+    } else {
+      button.textContent = "Could not download, try again";
+      setTimeout(() => { button.textContent = was; }, 2600);
+    }
+  } finally {
+    button.disabled = false;
+  }
 }
 
 // ── launch day, and a second opinion on the design ─────────────────────────
