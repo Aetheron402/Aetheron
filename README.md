@@ -5,7 +5,7 @@
 <br/><br/>
 
 [![License](https://img.shields.io/badge/license-MIT-3b82f6?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-222_passing-3b82f6?style=for-the-badge)](tests/)
+[![Tests](https://img.shields.io/badge/tests-442_passing-3b82f6?style=for-the-badge)](tests/)
 [![SDK](https://img.shields.io/badge/SDK-TypeScript_0.3.0-3b82f6?style=for-the-badge)](sdk/)
 [![Python](https://img.shields.io/badge/Python-3.11-3b82f6?style=for-the-badge)](requirements.txt)
 
@@ -27,7 +27,7 @@ The whole exchange is four HTTP messages and one Solana transfer.
 
 | | |
 |:--|:--|
-| **5 components** | prompts, code, personas, token risk, Monte Carlo |
+| **6 components** | prompts, code, personas, token risk, Monte Carlo, launch sites |
 | **9 agent templates** | full Python projects, yours to keep |
 | **$0.25 to $4.99** | per call, in USDC |
 | **Non-custodial** | this code cannot sign anything |
@@ -48,6 +48,7 @@ Every component returns a written report: PDF, DOCX, HTML, Markdown or plain tex
 | **Prompt Tester** | `$0.50` | One prompt run past several personas, with each reaction reported |
 | **Risk Engine** | `$0.75` | Monte Carlo GBM simulation, charted paths and outcome distribution |
 | **Contract Intelligence** | `$1.00` | Holder concentration, LP lock, admin powers and honeypot checks |
+| **Launch Site Builder** | `$2.50` | A landing page for your token, before or after launch, as one self-contained file |
 
 The first three need only an Anthropic key. The last two read Solana and Ethereum, and
 fall back to whatever sources remain when a provider is missing.
@@ -150,7 +151,7 @@ account to open.
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-cp .env.example .env        # set PAYMENT_WALLET and OPENAI_API_KEY
+cp .env.example .env        # set PAYMENT_WALLET and ANTHROPIC_API_KEY
 redis-server --daemonize yes
 
 .venv/bin/uvicorn Aetheron:app --reload
@@ -168,7 +169,7 @@ wallet, an Anthropic key, and Redis.
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/pytest -q          # 222 tests
+.venv/bin/pytest -q          # 442 tests
 ```
 
 ---

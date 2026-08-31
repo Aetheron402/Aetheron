@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Request, Header, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
@@ -32,14 +34,19 @@ from ledger_utils import (
     add_partial,
     get_partial,
     clear_partial,
+    get_by_asset_id,
 )
 from aeth_price import calculate_required_aeth, AethPricingError
+
+import site_stream
 
 import storage
 import agent_setup
 import ledger_utils
 import legacy_holders
 import pricing
+import asset_naming
+import site_data
 import burn_ledger
 import aeth_quotes
 import grants
@@ -54,6 +61,8 @@ import os
 import time
 import shutil
 import traceback
+import functools
+import logging
 import re
 
 load_dotenv()
@@ -101,10 +110,16 @@ PROMPT_TESTER_PRICE_USDC = os.getenv("PRICE_PROMPT_TESTER", "0.50")
 CONTRACT_INTEL_PRICE_USDC = os.getenv("PRICE_CONTRACT_INTEL", "1.00")
 RISK_ENGINE_PRICE_USDC = os.getenv("PRICE_RISK_ENGINE", "0.75")
 AGENT_PRICE_USDC = os.getenv("PRICE_AGENT", "4.99")
+# A full page is a large generation, several times the output of a report, so
+# it is priced above the components rather than alongside them.
+SITE_BUILDER_PRICE_USDC = os.getenv("PRICE_SITE_BUILDER", "2.50")
+SITE_REVISION_PRICE_USDC = os.getenv("PRICE_SITE_REVISION", "0.99")
 PAYMENT_NETWORK = "Solana"
 PAYMENT_CURRENCY = "USDC"
 
 USDC_DECIMALS = 6
+
+logger = logging.getLogger("aetheron")
 
 app = FastAPI(
     title="Aetheron",
@@ -175,7 +190,8 @@ templates.env.globals["current_year"] = lambda: datetime.now(timezone.utc).year
 
 
 def payment_required(component: str, message: str, price_usdc,
-                     wallet: str | None = None) -> JSONResponse:
+                     wallet: str | None = None,
+                     method: str = "USDC") -> JSONResponse:
     """
     Build the X402 challenge.
 
@@ -184,29 +200,73 @@ def payment_required(component: str, message: str, price_usdc,
     Returning just a message told an integrator that payment was needed while
     withholding how much, in which currency, and to which wallet.
 
-    The quoted amount runs through legacy_holders.price_for, the same function
-    the settlement check uses, so a discounted buyer is never quoted one number
-    and measured against another.
+    The quoted amount runs through pricing.effective_usd, the same function the
+    settlement check uses, so a discounted buyer is never quoted one number and
+    measured against another.
+
+    When the buyer is paying in AETH the challenge carries the AETH amount too,
+    and locks it. It used to carry only dollars, which left the browser to work
+    the conversion out for itself, and a browser doing that arithmetic against a
+    cached rate for a different price showed one number on the button and
+    another in the dialog. Worse, settlement honours the locked quote, so the
+    smaller of the two would have been rejected as short after the buyer had
+    already sent it. There is one number now and the server decides it.
     """
     quoted = pricing.effective_usd(price_usdc, wallet, "USDC")
     discounted = quoted != float(price_usdc)
-    return JSONResponse(
-        status_code=402,
-        content={
-            "status": 402,
-            "message": message,
-            "component": component,
-            "required": quoted,
-            "list_price": float(price_usdc),
-            "discount": "legacy holder, 50%" if discounted else None,
-            "currency": PAYMENT_CURRENCY,
-            "network": PAYMENT_NETWORK,
-            "wallet": PAYMENT_WALLET,
-            # AETH appears only once a mint is configured, so the field stays
-            # truthful before the token exists.
-            "accepted_methods": ["USDC"] + (["AETH"] if AETH_MINT else []),
-        },
-    )
+
+    body = {
+        "status": 402,
+        "message": message,
+        "component": component,
+        "required": quoted,
+        "list_price": float(price_usdc),
+        "discount": "legacy holder, 50%" if discounted else None,
+        "currency": PAYMENT_CURRENCY,
+        "network": PAYMENT_NETWORK,
+        "wallet": PAYMENT_WALLET,
+        # AETH appears only once a mint is configured, so the field stays
+        # truthful before the token exists.
+        "accepted_methods": ["USDC"] + (["AETH"] if AETH_MINT else []),
+    }
+
+    if str(method).upper() == "AETH" and AETH_MINT:
+        try:
+            in_aeth = pricing.effective_usd(price_usdc, wallet, "AETH")
+            required_aeth = calculate_required_aeth(in_aeth)
+
+            body["required_aeth"] = required_aeth
+            body["required_usd_in_aeth"] = in_aeth
+            body["currency"] = "AETH"
+
+            # Locked against this exact amount, because that is what settlement
+            # will measure the transfer against. Locking the component's list
+            # price instead is how a part charge came to expect a full one.
+            if wallet:
+                decimals = get_mint_decimals(AETH_MINT)
+                aeth_quotes.record(wallet, component,
+                                   int(round(required_aeth * (10 ** decimals))),
+                                   in_aeth)
+        except Exception:
+            # Without a rate there is no AETH figure to give, and quoting one
+            # anyway is worse than letting them pay in USDC.
+            logger.warning("Could not quote %s in AETH", component, exc_info=True)
+
+    return JSONResponse(status_code=402, content=body)
+
+# A price fetched now is a price nobody has to wait for later. Both run in a
+# thread and are allowed to fail: the ordinary paths still work without them.
+if AETH_MINT:
+    try:
+        import aeth_price as _aeth_price
+        _aeth_price.warm()
+    except Exception:
+        pass
+
+try:
+    legacy_holders.warm()
+except Exception:
+    pass
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -265,7 +325,15 @@ def _iter_token_instructions(tx: dict):
         for ix in (inner.get("instructions") or []):
             yield ix
 
+@functools.lru_cache(maxsize=32)
 def get_mint_decimals(mint: str) -> int:
+    """
+    How many decimal places a mint uses.
+
+    Cached for the life of the process, because it is fixed at mint creation
+    and cannot change afterwards. It was being read off the chain on every AETH
+    quote, which put a round trip in front of somebody waiting to pay.
+    """
     resp = solana_client.get_token_supply(Pubkey.from_string(mint))
     if not resp or not resp.value:
         raise ValueError("Failed to fetch mint supply")
@@ -500,6 +568,60 @@ ETHEREUM_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 PromptTarget = Literal["chat", "coding", "agent", "image", "extraction"]
 
 
+class SiteEdit(BaseModel):
+    """
+    One change, aimed at one part of the page.
+
+    `selector` comes from clicking the element in the preview, so a change lands
+    where it was pointed at rather than wherever the model decides the words
+    apply. `label` is what the person saw when they clicked it, kept so the
+    prompt can say which element in plain terms as well as in CSS.
+    """
+    selector: str | None = Field(default=None, max_length=400)
+    label: str | None = Field(default=None, max_length=200)
+    description: str = Field(min_length=2, max_length=600)
+
+
+class SiteReviseIn(BaseModel):
+    """
+    A change to a page that already exists.
+
+    The project says which page, the change says what to do to it. The token
+    fields are all optional and only overwrite what they are given, so adding a
+    Telegram link later does not blank the description.
+    """
+    project_id: str = Field(min_length=4, max_length=64)
+    # One or the other. `edits` is what the studio sends, a list of changes each
+    # aimed at an element; `notes` is the plain description the modal used.
+    notes: str | None = Field(default=None, max_length=2000)
+    edits: list[SiteEdit] | None = Field(default=None, max_length=20)
+    name: str | None = Field(default=None, max_length=80)
+    symbol: str | None = Field(default=None, max_length=20)
+    description: str | None = Field(default=None, max_length=600)
+    image: str | None = Field(default=None, max_length=400)
+    twitter: str | None = Field(default=None, max_length=200)
+    telegram: str | None = Field(default=None, max_length=200)
+    website: str | None = Field(default=None, max_length=200)
+
+
+class SiteIn(BaseModel):
+    """
+    Either an address, or a description of a token that does not exist yet.
+
+    The second is the ordinary case. People need the page before they launch,
+    so demanding a mint made this useless to exactly the people it is for.
+    """
+    mint: str | None = Field(default=None, min_length=32, max_length=44)
+    name: str | None = Field(default=None, max_length=80)
+    symbol: str | None = Field(default=None, max_length=20)
+    description: str | None = Field(default=None, max_length=600)
+    image: str | None = Field(default=None, max_length=400)
+    twitter: str | None = Field(default=None, max_length=200)
+    telegram: str | None = Field(default=None, max_length=200)
+    website: str | None = Field(default=None, max_length=200)
+    notes: str | None = Field(default=None, max_length=1200)
+
+
 class PromptIn(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_PROMPT_CHARS)
     format: ExportFormat | None = "pdf"
@@ -569,7 +691,7 @@ def risk_engine_api(
     )
 
     if payment_check is False:
-        return payment_required("risk-engine", "Payment required to use Agent Risk & Simulation Engine", RISK_ENGINE_PRICE_USDC, user_wallet)
+        return payment_required("risk-engine", "Payment required to use Agent Risk & Simulation Engine", RISK_ENGINE_PRICE_USDC, user_wallet, payment_method)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -680,6 +802,8 @@ def api_status():
          "needs": ["ai", "workers"], "depends_on": [llm.MODEL, "matplotlib"]},
         {"name": "Contract Intelligence", "price": CONTRACT_INTEL_PRICE_USDC,
          "needs": ["ai", "workers", "solana"], "depends_on": [llm.MODEL, "chain data"]},
+        {"name": "Launch Site Builder", "price": SITE_BUILDER_PRICE_USDC,
+         "needs": ["ai", "workers"], "depends_on": [llm.MODEL, "pump.fun metadata"]},
         {"name": "Agent templates", "price": AGENT_PRICE_USDC,
          "needs": ["solana"], "depends_on": ["payment verification"]},
     ]
@@ -749,11 +873,22 @@ def shop(request: Request):
             "type": "pay-per-use",
             "coming_soon": False,
         },
+        {
+            "id": 7,
+            "slug": "site-builder",
+            "name": "Launch Site Builder",
+            "description": "A finished landing page for your token, before or after you launch. Describe it, or paste a contract address and it pulls the real name, ticker, image, supply and socials itself. One self-contained HTML file, ready to host.",
+            "price": f"{SITE_BUILDER_PRICE_USDC} {PAYMENT_CURRENCY}",
+            "type": "pay-per-use",
+            "coming_soon": False,
+        },
     ]
 
     return templates.TemplateResponse("shop.html", {
         "request": request,
         "components": components,
+        "site_builder_price": SITE_BUILDER_PRICE_USDC,
+        "site_revision_price": SITE_REVISION_PRICE_USDC,
     })
 
 
@@ -996,7 +1131,7 @@ def _deliver_agent(agent_id: str, request: Request, x_payment, x_payment_method,
     if payment_check is False:
         return payment_required(
             "agent", "Payment required to download this agent", AGENT_PRICE_USDC,
-            user_wallet,
+            user_wallet, payment_method,
         )
 
     if isinstance(payment_check, dict):
@@ -1127,6 +1262,11 @@ EXAMPLE_SLUGS = {
     "contract-intel", "risk-engine",
 }
 
+# Some examples are pages rather than reports, and are opened rather than read
+# in a text box. Nothing uses this at the moment, and it stays because the
+# mechanism is what any future page shaped example would need.
+EXAMPLE_AS_PAGE: set[str] = set()
+
 
 @app.get("/api/examples/{slug}")
 def read_example(slug: str, request: Request):
@@ -1160,7 +1300,9 @@ def read_example(slug: str, request: Request):
                    "examples. You can still reopen the ones you chose.",
         )
 
-    path = os.path.join("static", "examples", f"{slug}.txt")
+    as_page = slug in EXAMPLE_AS_PAGE
+    ext = "html" if as_page else "txt"
+    path = os.path.join("static", "examples", f"{slug}.{ext}")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Example not found.")
 
@@ -1170,6 +1312,7 @@ def read_example(slug: str, request: Request):
     return JSONResponse({
         "slug": slug,
         "report": body,
+        "as_page": as_page,
         "remaining": claim["remaining"],
         "already_seen": claim["already_seen"],
     })
@@ -1374,7 +1517,7 @@ def contract_intel_api(
     )
 
     if payment_check is False:
-        return payment_required("contract-intel", "Payment required to use Contract Intelligence Analyzer", CONTRACT_INTEL_PRICE_USDC, user_wallet)
+        return payment_required("contract-intel", "Payment required to use Contract Intelligence Analyzer", CONTRACT_INTEL_PRICE_USDC, user_wallet, payment_method)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1487,6 +1630,671 @@ def cleanup_generated_folder():
         if os.path.isfile(path) and now - os.path.getmtime(path) > 86400:  # 24h
             os.remove(path)
 
+# ── development bypass ──────────────────────────────────────────────────────
+# Lets a component be run without paying, so a change can be checked end to end
+# before it is charged for.
+#
+# Inert unless DEV_TOKEN is set. With it unset, which is how production runs,
+# every path below returns False regardless of what a caller sends, so this
+# being public gives nobody anything: the token is the secret, not the
+# mechanism. Set it to a long random value if you ever set it at all.
+DEV_TOKEN = (os.getenv("DEV_TOKEN") or "").strip()
+
+
+def dev_unlocked(request: Request) -> bool:
+    """Whether this caller holds the development token."""
+    if not DEV_TOKEN:
+        return False
+    # The query string is accepted so one link unlocks and opens a page in a
+    # single step. It is the least private of the three, since a URL ends up in
+    # history and in logs, which is why the page that accepts it also drops a
+    # cookie and stops needing it.
+    supplied = (request.headers.get("X-DEV-TOKEN")
+                or request.query_params.get("token")
+                or request.cookies.get("aetheron_dev") or "")
+    # Constant time, so a wrong value cannot be refined one character at a time
+    # by measuring how long the comparison takes.
+    return secrets.compare_digest(supplied, DEV_TOKEN)
+
+
+@app.get("/dev/unlock")
+def dev_unlock(request: Request, token: str = ""):
+    """
+    Exchange the token for a cookie, so the shop can be used normally.
+
+    404 rather than 403 when the token is wrong or unset, so an instance that
+    has no development access does not advertise that the route exists.
+    """
+    if not DEV_TOKEN or not secrets.compare_digest(token, DEV_TOKEN):
+        raise HTTPException(status_code=404, detail="Not found")
+    response = JSONResponse({"unlocked": True,
+                             "note": "Components can now be run without paying."})
+    response.set_cookie("aetheron_dev", DEV_TOKEN, httponly=True, samesite="lax")
+    return response
+
+
+@app.post("/api/site-builder")
+def site_builder(
+    payload: SiteIn,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    """
+    Build a landing page for a token from its contract address.
+
+    The address is checked before payment is asked for, so nobody pays to find
+    out they pasted a wallet instead of a mint.
+    """
+    payment_method = x_payment_method or "USDC"
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    mint = (payload.mint or "").strip() or None
+    details = None
+
+    if mint:
+        if not site_data.MINT_RE.match(mint):
+            return JSONResponse(status_code=400, content={
+                "error": "That does not look like a Solana mint address. It is the "
+                         "token address, 32 to 44 base58 characters."})
+    else:
+        # No address, so the token has not launched and the details come from
+        # the form instead.
+        if not (payload.name or "").strip() or not (payload.symbol or "").strip():
+            return JSONResponse(status_code=400, content={
+                "error": "Give a contract address, or a name and a ticker if the "
+                         "token has not launched yet."})
+        details = {
+            "name": payload.name, "symbol": payload.symbol,
+            "description": payload.description, "image": payload.image,
+            "twitter": payload.twitter, "telegram": payload.telegram,
+            "website": payload.website,
+        }
+
+    # Shape is not enough. A wallet address is the same length and alphabet as a
+    # mint, so pasting one passes every check that does not talk to the chain,
+    # and the buyer would pay before finding out. Confirmed before the price is
+    # ever quoted.
+    if mint and not x_payment and not site_data.exists(mint):
+        return JSONResponse(status_code=404, content={
+            "error": "No token found at that address on pump.fun. Check it is the "
+                     "token's mint address rather than a wallet, and note that "
+                     "tokens launched elsewhere are not covered yet."})
+
+    # Development access skips the payment check entirely. Off unless DEV_TOKEN
+    # is set, which production does not set.
+    payment_check = True if dev_unlocked(request) else verify_payment(
+        x_payment, user_wallet, float(SITE_BUILDER_PRICE_USDC),
+        payment_method, component="site-builder",
+    )
+
+    if payment_check is False:
+        return payment_required(
+            "site-builder", "Payment required to build a site",
+            SITE_BUILDER_PRICE_USDC, user_wallet, payment_method)
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(status_code=402, content={
+            "status": 402, "message": "Partial payment received",
+            "paid": payment_check["paid"], "remaining": payment_check["remaining"],
+            "currency": "AETH"})
+
+    asset_id = "X402-SITE-" + ''.join(
+        secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+
+    # Kept before the job is queued, so a build that dies partway can be run
+    # again from what it was asked for rather than charged for twice.
+    site_stream.remember(asset_id, {
+        "mint": mint, "notes": payload.notes, "wallet": user_wallet,
+        "details": details,
+    })
+
+    try:
+        from celery_worker import process_site_builder
+        task = process_site_builder.delay(
+            asset_id, mint, payload.notes, user_wallet, details)
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    try:
+        add_entry(asset_id=asset_id, wallet=user_wallet, tx_sig=x_payment,
+                  component="site-builder", price=float(SITE_BUILDER_PRICE_USDC),
+                  currency=payment_method, status="pending", filename=None)
+    except Exception as e:
+        print("Ledger log failure (site builder):", e)
+
+    return {"task_id": task.id, "asset_id": asset_id, "status": "queued"}
+
+
+@app.post("/api/site-builder/retry/{asset_id}")
+def site_builder_retry(asset_id: str, request: Request, mint: str | None = None):
+    """
+    Run a paid build again.
+
+    A build can be lost between the payment and the file: a worker restarted
+    mid generation leaves a ledger row sitting at pending and a buyer holding
+    nothing. The money is already on chain and refunding it is not something
+    this can do, so the answer is to make the thing that was paid for.
+
+    Only the arguments already recorded for that asset are used, so this
+    cannot be pointed at a different token, and only rows still pending are
+    accepted, so a finished build cannot be re-run for free.
+    """
+    row = get_by_asset_id(asset_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="No such build.")
+
+    # Whoever paid can ask for their build again without going through anybody.
+    # Needing an operator to recover it means most people never get it back.
+    caller = request.headers.get("X-USER-WALLET")
+    if not dev_unlocked(request) and caller != (row.get("wallet") or object()):
+        raise HTTPException(status_code=403, detail="That build is not yours.")
+
+    if (row.get("status") or "") != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="That build already finished. Re-running it would be a "
+                   "second build for one payment.")
+
+    args = site_stream.recall(asset_id)
+    if not args:
+        # Builds queued before the arguments were being recorded have nothing
+        # to recover from. The mint can be supplied for those, and only those:
+        # the wallet still comes off the paid row, so the page can only ever
+        # go to whoever paid for it.
+        if not mint:
+            raise HTTPException(
+                status_code=404,
+                detail="Nothing recorded for that build. Pass the mint to run "
+                       "it again.")
+        args = {"mint": mint, "notes": "", "wallet": row.get("wallet"),
+                "details": None}
+        site_stream.remember(asset_id, args)
+
+    if not site_stream.count_retry(asset_id):
+        raise HTTPException(
+            status_code=429,
+            detail="That build has been run again as many times as it can be. "
+                   "Get in touch and it will be sorted by hand.")
+
+    from celery_worker import process_site_builder
+    task = process_site_builder.delay(
+        asset_id, args.get("mint"), args.get("notes"), args.get("wallet"),
+        args.get("details"))
+
+    return {"task_id": task.id, "asset_id": asset_id, "status": "requeued"}
+
+
+@app.get("/build")
+def site_studio(request: Request):
+    """
+    The studio: the form on one side, the page building itself on the other.
+
+    A page of its own rather than a dialog, because watching a site generate
+    and then pointing at parts of it to change them does not fit in a box, and
+    the old dialog gave no way to see what you were buying until it was bought.
+    """
+    unlocked = dev_unlocked(request)
+    response = templates.TemplateResponse("site_studio.html", {
+        "request": request,
+        "site_builder_price": SITE_BUILDER_PRICE_USDC,
+        "site_revision_price": SITE_REVISION_PRICE_USDC,
+        "site_section_price": f"{pricing.section_price():.2f}",
+        "aeth_enabled": bool(AETH_MINT),
+        # The bypass is enforced server side, so the page worked without this
+        # and only the buttons lied, still quoting a price for something that
+        # was about to be free. Passed through so the studio can say plainly
+        # that nothing is being charged.
+        "dev_mode": unlocked,
+    })
+
+    # Arriving with ?token= leaves the cookie behind, so the rest of the visit
+    # stays unlocked without the token riding along in every later URL.
+    if unlocked and request.query_params.get("token"):
+        response.set_cookie("aetheron_dev", DEV_TOKEN, httponly=True,
+                            samesite="lax", max_age=60 * 60 * 12)
+    return response
+
+
+@app.get("/api/site-builder/stream/{asset_id}")
+def site_builder_stream(asset_id: str, request: Request):
+    """
+    The page as it is written, replayable from the start.
+
+    Polled with an index rather than held open, so a browser that reconnects
+    picks up where it left off instead of watching half a page appear. The
+    build itself runs in the worker and does not depend on anybody reading
+    this: what was paid for is stored either way.
+    """
+    try:
+        index = max(0, int(request.query_params.get("from", 0)))
+    except ValueError:
+        index = 0
+
+    import site_stream
+    chunks, next_index, state = site_stream.read_from(asset_id, index)
+
+    detail = {}
+    if state and state != "running":
+        try:
+            detail = json.loads(state)
+        except (TypeError, ValueError):
+            detail = {"status": "error", "error": "the build reported an unreadable state"}
+
+    # No buffer at all means the job has not started writing yet, or the buffer
+    # has expired. The caller has to be able to tell that from a finished one.
+    status = detail.get("status") or ("running" if state else "waiting")
+
+    return {"text": "".join(chunks), "next": next_index, "status": status,
+            "filename": detail.get("filename"), "error": detail.get("error"),
+            "project_id": detail.get("project_id")}
+
+
+@app.get("/api/my-sites/{wallet}")
+def api_my_sites(wallet: str):
+    """
+    Every site this wallet has built, so it can be downloaded again or changed.
+
+    A generated page is a thing somebody paid for, not a one time download. The
+    link expiring out of their browser history should not be the end of it.
+    """
+    import site_projects
+    return {"projects": site_projects.for_wallet(wallet),
+            "revision_price": SITE_REVISION_PRICE_USDC}
+
+
+class SiteAddressIn(BaseModel):
+    project_id: str = Field(min_length=4, max_length=64)
+    address: str = Field(min_length=32, max_length=44)
+
+
+class SiteRerollIn(BaseModel):
+    project_id: str = Field(min_length=4, max_length=64)
+
+
+@app.post("/api/site-builder/address")
+def site_builder_address(payload: SiteAddressIn, request: Request):
+    """
+    Fill in the contract address on a page built before launch.
+
+    Free, and instant, because it is a string replacement rather than a
+    generation. Launch day otherwise means opening the file in a text editor
+    and finding the line, which is the most likely reason somebody comes back
+    and the worst possible moment to make them work for it.
+    """
+    import site_patch
+    import site_projects
+    from storage import load_asset_text
+
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    if not site_data.MINT_RE.match(payload.address.strip()):
+        return JSONResponse(status_code=400, content={
+            "error": "That does not look like a Solana mint address. It is the "
+                     "token address, 32 to 44 base58 characters."})
+
+    if not dev_unlocked(request) and not site_projects.owned_by(
+            payload.project_id, user_wallet):
+        return JSONResponse(status_code=403, content={
+            "error": "That site belongs to a different wallet."})
+
+    filename = site_projects.latest_file(payload.project_id)
+    html = load_asset_text(filename) if filename else None
+    if not html:
+        return JSONResponse(status_code=409, content={
+            "error": "There is no finished version of this site to change."})
+
+    try:
+        patched = site_patch.set_contract_address(html, payload.address)
+    except site_patch.PatchError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+
+    asset_id = "X402-SITE-" + ''.join(
+        secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+    version = site_projects.add_version(
+        payload.project_id, asset_id, "filled in the contract address")
+
+    fname = asset_naming.asset_filename(asset_id, "html")
+    url = storage.store_asset(patched.encode("utf-8"), fname)
+    ledger_utils.finalize_asset(asset_id, fname)
+    site_projects.finish(asset_id, fname)
+
+    try:
+        add_entry(asset_id=asset_id, wallet=user_wallet, tx_sig=None,
+                  component="site-address", price=0.0, currency="USDC",
+                  status="success", filename=fname)
+    except Exception as e:
+        print("Ledger log failure (site address):", e)
+
+    return {"filename": fname, "download_url": url, "version": version,
+            "project_id": payload.project_id, "address": payload.address.strip()}
+
+
+@app.post("/api/site-builder/reroll")
+def site_builder_reroll(
+    payload: SiteRerollIn,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    """
+    Build the same token again in a different look.
+
+    The direction is decided by hashing the token, which is right for making two
+    projects look different and wrong for the person who simply does not like
+    what they got. Without this their only move is paying for edits that
+    describe a whole new design, which is the dearest path and the one least
+    likely to work.
+
+    The first is free, because somebody who dislikes the first result is on the
+    way to asking for their money back and the answer to that should be another
+    attempt rather than an argument.
+    """
+    import site_projects
+
+    payment_method = x_payment_method or "USDC"
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    project = site_projects.get(payload.project_id)
+    if not project:
+        return JSONResponse(status_code=404, content={
+            "error": "That site could not be found."})
+
+    if not dev_unlocked(request) and not site_projects.owned_by(
+            payload.project_id, user_wallet):
+        return JSONResponse(status_code=403, content={
+            "error": "That site belongs to a different wallet."})
+
+    used = site_projects.rerolls_used(payload.project_id)
+    free = used < 1
+
+    if not free:
+        price = pricing.revision_quote(
+            [{"selector": None, "description": "redesign the whole page"}])["price"]
+        payment_check = True if dev_unlocked(request) else verify_payment(
+            x_payment, user_wallet, price, payment_method,
+            component="site-revision")
+
+        if payment_check is False:
+            return payment_required(
+                "site-revision", "Payment required for another design",
+                f"{price:.2f}", user_wallet, payment_method)
+        if isinstance(payment_check, dict):
+            return JSONResponse(status_code=402, content={
+                "status": 402, "message": "Partial payment received",
+                "paid": payment_check["paid"],
+                "remaining": payment_check["remaining"], "currency": "AETH"})
+
+    asset_id = "X402-SITE-" + ''.join(
+        secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+    offset = site_projects.next_direction(payload.project_id)
+    site_projects.add_version(payload.project_id, asset_id, "a different design")
+
+    try:
+        from celery_worker import process_site_builder
+        task = process_site_builder.delay(
+            asset_id, project.get("mint"), None, user_wallet,
+            project.get("details") or None, offset, payload.project_id)
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    return {"task_id": task.id, "asset_id": asset_id,
+            "project_id": payload.project_id, "free": free,
+            "rerolls_used": used + 1}
+
+
+class SiteSectionIn(BaseModel):
+    project_id: str = Field(min_length=4, max_length=64)
+    section: str = Field(min_length=2, max_length=24)
+    instruction: str = Field(min_length=3, max_length=1200)
+
+
+@app.get("/api/site-builder/bundle/{project_id}")
+def site_builder_bundle(project_id: str, request: Request):
+    """
+    The page as a zip, with a page of instructions on how to put it online.
+
+    A buyer gets one HTML file, which is right technically and leaves a good
+    number of them holding something they do not know what to do with. Built
+    here rather than by the model, since it is the same instructions every time.
+    """
+    import site_bundle
+    import site_projects
+    from storage import load_asset_text
+
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    if not dev_unlocked(request) and not site_projects.owned_by(
+            project_id, user_wallet):
+        raise HTTPException(status_code=403, detail="That site is not yours.")
+
+    filename = site_projects.latest_file(project_id)
+    html = load_asset_text(filename) if filename else None
+    if not html:
+        raise HTTPException(status_code=404, detail="Nothing finished to package.")
+
+    project = site_projects.get(project_id) or {}
+    name = (project.get("symbol") or project.get("name") or "site").lower()
+    name = re.sub(r"[^a-z0-9-]+", "-", name).strip("-") or "site"
+
+    data = site_bundle.build(html, launched=site_bundle.is_launched(html))
+    return Response(
+        content=data, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{name}-site.zip"'},
+    )
+
+
+@app.post("/api/site-builder/section")
+def site_builder_section(
+    payload: SiteSectionIn,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    """
+    Rewrite one section, leaving the rest of the page alone.
+
+    Priced between an edit and a build, because that is what it is: more work
+    than changing a line, far less than writing a document.
+    """
+    import site_projects
+
+    payment_method = x_payment_method or "USDC"
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    allowed = {"hero", "contract", "about", "how-to-buy", "market", "links", "footer"}
+    section = payload.section.strip().lower()
+    if section not in allowed:
+        return JSONResponse(status_code=400, content={
+            "error": f"There is no {section} section. It is one of: "
+                     + ", ".join(sorted(allowed))})
+
+    if not dev_unlocked(request) and not site_projects.owned_by(
+            payload.project_id, user_wallet):
+        return JSONResponse(status_code=403, content={
+            "error": "That site belongs to a different wallet."})
+
+    if not site_projects.latest_file(payload.project_id):
+        return JSONResponse(status_code=409, content={
+            "error": "This site has no finished version to rewrite part of."})
+
+    price = pricing.section_price()
+    payment_check = True if dev_unlocked(request) else verify_payment(
+        x_payment, user_wallet, price, payment_method, component="site-revision")
+
+    if payment_check is False:
+        return payment_required(
+            "site-revision", f"Payment required to rewrite the {section} section",
+            f"{price:.2f}", user_wallet, payment_method)
+    if isinstance(payment_check, dict):
+        return JSONResponse(status_code=402, content={
+            "status": 402, "message": "Partial payment received",
+            "paid": payment_check["paid"],
+            "remaining": payment_check["remaining"], "currency": "AETH"})
+
+    asset_id = "X402-SITE-" + ''.join(
+        secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+    site_projects.add_version(
+        payload.project_id, asset_id, f"rewrote the {section} section")
+
+    try:
+        from celery_worker import process_site_section
+        task = process_site_section.delay(
+            asset_id, payload.project_id, section, payload.instruction, user_wallet)
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    try:
+        add_entry(asset_id=asset_id, wallet=user_wallet, tx_sig=x_payment,
+                  component="site-section", price=price, currency=payment_method,
+                  status="pending", filename=None)
+    except Exception as e:
+        print("Ledger log failure (site section):", e)
+
+    return {"task_id": task.id, "asset_id": asset_id,
+            "project_id": payload.project_id, "section": section, "paid": price}
+
+
+@app.post("/api/site-builder/quote")
+def site_builder_quote(payload: SiteReviseIn):
+    """
+    What a batch of changes would cost, before anybody commits to it.
+
+    Here so the studio can show a running total without working the price out
+    itself. Two implementations of a price disagree eventually, and the half
+    that is wrong is either the number somebody was shown or the number they
+    were charged.
+
+    Costs nothing to call and moves nothing, so it needs no payment and no
+    ownership check: it prices a description, and knowing what a change would
+    cost gives away nothing about whose page it is.
+    """
+    edits = [e.model_dump() for e in (payload.edits or [])
+             if (e.description or "").strip()]
+    if not edits and (payload.notes or "").strip():
+        edits = [{"description": payload.notes, "selector": None}]
+
+    quote = pricing.revision_quote(edits)
+    quote["tier_labels"] = [pricing.describe_tier(t) for t in quote["tiers"]]
+    return quote
+
+
+@app.post("/api/site-builder/revise")
+def site_builder_revise(
+    payload: SiteReviseIn,
+    request: Request,
+    x_payment: str | None = Header(default=None, alias="X-TX-SIG"),
+    x_payment_method: str | None = Header(default=None, alias="X-PAYMENT-METHOD"),
+):
+    """
+    Change a page that has already been built, for less than building one.
+
+    Ownership is checked before the price is quoted, so nobody pays to be told
+    the site is not theirs, and nobody pays the smaller revision price to edit
+    somebody else's page.
+    """
+    import site_projects
+
+    payment_method = x_payment_method or "USDC"
+    user_wallet = request.headers.get("X-USER-WALLET")
+
+    project = site_projects.get(payload.project_id)
+    if not project:
+        return JSONResponse(status_code=404, content={
+            "error": "That site could not be found."})
+
+    # Checked before payment. A revision costs less than a build, so without
+    # this the cheapest way to edit any page on the platform would be to edit
+    # one belonging to somebody else.
+    if not dev_unlocked(request) and not site_projects.owned_by(
+            payload.project_id, user_wallet):
+        return JSONResponse(status_code=403, content={
+            "error": "That site belongs to a different wallet. Connect the wallet "
+                     "that built it to make changes."})
+
+    if not site_projects.latest_file(payload.project_id):
+        return JSONResponse(status_code=409, content={
+            "error": "This site has no finished version yet, so there is nothing "
+                     "to change. Wait for the build to land, or build it again."})
+
+    edits = [e for e in (payload.edits or []) if (e.description or "").strip()]
+    if not edits and not (payload.notes or "").strip():
+        return JSONResponse(status_code=400, content={
+            "error": "Say what you want changed."})
+
+    # Priced by what the changes are rather than by how many. One revision is
+    # one generation call whatever it is asked to do, so counting changes would
+    # charge five times for work done once, and would put the same price on
+    # renaming a heading as on adding a section.
+    quote = pricing.revision_quote(
+        [e.model_dump() for e in edits] or [{"description": payload.notes}])
+    price = quote["price"]
+    units = max(1, len(edits))
+
+    payment_check = True if dev_unlocked(request) else verify_payment(
+        x_payment, user_wallet, price,
+        payment_method, component="site-revision",
+    )
+
+    if payment_check is False:
+        return payment_required(
+            "site-revision",
+            f"Payment required for {units} change{'s' if units > 1 else ''}",
+            f"{price:.2f}", user_wallet, payment_method)
+
+    if isinstance(payment_check, dict):
+        return JSONResponse(status_code=402, content={
+            "status": 402, "message": "Partial payment received",
+            "paid": payment_check["paid"], "remaining": payment_check["remaining"],
+            "currency": "AETH"})
+
+    asset_id = "X402-SITE-" + ''.join(
+        secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+
+    details = {
+        "name": payload.name, "symbol": payload.symbol,
+        "description": payload.description, "image": payload.image,
+        "twitter": payload.twitter, "telegram": payload.telegram,
+        "website": payload.website,
+    }
+    details = {k: v for k, v in details.items() if (v or "").strip()}
+
+    # One instruction per change, each naming the element it was aimed at.
+    if edits:
+        change_text = "\n".join(
+            (f"In the element matching `{e.selector}`"
+             + (f" (the {e.label})" if e.label else "") + f": {e.description.strip()}")
+            if e.selector else f"{e.description.strip()}"
+            for e in edits)
+    else:
+        change_text = (payload.notes or "").strip()
+
+    site_projects.add_version(payload.project_id, asset_id, change_text)
+
+    try:
+        from celery_worker import process_site_revision
+        task = process_site_revision.delay(
+            asset_id, payload.project_id, change_text, user_wallet,
+            details or None)
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Celery dispatch failed")
+
+    try:
+        add_entry(asset_id=asset_id, wallet=user_wallet, tx_sig=x_payment,
+                  component="site-revision", price=price,
+                  currency=payment_method, status="pending", filename=None)
+    except Exception as e:
+        print("Ledger log failure (site revision):", e)
+
+    return {"task_id": task.id, "asset_id": asset_id,
+            "project_id": payload.project_id, "status": "queued",
+            "changes": units, "paid": price}
+
+
 @app.post("/api/prompt-optimizer")
 def prompt_optimizer(
     payload: PromptIn,
@@ -1507,7 +2315,7 @@ def prompt_optimizer(
     )
 
     if payment_check is False:
-        return payment_required("prompt-optimizer", "Payment required to use AI Prompt Optimizer", PROMPT_OPTIMIZER_PRICE_USDC, user_wallet)
+        return payment_required("prompt-optimizer", "Payment required to use AI Prompt Optimizer", PROMPT_OPTIMIZER_PRICE_USDC, user_wallet, payment_method)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1593,7 +2401,7 @@ def code_explainer(
     )
 
     if payment_check is False:
-        return payment_required("code-explainer", "Payment required to use LLM-Powered Code Explainer", CODE_EXPLAINER_PRICE_USDC, user_wallet)
+        return payment_required("code-explainer", "Payment required to use LLM-Powered Code Explainer", CODE_EXPLAINER_PRICE_USDC, user_wallet, payment_method)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1678,7 +2486,7 @@ def prompt_tester(
     )
 
     if payment_check is False:
-        return payment_required("prompt-tester", "Payment required to use Smart Prompt Tester", PROMPT_TESTER_PRICE_USDC, user_wallet)
+        return payment_required("prompt-tester", "Payment required to use Smart Prompt Tester", PROMPT_TESTER_PRICE_USDC, user_wallet, payment_method)
 
     if isinstance(payment_check, dict):
         return JSONResponse(
@@ -1754,7 +2562,14 @@ def download_file(filename: str):
         return Response(
             content=data,
             media_type=content_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                # The site builder returns a live HTML document. It is already
+                # sent as an attachment so it downloads rather than executing on
+                # this origin, and this stops a browser second guessing the type
+                # and rendering it anyway.
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     # R2 is configured, so the file lives in the bucket rather than the database.
@@ -1788,6 +2603,41 @@ def prompt_optimize_alias(
         x_payment,
         x_payment_method,
     )
+
+@app.exception_handler(RequestValidationError)
+async def validation_handler(request: Request, exc: RequestValidationError):
+    """
+    A rejected request, logged so it can be diagnosed without guessing.
+
+    The default answer is a list of objects, which is fine for a machine and
+    useless to a person watching a browser console. This logs which field was
+    refused and how long the value was, never the value itself, because these
+    bodies carry wallet addresses and whatever somebody typed about their
+    project.
+
+    The response body keeps FastAPI's shape, since clients already read it, and
+    gains a `message` that can be shown to somebody as it is.
+    """
+    fields = []
+    for error in exc.errors():
+        where = ".".join(str(p) for p in error.get("loc", ()) if p != "body")
+        given = error.get("input")
+        size = len(given) if isinstance(given, str) else None
+        fields.append(f"{where or 'body'}({error.get('type')}"
+                      + (f", {size} chars" if size is not None else "") + ")")
+
+    print(f"422 on {request.url.path}: " + ", ".join(fields))
+
+    readable = "; ".join(
+        f"{'.'.join(str(p) for p in e.get('loc', ()) if p != 'body') or 'input'}: "
+        f"{e.get('msg', 'is not valid')}"
+        for e in exc.errors())
+
+    return JSONResponse(
+        status_code=422,
+        content={"detail": jsonable_encoder(exc.errors()), "message": readable},
+    )
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

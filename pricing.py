@@ -40,7 +40,139 @@ COMPONENT_PRICES = {
     "contract-intel": os.getenv("PRICE_CONTRACT_INTEL", "1.00"),
     "risk-engine": os.getenv("PRICE_RISK_ENGINE", "0.75"),
     "agent": os.getenv("PRICE_AGENT", "4.99"),
+    "site-builder": os.getenv("PRICE_SITE_BUILDER", "2.50"),
+    # The ceiling on changing a page, not the price of it. What a revision
+    # actually costs is worked out by revision_quote below, which prices the
+    # change rather than counting changes.
+    "site-revision": os.getenv("PRICE_SITE_REVISION", "0.99"),
 }
+
+
+# What a change costs, as a fraction of building the page from nothing.
+#
+# Held as fractions rather than amounts so the three stay in proportion if the
+# build price ever moves, and because the honest way to describe them is "a bit
+# of what a build costs" rather than three numbers to memorise.
+#
+# The tiers exist because the work genuinely differs. Rewriting a headline is
+# a line of the file. Restyling one element is a rule or two. Adding a section
+# or changing the whole page is most of a rebuild.
+WORDING_SHARE = float(os.getenv("SITE_EDIT_WORDING", "0.04"))    # 0.10 of 2.50
+LOOK_SHARE = float(os.getenv("SITE_EDIT_LOOK", "0.08"))          # 0.20
+PAGE_SHARE = float(os.getenv("SITE_EDIT_PAGE", "0.20"))          # 0.50
+
+# A batch never costs more than this share of a build, however many changes are
+# in it. One revision is one generation call whatever it is asked to do, so
+# charging per change past a point would be charging for work nobody does. It
+# also means the cheapest way to fix a page is never to rebuild it.
+BATCH_CAP_SHARE = float(os.getenv("SITE_EDIT_CAP", "0.40"))      # 1.00
+
+# Each extra change in one batch after the first, since they ride along on the
+# same generation. Small enough to be worth queueing rather than paying twice.
+EXTRA_SHARE = float(os.getenv("SITE_EDIT_EXTRA", "0.02"))        # 0.05
+
+# Rewriting one section outright, which sits between a page wide edit and a
+# whole build.
+SECTION_SHARE = float(os.getenv("SITE_SECTION", "0.28"))         # 0.70
+
+_LOOK_WORDS = {
+    "colour", "color", "red", "blue", "green", "gold", "black", "white",
+    "orange", "purple", "pink", "yellow", "grey", "gray", "background",
+    "font", "size", "bigger", "smaller", "larger", "bold", "italic",
+    "spacing", "padding", "margin", "align", "center", "centre", "round",
+    "rounded", "border", "shadow", "gradient", "darker", "lighter", "style",
+    "brighter", "dimmer", "underline", "uppercase", "lowercase",
+}
+
+_PAGE_WORDS = {
+    "add", "remove", "delete", "section", "move", "reorder", "swap",
+    "layout", "everywhere", "entire", "whole", "redesign", "rebuild",
+    "restructure", "rearrange", "all", "throughout", "every",
+}
+
+
+def classify_edit(edit) -> str:
+    """
+    Which tier one change falls in.
+
+    Ties break cheap. These are keyword guesses about free text, so they will
+    sometimes be wrong, and being wrong in the buyer's favour costs us a few
+    cents where being wrong the other way charges somebody five times over for
+    renaming a heading.
+
+    A change with nothing pointed at is page wide by definition: it has to be
+    applied by reading the whole file rather than one element of it.
+    """
+    if not isinstance(edit, dict):
+        edit = {"description": str(edit or "")}
+
+    words = set((edit.get("description") or "").lower().replace(",", " ")
+                .replace(".", " ").split())
+
+    if not (edit.get("selector") or "").strip():
+        return "page"
+    if words & _PAGE_WORDS:
+        return "page"
+    if words & _LOOK_WORDS:
+        return "look"
+    return "wording"
+
+
+def revision_quote(edits, base_price=None) -> dict:
+    """
+    What a batch of changes costs, and why.
+
+    Priced by what the changes are rather than by how many, because one
+    revision is one generation call whatever is asked of it. The dearest change
+    in the batch sets the price and the rest ride along for very little, which
+    is both what it costs us and what makes queueing four small fixes better
+    than paying for four separate rounds.
+    """
+    base = float(base_price if base_price is not None else list_price("site-builder"))
+    edits = [e for e in (edits or []) if e]
+
+    if not edits:
+        return {"price": 0.0, "changes": 0, "tiers": [], "capped": False,
+                "base": base}
+
+    shares = {"wording": WORDING_SHARE, "look": LOOK_SHARE, "page": PAGE_SHARE}
+    tiers = [classify_edit(e) for e in edits]
+
+    # The dearest one sets it, the others are extras.
+    dearest = max(shares[t] for t in tiers)
+    share = dearest + EXTRA_SHARE * (len(edits) - 1)
+
+    capped = share > BATCH_CAP_SHARE
+    share = min(share, BATCH_CAP_SHARE)
+
+    return {
+        "price": _floor_cent(base * share),
+        "changes": len(edits),
+        "tiers": tiers,
+        "capped": capped,
+        "base": base,
+    }
+
+
+def section_price(base_price=None) -> float:
+    """
+    What rewriting one section costs.
+
+    Between a page wide edit and a build, because that is the work: more than
+    changing a line, far less than writing a document. Held as a share so it
+    stays in proportion if the build price moves.
+    """
+    base = float(base_price if base_price is not None else list_price("site-builder"))
+    return _floor_cent(base * SECTION_SHARE)
+
+
+def describe_tier(tier: str) -> str:
+    """Plain words for what a tier is, for showing somebody before they pay."""
+    return {
+        "wording": "wording",
+        "look": "look of one part",
+        "page": "page wide",
+    }.get(tier, tier)
 
 
 def list_price(component: str) -> float:

@@ -182,7 +182,72 @@
 
     </section>
 
+    <!-- What this wallet has bought. Hidden entirely until a wallet is
+         connected and has something, so the page is unchanged for a visitor.
+         Everything here was paid for once and stays downloadable, rather than
+         living only in whichever browser tab it first arrived in. -->
+    <section id="recent-downloads" class="hidden max-w-4xl mx-auto px-6 mt-24 mb-16 relative z-10">
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="text-xl font-semibold text-cyan-300">Your recent downloads</h2>
+        <a id="recent-all" href="#" class="text-xs text-gray-500 hover:text-cyan-300">See all</a>
+      </div>
+      <div id="recent-downloads-list"
+           class="bg-gray-900/40 border border-cyan-400/20 rounded-xl divide-y divide-cyan-400/10"></div>
+    </section>
+
     <script>
+    // Filled in once a wallet connects. The wallet button lives in the shared
+    // header and sets window.currentWallet, so this watches for it rather than
+    // running once on load and finding nothing.
+    async function loadRecentDownloads() {
+      const section = document.getElementById("recent-downloads");
+      const list = document.getElementById("recent-downloads-list");
+      if (!section || !window.currentWallet) return;
+
+      let data;
+      try {
+        const res = await fetch(`/api/my-assets/${window.currentWallet}?page=1`);
+        data = await res.json();
+      } catch (e) {
+        return;
+      }
+
+      // Only finished work. A pending or failed job has no file behind it, and
+      // linking to one produces a download that 404s.
+      const entries = (data.entries || []).filter(e => e.filename);
+      if (!entries.length) {
+        section.classList.add("hidden");
+        return;
+      }
+
+      document.getElementById("recent-all").href = `/my-assets/${window.currentWallet}`;
+      section.classList.remove("hidden");
+      list.innerHTML = entries.slice(0, 5).map(e => `
+        <div class="flex justify-between items-center px-5 py-3">
+          <div class="min-w-0">
+            <div class="text-gray-200 text-sm truncate">${e.component}</div>
+            <div class="text-xs text-gray-500">
+              ${new Date(e.timestamp * 1000).toLocaleDateString()}
+            </div>
+          </div>
+          <a href="/download/${e.filename}"
+             class="text-cyan-300 hover:text-cyan-200 text-sm shrink-0 ml-4">Download</a>
+        </div>
+      `).join("");
+    }
+
+    // Polled rather than hooked, because the wallet can connect at any point
+    // after this script runs and there is no event published for it.
+    let recentTries = 0;
+    const recentTimer = setInterval(() => {
+      if (window.currentWallet) {
+        loadRecentDownloads();
+        clearInterval(recentTimer);
+      } else if (++recentTries > 40) {
+        clearInterval(recentTimer);
+      }
+    }, 500);
+
     const particleContainer = document.getElementById("particle-container");
 
     if (particleContainer) {

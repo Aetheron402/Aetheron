@@ -146,9 +146,38 @@ def fetch_asset(filename: str):
     return bytes(row[0]), row[1]
 
 
+def load_asset_text(filename: str) -> str | None:
+    """
+    Read a stored asset back as text, whichever backend holds it.
+
+    fetch_asset returns None under R2 by design, because the download route
+    redirects there rather than proxying bytes. A page being revised has to be
+    read though, and returning None there would quietly rebuild from nothing
+    and hand the buyer a different page than the one they asked to change. So
+    R2 is fetched over HTTP here instead.
+    """
+    if using_r2():
+        import requests
+        base = os.getenv("R2_PUBLIC_BASE", "").rstrip("/")
+        try:
+            response = requests.get(f"{base}/{filename}", timeout=30)
+            response.raise_for_status()
+            return response.text
+        except Exception:
+            return None
+
+    found = fetch_asset(filename)
+    if not found:
+        return None
+    try:
+        return found[0].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
 # Anything stored under this prefix is stock rather than a deliverable, and is
-# never purged. The agent sources live here once they are out of the repo, and
-# deleting them after thirty days would quietly take the store offline.
+# never purged. Deleting it after thirty days would quietly take the store
+# offline.
 PERMANENT_PREFIX = "agents/"
 
 
@@ -156,9 +185,9 @@ def load_asset_bytes(filename: str) -> bytes | None:
     """
     Read a stored asset back as bytes, whichever backend holds it.
 
-    The text version decodes utf-8, which is wrong for a zip. Same reasoning
-    otherwise: fetch_asset returns None under R2 by design, so R2 is fetched
-    over http here instead.
+    The text version decodes utf-8, which is wrong for an archive. Same
+    reasoning otherwise: fetch_asset returns None under R2 by design, so R2 is
+    fetched over http here instead.
     """
     if using_r2():
         import requests

@@ -288,6 +288,26 @@
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
     }
+    /* The hover state existed without a base state, so every ghost button on
+       the site rendered as bare text until somebody put a cursor on it. This is
+       the outline the hover was always written against. */
+    .btn-ghost{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      padding: .6rem 1.1rem;
+      border-radius: .65rem;
+      border: 1px solid rgba(34,211,238,0.22);
+      background: transparent;
+      color: #cbd5e1;
+      font-size: .875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .btn-ghost:disabled{ opacity:.45; cursor:not-allowed; }
     .btn-ghost:hover{
       background: rgba(34,211,238,0.08);
       border-color: rgba(34,211,238,0.45);

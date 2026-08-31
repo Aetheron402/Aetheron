@@ -1606,20 +1606,31 @@ def test_every_paid_component_offers_an_example():
 
     html = TestClient(Aetheron.app).get("/shop").text
     wired = set(re.findall(r'example-btn" data-slug="([a-z-]+)"', html))
-    assert wired == {"prompt-optimizer", "code-explainer", "prompt-tester",
-                     "contract-intel", "risk-engine"}
+    # Derived rather than hardcoded, so adding a component fails this test only
+    # when it genuinely ships without an example, not every time one is added.
+    assert wired == Aetheron.EXAMPLE_SLUGS
+    assert len(wired) >= 5
 
     # In the component's own modal, not crowding the price on the card.
     cards = html[html.index("components-grid"):html.index("my-assets-section")]
     assert "example-btn" not in cards
 
+    # The site builder has none. Its output is a whole page, and a sample of
+    # somebody else's token says nothing useful about what yours would look
+    # like, since the design is picked per token.
+    assert "site-builder" not in wired
 
-def test_the_dev_preview_harness_is_gone():
+
+def test_the_old_preview_harness_is_still_gone():
     """
-    The harness ran components on a sample input without payment, gated only by
-    DEV_TOKEN. It was always meant to come out before the source went public,
-    because publishing documents the route and its gate for everyone. This
-    keeps it out.
+    The original harness ran every component on a fixed sample input and
+    rendered Test buttons into the shop. That is still out.
+
+    A narrower bypass replaced it: one route, no buttons, no sample inputs, and
+    the same DEV_TOKEN gate. The gate being visible in public source is fine so
+    long as it is inert without the value, which
+    test_the_dev_bypass_is_inert_without_the_token proves. What must not come
+    back is a harness that renders itself into the page.
     """
     import os
 
@@ -1628,7 +1639,10 @@ def test_the_dev_preview_harness_is_gone():
     for path in ("Aetheron.py", "templates/shop.html", ".env.example"):
         source = open(path).read()
         assert "dev_preview" not in source, path
-        assert "DEV_TOKEN" not in source, path
+
+    shop = open("templates/shop.html").read()
+    assert "dev-test-btn" not in shop
+    assert "DEV_TOKEN" not in shop, "the token must never reach the browser"
 
 
 def test_the_examples_outlived_the_harness():
@@ -1847,8 +1861,13 @@ def test_the_aeth_quote_is_priced_by_the_server_not_the_caller():
     the overpayment was accepted without comment.
     """
     source = open("templates/shop.html").read()
+    import re
     assert "usdc_price=" not in source, "a client still sends its own price"
-    assert source.count("/api/price/aeth?component=") == 5
+    # Every quote the page asks for names a component, rather than counting to a
+    # number that has to be edited each time a component is added.
+    calls = re.findall(r"/api/price/aeth\?([a-z_]+)=", source)
+    assert calls, "the shop asks for no AETH quotes at all"
+    assert set(calls) == {"component"}, f"a quote is not priced by component: {set(calls)}"
 
 
 def test_every_component_price_has_one_definition():
@@ -2124,6 +2143,17 @@ def test_the_eligible_set_refreshes_without_a_restart():
 
     # Age the cache past its window rather than sleeping through it.
     legacy_holders._cached_at = time.time() - legacy_holders.CACHE_TTL_SECONDS - 1
+
+    # The refresh runs behind the request now, so the caller that finds it
+    # stale is served what there was and the next one gets the new set. The
+    # wallet still turns up without a restart, which is what this is about.
+    legacy_holders.is_legacy_holder("AnythingAtAll")
+
+    for _ in range(50):
+        if legacy_holders.is_legacy_holder("AddedBehindTheCache1111111111111111111"):
+            break
+        time.sleep(0.05)
+
     assert legacy_holders.is_legacy_holder("AddedBehindTheCache1111111111111111111")
 
 
@@ -2294,3 +2324,221 @@ def test_my_prizes_only_answers_for_the_connected_wallet():
                           headers={"X-USER-WALLET": str(Keypair().pubkey())}).json()
     assert stranger["agents"] == []
     assert client.get("/api/my-prizes").json()["agents"] == []
+
+
+# ── site builder ────────────────────────────────────────────────────────────
+
+def test_a_wallet_address_is_refused_before_payment_is_asked_for():
+    """
+    Pasting a wallet instead of a mint is the obvious mistake. Nobody should
+    pay to find that out.
+    """
+    from fastapi.testclient import TestClient
+    client = TestClient(Aetheron.app)
+    r = client.post("/api/site-builder", json={"mint": "0OIl" + "x" * 36})
+    assert r.status_code == 400
+    assert "mint address" in r.json()["error"]
+
+
+def test_the_site_builder_is_priced_above_the_report_components():
+    """
+    A full page is several times the output of a report, so at report prices it
+    would lose money on every sale.
+    """
+    import pricing
+    assert pricing.list_price("site-builder") >= 2.0
+    assert pricing.list_price("site-builder") > pricing.list_price("contract-intel")
+
+
+def test_the_design_direction_is_stable_and_varies_by_token():
+    """
+    Every buyer getting an identical page is the fastest way to kill this. The
+    direction is seeded off the mint, so it is repeatable per token and spread
+    across tokens.
+    """
+    import site_data
+    a = "D3qncuGsa2iMKcaxnqZxUMeVqPztzyAr819nXfjypump"
+    b = "DGNicx6qMPKSL1deR3fZfbHYjnm5ZJWmHNdY2NhDpump"
+    assert site_data.direction_for(a) == site_data.direction_for(a)
+    assert site_data.direction_for(a) != site_data.direction_for(b)
+
+
+def test_a_missing_social_is_reported_absent_rather_than_invented():
+    """Same rule as everywhere else: absent is not the same as present."""
+    import site_data
+    cleaned = site_data._clean_url("not a url")
+    assert cleaned is None
+    assert site_data._clean_url("https://x.com/thing") == "https://x.com/thing"
+
+
+def test_the_page_is_written_raw_and_not_through_the_report_exporter():
+    """
+    export_generic's html path wraps content in an Aetheron Export document and
+    turns newlines into <br/>, which nested the page inside another one and
+    shipped the markup as visible text.
+    """
+    import inspect, celery_worker
+    src = inspect.getsource(celery_worker.process_site_builder)
+    assert "export_generic(" not in src
+    assert "asset_filename(asset_id" in src
+
+
+def test_the_site_builder_ships_no_example():
+    """
+    It had one, and it was the wrong idea. The design is chosen per token, so a
+    sample built for somebody else's says nothing about what yours would look
+    like, and it made the card read differently from every other component.
+    What answers the question instead is the studio, where the page is built in
+    front of you.
+    """
+    import os
+
+    import Aetheron as A
+
+    assert "site-builder" not in A.EXAMPLE_SLUGS
+    assert not os.path.exists("static/examples/site-builder.html")
+
+    html = open("templates/shop.html").read()
+    assert "example site" not in html.lower()
+
+
+def test_examples_that_are_pages_are_rendered_sandboxed():
+    """
+    An example that is a whole document is shown in a frame rather than a text
+    box, and the frame has to stay sandboxed because the page is model written.
+    Nothing uses this now, and the mechanism is what any future one would need.
+    """
+    source = open("templates/shop.html").read()
+    assert 'setAttribute("sandbox", "")' in source
+    assert "srcdoc" in source
+
+
+def test_the_docs_do_not_ask_for_a_key_the_code_never_reads():
+    """
+    Self hosting instructions told people to set OPENAI_API_KEY. Nothing in the
+    codebase has ever referenced OpenAI.
+    """
+    for path in ("templates/docs.html", "README.md"):
+        assert "OPENAI" not in open(path).read(), path
+
+
+def test_a_downloaded_page_cannot_be_sniffed_into_executing():
+    """
+    The site builder returns a live HTML document. It is served as an
+    attachment, and nosniff stops a browser rendering it anyway on our origin.
+    """
+    import inspect, Aetheron as A
+    src = inspect.getsource(A.download_file)
+    assert "attachment" in src
+    assert "nosniff" in src
+
+
+def test_a_wallet_address_is_caught_before_the_buyer_pays():
+    """
+    A wallet is the same length and alphabet as a mint, so it passes every check
+    that does not talk to the chain. Without this the buyer paid 2.50 and only
+    then learned there was no token there.
+    """
+    import site_data, Aetheron as A, inspect
+
+    src = inspect.getsource(A.site_builder)
+    # The existence check has to come before the price is ever quoted.
+    assert src.index("site_data.exists") < src.index("payment_required")
+    assert not site_data.MINT_RE.match("0OIl" + "x" * 36)
+
+
+# ── site builder, before a token exists ─────────────────────────────────────
+
+def test_a_site_can_be_built_without_a_contract_address():
+    """
+    The case the component was originally unusable for. People need the page
+    before they launch, so demanding a mint locked out exactly the people it is
+    meant for.
+    """
+    from fastapi.testclient import TestClient
+    client = TestClient(Aetheron.app)
+    r = client.post("/api/site-builder", json={"name": "Wojak Coin", "symbol": "WOJAK"})
+    assert r.status_code == 402, "a described token should reach payment"
+
+
+def test_a_name_alone_is_not_enough():
+    from fastapi.testclient import TestClient
+    client = TestClient(Aetheron.app)
+    for body in ({"name": "Wojak Coin"}, {"symbol": "WOJAK"}, {}):
+        r = client.post("/api/site-builder", json=body)
+        assert r.status_code == 400, body
+
+
+def test_an_unlaunched_token_reports_no_market_figures_rather_than_zeros():
+    """
+    There is no market cap or supply before a launch. Showing zero would look
+    like data, so they are reported absent and the page drops the sections.
+    """
+    import site_data
+    d = site_data.from_details("Wojak Coin", "WOJAK")
+    assert d["pre_launch"] is True
+    assert d["market_cap_usd"] is None and d["supply"] is None
+    assert any("has not launched" in m for m in d["missing"])
+    assert d["links"] == {}
+
+
+def test_a_ticker_is_normalised_the_way_people_type_it():
+    """People write $WOJAK, wojak and WOJAK for the same thing."""
+    import site_data
+    for typed in ("$WOJAK", "wojak", " WOJAK "):
+        assert site_data.from_details("Wojak Coin", typed)["symbol"] == "WOJAK"
+
+
+def test_the_pre_launch_brief_ties_every_launch_claim_to_one_constant():
+    """
+    Filling in the address has to be a single edit. The first version left the
+    NOT LAUNCHED badge and the status card behind, so it was three.
+    """
+    import inspect, celery_worker
+    src = inspect.getsource(celery_worker.process_site_builder)
+    assert "CONTRACT_ADDRESS" in src
+    assert "One edit has to be enough" in src
+
+
+# ── development bypass ──────────────────────────────────────────────────────
+
+def test_the_dev_bypass_is_inert_without_the_token():
+    """
+    The one property that matters. With DEV_TOKEN unset, which is how
+    production runs, nothing a caller sends can skip a payment, so this being
+    public code costs nothing: the token is the secret, not the mechanism.
+    """
+    from fastapi.testclient import TestClient
+    import Aetheron as A
+
+    assert A.DEV_TOKEN == "", "DEV_TOKEN is set in the test environment"
+    client = TestClient(A.app)
+    body = {"name": "Wojak Coin", "symbol": "WOJAK"}
+
+    for headers in ({}, {"X-DEV-TOKEN": "letmein"}, {"X-DEV-TOKEN": ""},
+                    {"X-DEV-TOKEN": "None"}, {"X-DEV-TOKEN": "0"}):
+        assert client.post("/api/site-builder", json=body,
+                           headers=headers).status_code == 402, headers
+
+    client.cookies.set("aetheron_dev", "letmein")
+    assert client.post("/api/site-builder", json=body).status_code == 402
+
+
+def test_the_unlock_route_does_not_admit_it_exists():
+    """
+    404 rather than 403, so an instance with no development access does not
+    advertise the route to anyone probing for it.
+    """
+    from fastapi.testclient import TestClient
+    assert TestClient(Aetheron.app).get("/dev/unlock?token=anything").status_code == 404
+
+
+def test_the_token_is_compared_in_constant_time():
+    """
+    A plain == leaks the token one character at a time to anyone willing to
+    measure how long the comparison takes.
+    """
+    import inspect, Aetheron as A
+    src = inspect.getsource(A.dev_unlocked)
+    assert "compare_digest" in src
+    assert "==" not in src.split("compare_digest")[0].split("DEV_TOKEN")[-1]

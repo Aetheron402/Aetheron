@@ -89,6 +89,14 @@ function aethHeaders() {
               Analyze
             </button>
 
+          {% elif c.slug == "site-builder" %}
+            <button class="btn" onclick="
+              if (!requireWallet()) return;
+              window.location.href = '/build';
+            ">
+              Build
+            </button>
+
           {% elif c.slug == "risk-engine" %}
             <button class="btn" onclick="
               if (!requireWallet()) return;
@@ -381,6 +389,8 @@ function aethHeaders() {
           class="mt-5 text-sm bg-white/5 border border-cyan-400/10 rounded-lg p-3 overflow-auto max-h-64 hidden text-gray-300"></div>
       </div>
     </div>
+
+
 
     <div id="modal-contract-bg" class="modal-bg">
       <div class="modal bg-gray-950/95 backdrop-blur border border-cyan-400/20 rounded-2xl shadow-xl p-6 w-[520px]">
@@ -1027,7 +1037,9 @@ async function loadMyAssets(page = 1) {
           <span class="text-cyan-400 font-mono text-sm">
               ${e.price.toFixed(2)} ${e.currency}
           </span>
-          <a href="/download/${e.filename}" class="text-cyan-300 hover:text-cyan-200 text-sm">Download</a>
+          ${e.filename
+            ? `<a href="/download/${e.filename}" class="text-cyan-300 hover:text-cyan-200 text-sm">Download</a>`
+            : `<span class="text-gray-500 text-sm">${e.status === "pending" ? "building" : e.status}</span>`}
         </div>
       </div>
     `).join("");
@@ -1072,7 +1084,7 @@ window.addEventListener("wallet:connected", () => {
   onWalletConnected();
 });
 
-async function pollJobStatus(taskId, resultDiv, userFormat = "pdf") {
+async function pollJobStatus(taskId, resultDiv, userFormat = "pdf", onDone = null) {
   resultDiv.textContent = "Processing your request... don’t refresh. (20-60s)";
   while (true) {
     const res = await fetch(`/api/job-status/${taskId}`);
@@ -1102,6 +1114,7 @@ async function pollJobStatus(taskId, resultDiv, userFormat = "pdf") {
       }
 
       hideLoading();
+      if (onDone) { try { onDone(); } catch (e) {} }
       break;
     }
 
@@ -1221,6 +1234,12 @@ function toggleMobileMenu() {
 
 
 <style>
+  .site-tab {
+    padding: .4rem .9rem; font-size: .8rem; font-weight: 600;
+    color: #94a3b8; background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.1); border-radius: .5rem; cursor: pointer;
+  }
+  .site-tab-on { color: #67e8f9; background: rgba(34,211,238,.1); border-color: rgba(34,211,238,.4); }
   /* Quieter than Use: the point is that reading one costs nothing. */
   .example-btn {
     display: inline-block; margin-left: .5rem; padding: .12rem .6rem;
@@ -1305,6 +1324,19 @@ document.querySelectorAll(".example-btn").forEach(btn => {
 
       if (!r.ok) {
         body.textContent = d.detail || "This example could not be loaded.";
+      } else if (d.as_page) {
+        // Rendered rather than printed, because the thing being judged is how
+        // the page looks. Sandboxed with no allow-scripts, so nothing in the
+        // example can run.
+        body.textContent = "";
+        const frame = document.createElement("iframe");
+        frame.setAttribute("sandbox", "");
+        frame.srcdoc = d.report;
+        frame.style.cssText = "width:100%;height:60vh;border:1px solid rgba(34,211,238,.2);border-radius:.6rem;background:#fff";
+        body.appendChild(frame);
+        note.textContent = d.already_seen
+          ? "You have opened this one before, so it did not cost you another."
+          : `${d.remaining} example${d.remaining === 1 ? "" : "s"} left on this wallet.`;
       } else {
         body.textContent = d.report;
         note.textContent = d.already_seen
