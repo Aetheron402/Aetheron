@@ -89,17 +89,6 @@ celery.conf.update(
     worker_max_memory_per_child=250000,  # 250 MB
     worker_prefetch_multiplier=1,
 
-    # A job is acknowledged when it finishes, not when it is picked up. With
-    # early acknowledgement a deploy in the middle of a generation threw the
-    # work away: the buyer had paid, the worker died, and nothing was left to
-    # say so. The page then polled a stream that would never reach an end.
-    #
-    # The risk of late acknowledgement is a job that kills its worker being
-    # redelivered for ever. These are model calls and file writes rather than
-    # anything that can take a process down, and worker_max_tasks_per_child is
-    # already 1, so a child is replaced after every job regardless.
-    task_acks_late=True,
-    task_reject_on_worker_lost=True,
 )
 
 

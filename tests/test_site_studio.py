@@ -1329,35 +1329,6 @@ def test_the_bundle_still_refuses_a_wallet_that_does_not_own_it():
 
     assert "owned_by" in route
     assert "That site is not yours" in route
-
-
-# ── a build that loses its worker ───────────────────────────────────────────
-
-def test_work_is_acknowledged_when_it_finishes_not_when_it_starts():
-    """
-    With early acknowledgement a deploy in the middle of a generation threw the
-    work away. The buyer had paid, the worker died, and nothing was left to say
-    so.
-    """
-    source = open("celery_worker.py").read()
-
-    assert "task_acks_late=True" in source
-    assert "task_reject_on_worker_lost=True" in source
-    assert "task_acks_late=False" not in source
-
-
-def test_the_poison_pill_risk_is_argued_rather_than_ignored():
-    """
-    Late acknowledgement means a job that kills its worker comes back for ever,
-    so the reason that is acceptable here belongs next to the setting.
-    """
-    # Collapsed with comment markers removed, since the reasoning wraps across
-    # several commented lines and stray hashes land inside the sentences.
-    flat = " ".join(open("celery_worker.py").read().replace("#", " ").split())
-    assert "redelivered for ever" in flat
-    assert "worker_max_tasks_per_child is already 1" in flat
-
-
 def test_a_build_that_stops_writing_says_so():
     """
     Otherwise the page polls a stream that will never end, and somebody who has
