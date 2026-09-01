@@ -366,3 +366,60 @@ def test_nothing_here_needs_a_telegram_token():
     source = open("tg_free.py").read()
     assert "api.telegram.org" not in source
     assert "import telegram" not in source
+
+
+# ── a list somebody reads to the bottom of ──────────────────────────────────
+
+def test_titles_lose_the_template_marker():
+    """It matters in the shop, where you are choosing what to buy. Not here."""
+    assert tg_free.clean_title("Project Planner Agent (Template)") == \
+        "Project Planner Agent"
+
+
+def test_descriptions_are_cut_to_one_readable_line():
+    long = ("Snipes new Pump.fun tokens instantly with adjustable timing, "
+            "filters, and blacklist protection.")
+    out = tg_free.short(long)
+    assert len(out) <= 70
+    # And never left hanging on a joining word.
+    assert not out.rstrip("…").rstrip().endswith(("and", "with", "or", ","))
+
+
+def test_a_short_description_is_left_alone():
+    assert tg_free.short("Tracks a wallet.") == "Tracks a wallet"
+
+
+def test_the_name_works_as_well_as_the_command():
+    """
+    Somebody who just read a list of titles will type a title. Calling that an
+    invalid id is the bot refusing something it can plainly work out.
+    """
+    agents = [
+        {"id": "project-planner", "title": "Project Planner Agent (Template)"},
+        {"id": "solana-sniper", "title": "Solana Sniper Bot"},
+    ]
+    for typed in ("Project Planner Agent", "project planner agent",
+                  "PROJECT PLANNER AGENT (Template)", "project-planner"):
+        assert tg_free.resolve_agent(typed, agents) == "project-planner"
+
+    # A distinctive word is enough.
+    assert tg_free.resolve_agent("sniper", agents) == "solana-sniper"
+
+
+def test_an_ambiguous_word_resolves_to_nothing():
+    """
+    Guessing between two is worse than asking, because the wrong guess spends
+    one of three free runs.
+    """
+    agents = [
+        {"id": "market-tracker", "title": "Market Tracker Agent"},
+        {"id": "wallet-watcher", "title": "Wallet Tracker Agent"},
+    ]
+    assert tg_free.resolve_agent("tracker", agents) is None
+
+
+def test_an_unknown_agent_is_refused_in_plain_words():
+    source = open("tg_free.py").read()
+    body = source.split("def _preview")[1].split("return router")[0]
+    assert "I do not have an agent called" in body
+    assert "Invalid agent ID" not in body

@@ -88,6 +88,74 @@ def show_example(ctx, api, slug):
     return True
 
 
+def clean_title(title: str) -> str:
+    """
+    An agent's name without the bookkeeping.
+
+    Half of them are marked as templates, which matters in the shop where you
+    are choosing what to buy and means nothing in a list of things to watch.
+    """
+    return (title or "").replace("(Template)", "").strip()
+
+
+def short(text: str, limit: int = 66) -> str:
+    """
+    One line, because nine agents each with three lines of prose is a wall
+    nobody reads to the bottom of.
+
+    Cut at the first sentence, then at a word if it is still long.
+    """
+    text = " ".join((text or "").split())
+    if not text:
+        return ""
+
+    first = text.split(". ")[0].rstrip(".")
+    if len(first) <= limit:
+        return first
+
+    cut = first[:limit].rsplit(" ", 1)[0]
+
+    # A cut that lands on a joining word reads as a sentence somebody forgot to
+    # finish, so those come off with whatever comma was in front of them.
+    joins = {"and", "or", "with", "using", "for", "to", "of", "in", "on", "by",
+             "plus", "including", "that", "which"}
+    words = cut.split()
+    while words and words[-1].lower().strip(",") in joins:
+        words.pop()
+
+    return " ".join(words).rstrip(",") + "…"
+
+
+def resolve_agent(name: str, agents: list) -> str | None:
+    """
+    Turn whatever somebody typed into an agent id.
+
+    They are reading a list of titles, so a good number of them will type the
+    title. Refusing that and calling it an invalid id is the bot being unhelpful
+    about a thing it can plainly work out.
+    """
+    wanted = clean_title(" ".join((name or "").split())).lower()
+    if not wanted:
+        return None
+
+    slug = wanted.replace(" ", "-").replace("_", "-")
+
+    for agent in agents:
+        if str(agent.get("id", "")).lower() in (wanted, slug):
+            return agent["id"]
+
+    for agent in agents:
+        title = clean_title(agent.get("title", "")).lower()
+        if title == wanted or title.replace(" ", "-") == slug:
+            return agent["id"]
+
+    # Last go: a distinctive word or two out of the title, so "sniper" finds
+    # the sniper without matching everything that says agent.
+    matches = [a for a in agents
+               if wanted in clean_title(a.get("title", "")).lower()]
+    return matches[0]["id"] if len(matches) == 1 else None
+
+
 def watch_agent(ctx, api, agent_id):
     """
     Start a live agent run and hand back what it printed.
@@ -228,10 +296,18 @@ def register(router, api, pending_previews):
         help="Watch an agent run on live data for 25 seconds, free.",
         requires_wallet=True, aliases=("watch",), group="free")
     def _preview(ctx):
-        agent_id = ctx.args.strip().lower().replace("_", "-")
-        if not agent_id:
+        typed = ctx.args.strip()
+        if not typed:
             ctx.say("Send /preview followed by an agent. /agents lists the ones "
                     "you can watch.")
+            return
+
+        # Somebody who just read the list is as likely to type the name they
+        # saw as the command underneath it, and both should work.
+        agent_id = resolve_agent(typed, api.agents())
+        if not agent_id:
+            ctx.say(f"I do not have an agent called {typed}. /agents lists the "
+                    "ones you can watch.")
             return
 
         task_id = watch_agent(ctx, api, agent_id)
@@ -249,14 +325,17 @@ def register(router, api, pending_previews):
 
         lines = ["Agents you can watch run on live data, free.", ""]
         for agent in agents:
-            lines.append(agent.get("title") or agent.get("id"))
-            note = (agent.get("description") or "").strip()
+            title = clean_title(agent.get("title", "")) or agent.get("id")
+            lines.append(f"{title}")
+            note = short(agent.get("description"))
             if note:
                 lines.append(f"   {note}")
             lines.append(f"   /preview {agent.get('id')}")
             lines.append("")
 
-        lines.append("Each wallet gets three, and watching one again is free.")
+        lines.append("Each wallet gets three, and watching one again is free. "
+                     "The name works as well as the command, so /preview "
+                     "sniper is enough.")
         ctx.say("\n".join(lines))
 
     return router
