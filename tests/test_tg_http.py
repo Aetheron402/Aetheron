@@ -228,3 +228,26 @@ def test_every_call_the_handlers_make_exists_on_the_real_client():
     for name in sorted(set(re.findall(r"\bapi\.([a-z_]+)\(", source))):
         assert hasattr(HttpApiClient, name), (
             f"handlers call api.{name}() and the real client has no such thing")
+
+
+def test_the_link_page_uses_a_button_class_that_exists():
+    """
+    A class the stylesheet has never heard of renders as plain centred text,
+    which is what the one button on this page did.
+    """
+    page = open("templates/tg_link.html").read()
+    base = open("templates/base.html").read()
+
+    import re
+    for match in re.findall(r'<button[^>]*class="([^"]+)"', page):
+        for name in match.split():
+            if name.startswith("btn"):
+                assert f".{name}" in base, f"{name} is not a real class"
+
+
+def test_an_expired_link_does_not_explain_what_would_have_happened():
+    """Steps above a dead link read as instructions somebody should follow."""
+    page = open("templates/tg_link.html").read()
+    dead = page.split("{% if not valid %}")[1].split("{% else %}")[0]
+    assert "Your wallet connects" not in dead
+    assert "expired" in dead
