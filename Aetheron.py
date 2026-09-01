@@ -259,6 +259,18 @@ try:
 except Exception:
     pass
 
+# The Telegram bot runs in a thread here rather than as its own service. It is
+# idle almost all the time and needs the same database and settings, so a
+# second deployment would be a second thing to configure and watch for no gain.
+#
+# With no TELEGRAM_BOT_TOKEN set this does nothing at all, which is what every
+# instance without one should do.
+try:
+    import tg_bot
+    tg_bot.start()
+except Exception:
+    logger.warning("The Telegram bot did not start", exc_info=True)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/favicon.ico", include_in_schema=False)

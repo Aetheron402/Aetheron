@@ -424,3 +424,37 @@ def test_nothing_here_needs_a_telegram_token():
     source = open("tg_commands.py").read()
     assert "api.telegram.org" not in source
     assert "import telegram" not in source
+
+
+# ── linking a wallet ────────────────────────────────────────────────────────
+# The help text has always pointed people at /link. For a while it pointed at
+# nothing, which left every paid command unreachable, so these keep the two
+# halves of linking present and reachable.
+
+def test_link_and_confirm_are_registered():
+    router = tg_commands.build_router()
+    names = set(router.commands) if hasattr(router, "commands") else set()
+    source = open("tg_commands.py").read()
+    assert '@router.command("link"' in source
+    assert '@router.command("confirm"' in source
+
+
+def test_link_asks_for_a_signature_rather_than_a_key():
+    """The one thing this must never do is ask for a private key."""
+    source = open("tg_commands.py").read()
+    body = source.split('@router.command("link"')[1].split("@router.command")[0]
+    flat = " ".join(body.split())
+    assert "never ask for a private key" in flat
+    assert "seed" not in flat.lower()
+
+
+def test_confirm_reports_the_wallet_the_server_decided_on():
+    """
+    Never the address the caller typed into /confirm. The wallet comes out of
+    the stored challenge, so echoing anything else would be lying about what
+    got linked.
+    """
+    source = open("tg_commands.py").read()
+    body = source.split('@router.command("confirm"')[1].split("@router.command")[0]
+    assert "wallet = tg_link.confirm(" in body
+    assert "ctx.args" not in body.split("tg_link.confirm(")[1]

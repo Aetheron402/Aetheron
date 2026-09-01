@@ -330,6 +330,51 @@ def build_router() -> Router:
         ctx.say(f"This chat is linked to:\n{wallet}\n\n"
                 "Send /unlink to forget it.")
 
+    @router.command("link", usage="<wallet address>",
+                    help="Link your wallet to this chat.", private_only=True)
+    def _link(ctx):
+        address = ctx.args.strip()
+        if not address:
+            ctx.say("Send /link followed by your wallet address, for example\n"
+                    "/link 7xKX...9mPq")
+            return
+
+        try:
+            issued = tg_link.challenge(ctx.chat_id, address)
+        except tg_link.LinkError as error:
+            ctx.say(str(error))
+            return
+
+        minutes = max(1, issued["expires_in"] // 60)
+        ctx.say(
+            "Sign this exact message with that wallet, then send it back to me "
+            f"with /confirm followed by the signature. You have {minutes} "
+            "minutes.\n\n"
+            f"{issued['message']}\n\n"
+            "Any wallet that can sign a message will do this. It moves nothing "
+            "and I never ask for a private key."
+        )
+
+    @router.command("confirm", usage="<signature>",
+                    help="Finish linking with your signature.",
+                    private_only=True)
+    def _confirm(ctx):
+        signature = ctx.args.strip()
+        if not signature:
+            ctx.say("Send /confirm followed by the signature from the message "
+                    "you signed.")
+            return
+
+        try:
+            wallet = tg_link.confirm(ctx.chat_id, signature)
+        except tg_link.LinkError as error:
+            ctx.say(str(error))
+            return
+
+        ctx.say(f"Linked to:\n{wallet}\n\n"
+                "Everything you buy stays tied to that wallet. /components "
+                "shows what I can run.")
+
     @router.command("unlink", help="Forget the wallet linked here.",
                     private_only=True)
     def _unlink(ctx):
