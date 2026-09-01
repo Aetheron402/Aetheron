@@ -895,6 +895,27 @@ def agents_page(request: Request):
 def learn_page(request: Request):
     return templates.TemplateResponse("learn.html", {"request": request})
 
+@app.get("/api/prices")
+def component_prices():
+    """
+    What each component costs, in USDC.
+
+    Prices are settings rather than constants, so anything that needs to show
+    one has to ask. The alternative is a number written down in a second place
+    that quietly stops matching the number people are charged.
+    """
+    return {
+        "prompt-optimizer": float(PROMPT_OPTIMIZER_PRICE_USDC),
+        "code-explainer": float(CODE_EXPLAINER_PRICE_USDC),
+        "prompt-tester": float(PROMPT_TESTER_PRICE_USDC),
+        "contract-intel": float(CONTRACT_INTEL_PRICE_USDC),
+        "risk-engine": float(RISK_ENGINE_PRICE_USDC),
+        "agent": float(AGENT_PRICE_USDC),
+        "site-builder": float(SITE_BUILDER_PRICE_USDC),
+        "site-revision": float(SITE_REVISION_PRICE_USDC),
+    }
+
+
 @app.get("/tg/{code}", response_class=HTMLResponse)
 def telegram_link_page(code: str, request: Request):
     """

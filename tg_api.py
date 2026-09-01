@@ -15,6 +15,8 @@ A price computed in two places is a price that eventually disagrees with itself,
 and the half that is wrong is the half that takes somebody's money.
 """
 
+import time
+import logging
 import os
 
 import requests
@@ -40,28 +42,38 @@ class ApiError(Exception):
 # somebody runs the command with nothing after it. Components whose input does
 # not fit in one message, the site builder for instance, are deliberately absent
 # rather than half supported.
+# Prices change rarely and a command should not wait on a request to show
+# them, so they are kept for a few minutes.
+PRICES_TTL_SECONDS = int(os.getenv("TG_PRICES_TTL", "300"))
+
+logger = logging.getLogger(__name__)
+
 COMPONENTS = {
     "prompt-optimizer": {
         "field": "text",
         "label": "Prompt Optimizer",
+        "does": "Rewrites a prompt so it does what you actually meant.",
         "ask": "Send the prompt you want tightened up.",
         "extra": {"format": "pdf"},
     },
     "code-explainer": {
         "field": "text",
         "label": "Code Explainer",
+        "does": "Explains what a piece of code does, line by line.",
         "ask": "Paste the code you want explained.",
         "extra": {"format": "pdf"},
     },
     "prompt-tester": {
         "field": "text",
         "label": "Prompt Tester",
+        "does": "Runs a prompt past several personas and shows where it breaks.",
         "ask": "Send the prompt you want tested against several personas.",
         "extra": {"format": "pdf"},
     },
     "contract-intel": {
         "field": "contract_address",
         "label": "Contract Intelligence",
+        "does": "Holders, authorities and risks on a Solana token.",
         "ask": "Send the contract address you want looked at.",
         "extra": {"network": "solana", "format": "pdf"},
     },
@@ -89,6 +101,10 @@ def resolve_component(name: str) -> str | None:
 
 class ApiClient:
     """What the bot needs from the API, and nothing else."""
+
+    def prices(self) -> dict:
+        """What each component costs. Slug to price in USDC."""
+        raise NotImplementedError
 
     def call_component(self, slug, payload, wallet, method="USDC", tx_sig=None):
         raise NotImplementedError
@@ -123,6 +139,8 @@ class HttpApiClient(ApiClient):
     def __init__(self, base_url: str | None = None, timeout: int = TIMEOUT):
         self.base_url = (base_url or BASE_URL).rstrip("/")
         self.timeout = timeout
+        self._prices: dict = {}
+        self._prices_at = 0.0
 
     def _headers(self, wallet, method, tx_sig):
         headers = {"Content-Type": "application/json"}
@@ -149,6 +167,29 @@ class HttpApiClient(ApiClient):
 
         body["_status"] = response.status_code
         return body
+
+    def prices(self) -> dict:
+        """
+        What each component costs, kept for a few minutes.
+
+        Asked for rather than written down, so the number shown is the number
+        charged. A failure returns nothing rather than raising: a price list
+        that cannot be fetched should cost somebody a price, not a command.
+        """
+        now = time.time()
+        if self._prices and now - self._prices_at < PRICES_TTL_SECONDS:
+            return self._prices
+
+        try:
+            response = requests.get(f"{self.base_url}/api/prices",
+                                    timeout=self.timeout)
+            response.raise_for_status()
+            self._prices = response.json() or {}
+            self._prices_at = now
+        except (requests.RequestException, ValueError):
+            logger.warning("Could not fetch prices", exc_info=True)
+            return self._prices or {}
+        return self._prices
 
     def job_status(self, task_id):
         try:
@@ -228,6 +269,9 @@ class FakeApiClient(ApiClient):
     that finishes after however many polls a test asks for. That sequence is
     the entire purchase, so it is the sequence worth being able to control.
     """
+
+    def prices(self) -> dict:
+        return {slug: 0.50 for slug in COMPONENTS}
 
     def __init__(self, price=0.25, currency="USDC",
                  pay_wallet="FZtoQTD7MLHvJzxxSPcUaQkXB5yP6qKYBZ8tUV18hHo1"):

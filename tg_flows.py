@@ -315,10 +315,28 @@ def register(router, api):
         "components", help="What you can run, and what it costs.",
         aliases=("list",), group="start")
     def _components(ctx):
-        lines = ["What I can run for you:", ""]
+        """
+        What there is, what it does, and what it costs.
+
+        The name on its own tells somebody almost nothing. What they need
+        before choosing is one line on what it is for and the price, and the
+        price is asked for rather than written down so it cannot drift from
+        what they are actually charged.
+        """
+        prices = api.prices()
+
+        lines = ["What I can run for you.", ""]
         for slug, spec in tg_api.COMPONENTS.items():
-            lines.append(f"/buy {slug}\n   {spec['label']}")
-        lines += ["", "Send /buy followed by one of those and your input."]
+            price = prices.get(slug)
+            cost = f"{price:.2f} USDC" if price is not None else "see /buy"
+            lines.append(f"{spec['label']}, {cost}")
+            if spec.get("does"):
+                lines.append(f"   {spec['does']}")
+            lines.append(f"   /buy {slug}")
+            lines.append("")
+
+        lines.append("Read any of them for free first with /example, for "
+                     "instance /example contract-intel.")
         ctx.say("\n".join(lines))
 
     @router.command(

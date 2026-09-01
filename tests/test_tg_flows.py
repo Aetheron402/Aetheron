@@ -463,3 +463,52 @@ def test_nothing_here_needs_a_telegram_token():
         source = open(path).read()
         assert "api.telegram.org" not in source
         assert "import telegram" not in source
+
+
+# ── the list somebody chooses from ──────────────────────────────────────────
+
+def test_components_says_what_each_one_does_and_costs():
+    """
+    A list of four names tells somebody nothing about which to pick. The
+    price matters most, since the whole point is paying per call.
+    """
+    router = tg_commands.build_router()
+    api = tg_api.FakeApiClient()
+    transport = FakeTransport()
+    tg_flows.register(router, api)
+
+    router.dispatch(transport.receive(1, "/components"), transport)
+    text = transport.sent[-1].text
+
+    for slug, spec in tg_api.COMPONENTS.items():
+        assert spec["label"] in text
+        assert spec["does"] in text
+        assert f"/buy {slug}" in text
+    assert "USDC" in text
+
+
+def test_the_price_shown_is_the_one_the_server_gave():
+    """
+    Never a number written down here. A price list that drifts from what is
+    charged is worse than no price list.
+    """
+    source = open("tg_flows.py").read()
+    body = source.split("def _components")[1].split("@router.command")[0]
+    assert "api.prices()" in body
+    # No literal prices anywhere in the rendering.
+    assert "0." not in body.replace("{price:.2f}", "")
+
+
+def test_a_price_that_cannot_be_fetched_does_not_break_the_list():
+    """The command still has to answer, since it is how people find anything."""
+    class NoPrices(tg_api.FakeApiClient):
+        def prices(self):
+            return {}
+
+    router = tg_commands.build_router()
+    transport = FakeTransport()
+    tg_flows.register(router, NoPrices())
+
+    router.dispatch(transport.receive(1, "/components"), transport)
+    text = transport.sent[-1].text
+    assert "Prompt Optimizer" in text
