@@ -462,3 +462,35 @@ def test_a_preview_that_returns_202_is_watched():
     })()
 
     assert tg_free.watch_agent(ctx, Queued(), "solana-sniper") == "t1"
+
+
+# ── what a buyer sees first ─────────────────────────────────────────────────
+
+def test_interpreter_noise_is_not_the_first_thing_a_buyer_reads():
+    raw = (
+        "/app/.venv/lib/python3.11/site-packages/requests/__init__.py:109: "
+        "RequestsDependencyWarning: urllib3 does not match\n"
+        "  warnings.warn(\n"
+        "[INFO] Initializing Sniper Trade Agent...\n"
+        "[INFO] Token detected: 7G4F"
+    )
+    out = tg_free.strip_noise(raw)
+    assert out.startswith("[INFO] Initializing")
+    assert "warnings.warn" not in out
+    assert "site-packages" not in out
+
+
+def test_only_warnings_are_dropped():
+    """
+    An agent's own indented output must survive, or stripping noise becomes a
+    way to lose the thing somebody paid to see.
+    """
+    raw = ("[INFO] Results:\n"
+           "    liquidity: 14.2 SOL\n"
+           "    market cap: 2990 USD")
+    assert tg_free.strip_noise(raw) == raw
+
+
+def test_an_agent_that_prints_the_word_warning_is_not_silenced():
+    raw = "[WARN] Liquidity warning: pool is thin"
+    assert tg_free.strip_noise(raw) == raw

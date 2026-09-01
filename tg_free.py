@@ -197,6 +197,42 @@ def watch_agent(ctx, api, agent_id):
     return answer["task_id"]
 
 
+# Noise the interpreter prints before an agent has done anything. Somebody
+# deciding whether an agent is worth five dollars should not have their first
+# impression be a dependency warning from a library they will never see.
+NOISE = (
+    "site-packages",
+    "warnings.warn",
+    "RequestsDependencyWarning",
+    "DeprecationWarning",
+    "UserWarning",
+    "FutureWarning",
+)
+
+
+def strip_noise(output: str) -> str:
+    """
+    The agent's own output, without the interpreter clearing its throat.
+
+    Only whole lines are dropped, and only ones that are unmistakably a Python
+    warning, so nothing an agent actually printed can be lost. A warning wraps
+    onto a following indented line, which goes with it.
+    """
+    kept, skipping = [], False
+
+    for line in (output or "").splitlines():
+        if any(mark in line for mark in NOISE):
+            skipping = True
+            continue
+        # The continuation of a warning is indented and follows it directly.
+        if skipping and line[:1] in (" ", "\t") and line.strip():
+            continue
+        skipping = False
+        kept.append(line)
+
+    return "\n".join(kept).strip()
+
+
 def deliver_preview(api, transport, chat_id, task_id, agent_id) -> str:
     """
     Poll one preview and send what it printed. Returns what happened.
@@ -222,7 +258,7 @@ def deliver_preview(api, transport, chat_id, task_id, agent_id) -> str:
               "if it never started.")
         return "failed"
 
-    output = (result.get("output") or "").strip()
+    output = strip_noise(result.get("output"))
     if not output:
         _tell(transport, chat_id,
               f"{agent_id} ran but printed nothing in the window. That happens "
