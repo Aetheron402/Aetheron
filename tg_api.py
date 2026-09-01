@@ -106,6 +106,10 @@ class ApiClient:
         """What each component costs. Slug to price in USDC."""
         raise NotImplementedError
 
+    def agents(self) -> list:
+        """The agents that exist, as dicts with id and title."""
+        raise NotImplementedError
+
     def call_component(self, slug, payload, wallet, method="USDC", tx_sig=None):
         raise NotImplementedError
 
@@ -141,6 +145,8 @@ class HttpApiClient(ApiClient):
         self.timeout = timeout
         self._prices: dict = {}
         self._prices_at = 0.0
+        self._agents: list = []
+        self._agents_at = 0.0
 
     def _headers(self, wallet, method, tx_sig):
         headers = {"Content-Type": "application/json"}
@@ -190,6 +196,29 @@ class HttpApiClient(ApiClient):
             logger.warning("Could not fetch prices", exc_info=True)
             return self._prices or {}
         return self._prices
+
+    def agents(self) -> list:
+        """
+        The agents, kept for a few minutes.
+
+        This used to read an attribute that only the test double had, so the
+        deployed bot listed nothing at all while every test passed. Anything
+        the bot needs has to come through a call both clients implement.
+        """
+        now = time.time()
+        if self._agents and now - self._agents_at < PRICES_TTL_SECONDS:
+            return self._agents
+
+        try:
+            response = requests.get(f"{self.base_url}/api/agents",
+                                    timeout=self.timeout)
+            response.raise_for_status()
+            self._agents = (response.json() or {}).get("agents") or []
+            self._agents_at = now
+        except (requests.RequestException, ValueError):
+            logger.warning("Could not fetch agents", exc_info=True)
+            return self._agents or []
+        return self._agents
 
     def job_status(self, task_id):
         try:
@@ -272,6 +301,10 @@ class FakeApiClient(ApiClient):
 
     def prices(self) -> dict:
         return {slug: 0.50 for slug in COMPONENTS}
+
+    def agents(self) -> list:
+        return [{"id": name, "title": name.replace("-", " ").title()}
+                for name in sorted(getattr(self, "previewable", ()) or ())]
 
     def __init__(self, price=0.25, currency="USDC",
                  pay_wallet="FZtoQTD7MLHvJzxxSPcUaQkXB5yP6qKYBZ8tUV18hHo1"):

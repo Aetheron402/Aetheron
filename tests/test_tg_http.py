@@ -175,3 +175,56 @@ def test_the_bot_calls_the_service_it_runs_inside():
     finally:
         os.environ.pop("PORT", None)
         importlib.reload(tg_api)
+
+
+# ── the two clients have to agree ───────────────────────────────────────────
+
+def test_the_fake_client_promises_nothing_the_real_one_lacks():
+    """
+    /agents read an attribute that only the test double had, so the deployed
+    bot listed no agents at all while every test passed. Anything the handlers
+    can reach on the fake has to exist on the real one too, or the tests are
+    checking a bot nobody runs.
+    """
+    import re
+
+    from tg_api import ApiClient, FakeApiClient, HttpApiClient
+
+    def surface(obj):
+        # An instance rather than the class, because the attribute that caused
+        # this is set in __init__ and a class only check never sees it.
+        return {name for name in dir(obj) if not name.startswith("_")}
+
+    # Things the fake has purely to arrange a test are declared here rather
+    # than being allowed to drift into being read by real code.
+    scaffolding = (surface(FakeApiClient())
+                   - surface(ApiClient)
+                   - surface(HttpApiClient))
+
+    source = " ".join(
+        open(name).read() for name in
+        ("tg_free.py", "tg_flows.py", "tg_assets.py", "tg_commands.py"))
+
+    for name in sorted(scaffolding):
+        # Both ways a handler can reach it. The name on its own is not enough
+        # to go on, since command names collide with attribute names.
+        # Whole word, or prices() matches a fake attribute called price.
+        assert not re.search(rf"\bapi\.{name}\b", source), (
+            f"api.{name} exists only on the test double, so it is empty in "
+            "production")
+        assert f'getattr(api, "{name}"' not in source, (
+            f"api.{name} is reached by name and only the test double has it")
+
+
+def test_every_call_the_handlers_make_exists_on_the_real_client():
+    import re
+
+    from tg_api import HttpApiClient
+
+    source = " ".join(
+        open(name).read() for name in
+        ("tg_free.py", "tg_flows.py", "tg_assets.py"))
+
+    for name in sorted(set(re.findall(r"\bapi\.([a-z_]+)\(", source))):
+        assert hasattr(HttpApiClient, name), (
+            f"handlers call api.{name}() and the real client has no such thing")

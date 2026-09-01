@@ -242,13 +242,22 @@ def register(router, api, pending_previews):
 
     @router.command("agents", help="Agents you can watch run.", group="free")
     def _agents(ctx):
-        names = sorted(getattr(api, "previewable", ()) or ())
-        if not names:
+        agents = api.agents()
+        if not agents:
             ctx.say("No agents are available to watch right now.")
             return
-        ctx.say("Agents you can watch run on live data, free:\n\n"
-                + "\n".join(f"/preview {name}" for name in names)
-                + "\n\nEach wallet gets three, and rewatching is free.")
+
+        lines = ["Agents you can watch run on live data, free.", ""]
+        for agent in agents:
+            lines.append(agent.get("title") or agent.get("id"))
+            note = (agent.get("description") or "").strip()
+            if note:
+                lines.append(f"   {note}")
+            lines.append(f"   /preview {agent.get('id')}")
+            lines.append("")
+
+        lines.append("Each wallet gets three, and watching one again is free.")
+        ctx.say("\n".join(lines))
 
     return router
 
