@@ -676,9 +676,35 @@ function aethAmount(quote) {
   return `${Math.round(quote.required_aeth).toLocaleString()} AETH`;
 }
 
+// A giveaway winner has a build waiting on their wallet. Asked for once when
+// a wallet connects, so they are told before they click rather than after a
+// payment dialog they never needed to see.
+let freeBuild = false;
+
+async function checkFreeBuild() {
+  freeBuild = false;
+  if (!window.currentWallet) return;
+  try {
+    const r = await fetch(`/api/my-grants/${window.currentWallet}`);
+    const d = await r.json();
+    freeBuild = (d.components || []).includes("site-builder");
+  } catch (e) {
+    // A lookup that fails must not stop somebody paying normally.
+  }
+  refreshAeth();
+}
+
+window.addEventListener("wallet:connected", checkFreeBuild);
+
 async function refreshAeth() {
   const button = document.getElementById("studio-build");
   const note = document.getElementById("studio-pay-note");
+
+  if (freeBuild) {
+    button.textContent = "Build it, free";
+    note.textContent = "You won a free build. Nothing to pay.";
+    return;
+  }
 
   if (DEV_MODE) {
     button.textContent = "Build it, free in dev";
@@ -785,7 +811,22 @@ async function startBuild() {
   startWaiting("starting");
   status("Submitting…");
 
-  const res = await paidCall("/api/site-builder", payload, "pay_studio", BUILD_PRICE);
+  // A free build goes straight through. paidCall would open a payment dialog
+  // for a price this wallet is not being asked for.
+  const res = freeBuild
+    ? await fetch("/api/site-builder", {
+        method: "POST",
+        headers: {"Content-Type": "application/json",
+                  "X-USER-WALLET": window.currentWallet},
+        body: JSON.stringify(payload),
+      }).then(r => r.json().then(d => ({ok: r.ok, status: r.status, ...d})))
+    : await paidCall("/api/site-builder", payload, "pay_studio", BUILD_PRICE);
+
+  // Spent, so the next build is a paid one.
+  if (freeBuild && res && res.asset_id) {
+    freeBuild = false;
+    refreshAeth();
+  }
   build.disabled = false;
   build.textContent = wasLabel;
   if (!res) {

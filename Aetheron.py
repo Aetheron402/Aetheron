@@ -1822,9 +1822,16 @@ def site_builder(
                      "token's mint address rather than a wallet, and note that "
                      "tokens launched elsewhere are not covered yet."})
 
+    # A giveaway winner has one build waiting on their wallet. Spent here
+    # rather than checked here, so two requests arriving together cannot both
+    # take the same one, and put back below if the job never reaches the queue.
+    on_the_house = (not dev_unlocked(request)
+                    and not x_payment
+                    and grants.spend_component(user_wallet, "site-builder"))
+
     # Development access skips the payment check entirely. Off unless DEV_TOKEN
     # is set, which production does not set.
-    payment_check = True if dev_unlocked(request) else verify_payment(
+    payment_check = True if (dev_unlocked(request) or on_the_house) else verify_payment(
         x_payment, user_wallet, float(SITE_BUILDER_PRICE_USDC),
         payment_method, component="site-builder",
     )
@@ -1856,16 +1863,23 @@ def site_builder(
             asset_id, mint, payload.notes, user_wallet, details)
     except Exception:
         traceback.print_exc()
+        # Nothing was built, so a prize spent on it has to come back. A winner
+        # whose build never queued has not had their build.
+        if on_the_house:
+            grants.return_component(user_wallet, "site-builder")
         raise HTTPException(status_code=500, detail="Celery dispatch failed")
 
     try:
         add_entry(asset_id=asset_id, wallet=user_wallet, tx_sig=x_payment,
-                  component="site-builder", price=float(SITE_BUILDER_PRICE_USDC),
-                  currency=payment_method, status="pending", filename=None)
+                  component="site-builder",
+                  price=0.0 if on_the_house else float(SITE_BUILDER_PRICE_USDC),
+                  currency="GIVEAWAY" if on_the_house else payment_method,
+                  status="pending", filename=None)
     except Exception as e:
         print("Ledger log failure (site builder):", e)
 
-    return {"task_id": task.id, "asset_id": asset_id, "status": "queued"}
+    return {"task_id": task.id, "asset_id": asset_id, "status": "queued",
+            "free": on_the_house}
 
 
 @app.get("/telegram")
@@ -1878,6 +1892,18 @@ def telegram_page(request: Request):
     page somebody can read twice.
     """
     return templates.TemplateResponse("telegram.html", {"request": request})
+
+
+@app.get("/api/my-grants/{wallet}")
+def my_grants(wallet: str):
+    """
+    What this wallet can run for free.
+
+    Read by the studio so a winner is told before they click rather than after
+    a payment dialog they did not need to see.
+    """
+    return {"wallet": wallet,
+            "components": grants.unclaimed_components(wallet)}
 
 
 @app.post("/api/site-builder/retry/{asset_id}")

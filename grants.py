@@ -53,6 +53,22 @@ def init_grants() -> None:
             );
             """
         )
+        # Components are kept apart from agents rather than sharing a table
+        # with a different kind of id in it. The agent list is served straight
+        # out of that one, so a component sitting in it would turn up on the
+        # site as an agent somebody could download.
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS component_grants (
+                wallet TEXT NOT NULL,
+                component TEXT NOT NULL,
+                reason TEXT,
+                granted_at REAL NOT NULL,
+                claimed_at REAL,
+                PRIMARY KEY (wallet, component)
+            );
+            """
+        )
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS claim_challenges (
@@ -85,6 +101,95 @@ def grant(wallet: str, agent_id: str, reason: str = "giveaway") -> bool:
         return True
     except ledger_utils.INTEGRITY_ERRORS:
         return False
+
+
+def grant_component(wallet: str, component: str,
+                    reason: str = "giveaway") -> bool:
+    """
+    Give a wallet one free run of a component.
+
+    Returns False if it already has one, so running the same list of winners
+    twice cannot hand somebody two.
+    """
+    init_grants()
+    try:
+        with ledger_utils._cursor(commit=True) as cur:
+            cur.execute(
+                ledger_utils._q(
+                    "INSERT INTO component_grants "
+                    "(wallet, component, reason, granted_at) "
+                    "VALUES (%s, %s, %s, %s);"
+                ),
+                (wallet.strip(), component, reason, time.time()),
+            )
+        return True
+    except ledger_utils.INTEGRITY_ERRORS:
+        return False
+
+
+def unclaimed_components(wallet: str | None) -> list:
+    """Every component this wallet can still run for free."""
+    if not wallet:
+        return []
+    try:
+        init_grants()
+        with ledger_utils._cursor() as cur:
+            cur.execute(
+                ledger_utils._q(
+                    "SELECT component FROM component_grants "
+                    "WHERE wallet = %s AND claimed_at IS NULL;"
+                ),
+                (wallet.strip(),),
+            )
+            return [row[0] for row in cur.fetchall()]
+    except Exception:
+        # A lookup that fails must not hand out a free run, and must not stop
+        # a paid one either.
+        return []
+
+
+def spend_component(wallet: str, component: str) -> bool:
+    """
+    Use up a free run. Returns whether there was one to use.
+
+    The update carries the unclaimed condition, so two requests arriving at the
+    same moment cannot both win it. Whichever writes first takes it and the
+    other is told there was nothing there.
+    """
+    if not wallet:
+        return False
+    init_grants()
+    with ledger_utils._cursor(commit=True) as cur:
+        cur.execute(
+            ledger_utils._q(
+                "UPDATE component_grants SET claimed_at = %s "
+                "WHERE wallet = %s AND component = %s AND claimed_at IS NULL;"
+            ),
+            (time.time(), wallet.strip(), component),
+        )
+        return cur.rowcount > 0
+
+
+def return_component(wallet: str, component: str) -> bool:
+    """
+    Put a spent run back.
+
+    Used when the thing it paid for could not be started at all. Somebody whose
+    build never queued has not had their prize, and telling them it is gone
+    because a dispatch failed is the worst outcome available.
+    """
+    if not wallet:
+        return False
+    init_grants()
+    with ledger_utils._cursor(commit=True) as cur:
+        cur.execute(
+            ledger_utils._q(
+                "UPDATE component_grants SET claimed_at = NULL "
+                "WHERE wallet = %s AND component = %s;"
+            ),
+            (wallet.strip(), component),
+        )
+        return cur.rowcount > 0
 
 
 def unclaimed(wallet: str | None) -> list:
