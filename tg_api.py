@@ -32,6 +32,20 @@ BASE_URL = os.getenv(
 TIMEOUT = int(os.getenv("TG_API_TIMEOUT", "60"))
 
 
+def succeeded(status) -> bool:
+    """
+    Whether a response was a yes.
+
+    Anything that queues work answers 202 rather than 200, and checking for
+    200 exactly meant every queued job read as a refusal. That is most of what
+    this bot does: previews, purchases and reports are all queued.
+    """
+    try:
+        return 200 <= int(status) < 300
+    except (TypeError, ValueError):
+        return False
+
+
 class ApiError(Exception):
     """The API could not be reached, or answered something unusable."""
 

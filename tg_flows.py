@@ -93,7 +93,7 @@ def start_purchase(ctx, api, component, user_input, method="USDC"):
         ctx.say(_quote_message(spec, answer, record))
         return record
 
-    if status == 200 and answer.get("task_id"):
+    if tg_api.succeeded(status) and answer.get("task_id"):
         # Free, or already covered. Unusual, and it must not be treated as a
         # failure just because no money changed hands.
         record = tg_purchase.open_purchase(
@@ -201,7 +201,7 @@ def submit_signature(ctx, api, signature):
         return None
 
     task_id = answer.get("task_id")
-    if status != 200 or not task_id:
+    if not tg_api.succeeded(status) or not task_id:
         ctx.say(_refusal_message(answer))
         return None
 

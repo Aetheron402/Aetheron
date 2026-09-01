@@ -423,3 +423,42 @@ def test_an_unknown_agent_is_refused_in_plain_words():
     body = source.split("def _preview")[1].split("return router")[0]
     assert "I do not have an agent called" in body
     assert "Invalid agent ID" not in body
+
+
+# ── queued is not refused ───────────────────────────────────────────────────
+
+def test_a_queued_job_counts_as_started():
+    """
+    Every route that queues work answers 202. Checking for 200 exactly meant
+    previews, purchases and reports all read as refusals, which is the whole
+    bot.
+    """
+    import tg_api
+    assert tg_api.succeeded(200)
+    assert tg_api.succeeded(202)
+    assert not tg_api.succeeded(402)
+    assert not tg_api.succeeded(500)
+    assert not tg_api.succeeded(None)
+
+
+def test_no_handler_checks_for_200_by_hand():
+    """One rule, in one place, or this comes back the next time a route moves."""
+    for name in ("tg_free.py", "tg_flows.py", "tg_assets.py"):
+        source = open(name).read()
+        assert "status != 200" not in source, name
+        assert "status == 200" not in source, name
+
+
+def test_a_preview_that_returns_202_is_watched():
+    class Queued(tg_api.FakeApiClient):
+        def start_preview(self, agent_id, wallet):
+            return {"_status": 202, "task_id": "t1", "seconds": 25,
+                    "remaining": 2}
+
+    transport = FakeTransport()
+    ctx = type("Ctx", (), {
+        "wallet": "W", "chat_id": 1,
+        "say": lambda self, text: transport.send_text(1, text),
+    })()
+
+    assert tg_free.watch_agent(ctx, Queued(), "solana-sniper") == "t1"
