@@ -196,7 +196,7 @@ class Router:
                 self._reply(
                     transport, update,
                     "Link a wallet first, so I know what you own and what you "
-                    "pay.\n\nSend /link followed by your wallet address.")
+                    "pay.\n\nSend /link and it takes about ten seconds.")
                 return False
 
         return self._run(entry.handler, update, transport,
@@ -374,8 +374,8 @@ def build_router() -> Router:
     def _wallet(ctx):
         wallet = tg_link.wallet_for(ctx.chat_id)
         if not wallet:
-            ctx.say("No wallet linked here yet. Send /link followed by your "
-                    "wallet address.")
+            ctx.say("No wallet linked here yet. Send /link and it takes "
+                    "about ten seconds.")
             return
         ctx.say(f"This chat is linked to:\n{wallet}\n\n"
                 "Send /unlink to forget it.")

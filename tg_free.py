@@ -57,7 +57,7 @@ def show_example(ctx, api, slug):
         return False
     if status == 401:
         ctx.say("Link a wallet first so the free examples can be counted "
-                "against it. Send /link followed by your address.")
+                "against it. Send /link to sort that out.")
         return False
     if not tg_api.succeeded(status):
         ctx.say(answer.get("detail") or "There is no example for that one.")
@@ -178,7 +178,7 @@ def watch_agent(ctx, api, agent_id):
         return None
     if status == 401:
         ctx.say("Link a wallet first so the free runs can be counted against "
-                "it. Send /link followed by your address.")
+                "it. Send /link to sort that out.")
         return None
     if not tg_api.succeeded(status) or not answer.get("task_id"):
         ctx.say(answer.get("detail") or "That agent has no live run to watch.")

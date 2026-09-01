@@ -506,3 +506,13 @@ def test_every_command_still_appears_somewhere():
         if entry.hidden or name != entry.name:
             continue
         assert f"/{name}" in text, f"/{name} is missing from help"
+
+
+def test_nothing_tells_people_to_type_an_address_any_more():
+    """
+    /link takes no arguments. Wording that says otherwise sends somebody off
+    to copy a forty character address for a command that ignores it.
+    """
+    for name in ("tg_commands.py", "tg_free.py", "tg_flows.py", "tg_assets.py"):
+        flat = " ".join(open(name).read().split())
+        assert "/link followed by" not in flat, name
