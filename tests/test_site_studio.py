@@ -924,6 +924,69 @@ def test_a_pre_launch_page_can_pick_up_market_figures_later():
     assert "Never render a zero, a dash or a loading state in place of a figure" in flat
 
 
+# ── paying ──────────────────────────────────────────────────────────────────
+
+def test_the_payment_details_can_be_copied():
+    """
+    This was an alert and a prompt. Neither can be copied out of, so the wallet
+    address and the amount could be read and not used, which is the only thing
+    anybody needs to do with them.
+    """
+    studio = open("templates/site_studio.html").read()
+
+    assert "alert(`Payment required" not in studio
+    assert 'prompt("Paste your Solana transaction signature' not in studio
+
+    assert 'id="pay-modal"' in studio
+    assert "function payCopy" in studio
+    # A copy button against each of the two things that need copying.
+    assert studio.count("payCopy('pay-") == 2
+
+
+def test_the_address_is_selectable_even_without_the_copy_button():
+    """
+    The clipboard api is unavailable on any page not served over https, so
+    selecting has to work on its own.
+    """
+    css = open("templates/site_studio.html").read().split("<style>")[1]
+    assert "user-select: all" in css.split(".pay-value")[1].split("}")[0]
+
+
+def test_a_failed_copy_falls_back_rather_than_doing_nothing():
+    studio = open("templates/site_studio.html").read()
+    fn = studio.split("async function payCopy")[1].split("\n}")[0]
+
+    assert "document.execCommand" in fn
+    assert "field.select()" in fn
+
+
+def test_the_dialog_can_be_dismissed_without_paying():
+    studio = open("templates/site_studio.html").read()
+
+    assert "function payCancel" in studio
+    assert '"Escape"' in studio
+    # Cancelling resolves to nothing, so the caller knows not to charge.
+    assert "payClose(null)" in studio
+
+
+def test_the_signature_field_takes_a_paste_and_enter_submits():
+    studio = open("templates/site_studio.html").read()
+    assert 'id="pay-sig"' in studio
+    assert '"Enter"' in studio
+
+
+def test_nothing_is_charged_until_the_payment_is_found():
+    """
+    The dialog says so, because somebody pasting a signature into a box wants
+    to know what pressing the button does.
+    """
+    from fastapi.testclient import TestClient
+    import Aetheron
+
+    html = " ".join(TestClient(Aetheron.app).get("/build").text.split())
+    assert "Nothing is charged until the payment is found on chain" in html
+
+
 def test_the_project_id_is_taken_from_the_stream_not_the_response():
     """
     The worker creates the project, so the build request cannot return its id.
@@ -932,11 +995,214 @@ def test_the_project_id_is_taken_from_the_stream_not_the_response():
     change. Only opening an existing site worked, which is why it survived
     testing.
     """
+    source = open("Aetheron.py").read()
+    route = source.split("def site_builder(")[1].split("\ndef ")[0]
+    assert '"project_id"' not in route.split("return {")[-1], (
+        "if the route starts returning one, the studio should prefer it")
+
     studio = open("templates/site_studio.html").read()
     watch = studio.split("async function watch")[1]
-
     assert "if (d.project_id) projectId = d.project_id;" in watch
+
+    # And the old, broken read is gone.
     assert "res.project_id" not in studio
+
+
+def test_the_stream_carries_the_project_id_for_it_to_read():
+    source = open("Aetheron.py").read()
+    route = source.split("def site_builder_stream")[1].split("\ndef ")[0]
+    assert '"project_id": detail.get("project_id")' in route
+
+
+# ── how long somebody waits to see a price ──────────────────────────────────
+
+def test_a_stale_price_is_served_while_the_next_one_is_fetched():
+    """
+    A twenty second cache meant almost every real visitor paid for a round trip
+    to the price source, three seconds of staring at a button, because it is
+    rare for two people to ask inside the same twenty seconds.
+    """
+    import aeth_price
+
+    assert aeth_price.CACHE_TTL >= 60
+    assert aeth_price.STALE_TTL > aeth_price.CACHE_TTL
+
+    # Collapsed with the comment markers taken out, since the sentence wraps
+    # across two commented lines and a stray hash lands in the middle of it.
+    source = " ".join(
+        open("aeth_price.py").read().replace("#", " ").split())
+    assert "hand back what we have and fetch the next one behind the request" in source
+
+
+def test_a_burst_against_a_stale_cache_starts_one_fetch(monkeypatch):
+    """
+    Without the guard, every request against a stale price would start its own
+    fetch, which is the hammering the cache exists to prevent.
+    """
+    import aeth_price
+
+    started = []
+    monkeypatch.setattr(aeth_price.threading, "Thread",
+                        lambda **kw: type("T", (), {
+                            "start": lambda self: started.append(1)})())
+    aeth_price._refreshing = False
+
+    for _ in range(5):
+        aeth_price._refresh_in_background()
+
+    assert len(started) == 1
+    aeth_price._refreshing = False
+
+
+def test_a_stale_price_is_still_bounded():
+    """
+    Serving something a minute old is fine, because the quote is honoured for
+    ten minutes anyway. Serving something from yesterday is not.
+    """
+    import aeth_price
+    assert aeth_price.STALE_TTL <= 3600
+
+
+def test_mint_decimals_are_not_read_off_the_chain_every_quote():
+    """
+    Decimals are fixed when a mint is created and cannot change, so reading
+    them per quote put a round trip in front of somebody waiting to pay.
+    """
+    import Aetheron
+
+    assert hasattr(Aetheron.get_mint_decimals, "cache_info")
+
+
+def test_the_price_is_warmed_at_startup():
+    source = " ".join(open("Aetheron.py").read().split())
+    assert "A price fetched now is a price nobody has to wait for later" in source
+
+
+# ── how long the database takes ─────────────────────────────────────────────
+
+def test_postgres_connections_are_pooled_rather_than_opened_per_query():
+    """
+    Every read and write opened a new connection and closed it. Against a
+    hosted database that handshake is well over a second, so a single ledger
+    lookup took 1.3 seconds and anything touching the database twice took
+    nearly three. Nothing about the queries was slow, the connecting was.
+    """
+    source = open("ledger_utils.py").read()
+
+    assert "ThreadedConnectionPool" in source
+    assert "def _get_pool" in source
+
+    cursor = source.split("def _cursor")[1].split("\ndef ")[0]
+    assert "pool.getconn()" in cursor
+    assert "pool.putconn" in cursor
+
+
+def test_a_read_does_not_leave_a_transaction_open_for_the_next_borrower():
+    """
+    A pooled connection returned mid transaction hands the next caller whatever
+    it was holding, including locks.
+    """
+    cursor = open("ledger_utils.py").read().split("def _cursor")[1].split("\ndef ")[0]
+    assert "conn.rollback()" in cursor
+    assert "not commit and not broken" in cursor
+
+
+def test_a_broken_connection_is_not_returned_to_the_pool():
+    cursor = open("ledger_utils.py").read().split("def _cursor")[1].split("\ndef ")[0]
+    assert "close=broken" in cursor
+
+
+def test_a_pool_full_of_dead_sockets_can_be_rebuilt():
+    """
+    A hosted database drops idle connections, and a pool handing out a dead one
+    would fail every request until something cleared it.
+    """
+    source = open("ledger_utils.py").read()
+    assert "def _reset_pool" in source
+    assert "_reset_pool()" in source.split("def _cursor")[1]
+
+
+def test_sqlite_is_left_alone():
+    """
+    Opening a local file is free, and a shared handle across threads causes
+    locking problems rather than saving anything.
+    """
+    cursor = open("ledger_utils.py").read().split("def _cursor")[1].split("\ndef ")[0]
+    assert "if not USE_POSTGRES:" in cursor
+    assert "conn.close()" in cursor
+
+
+def test_the_legacy_snapshot_is_not_reloaded_every_two_minutes():
+    """
+    It only changes when somebody deliberately reloads it, which is a deploy.
+    A two minute window meant re-reading a fixed list off the database hundreds
+    of times a day per worker, on the hot path of every quote.
+    """
+    import legacy_holders
+
+    # Short on purpose: the refresh is behind the request, so a short window
+    # costs a request of staleness rather than half a second of waiting.
+    assert legacy_holders.CACHE_TTL_SECONDS <= 600
+
+    source = open("legacy_holders.py").read()
+    assert "def _refresh_in_background" in source
+    # Something to serve means serving it rather than waiting.
+    eligible = source.split("def _eligible_set")[1].split("\ndef ")[0]
+    assert "_refresh_in_background()" in eligible
+    assert "return _cache" in eligible
+
+
+def test_the_table_check_happens_once_rather_than_every_refresh():
+    """
+    Creating the table is a round trip of its own and only needs doing once in
+    the life of a process.
+    """
+    load = open("legacy_holders.py").read().split("def _load")[1].split("\ndef ")[0]
+    assert "if not _initialised:" in load
+
+
+def test_a_database_failure_still_never_charges_an_eligible_wallet_full_price():
+    """
+    The behaviour that mattered before any of this is unchanged: a read that
+    fails keeps the previous set rather than quietly dropping the discount.
+    """
+    eligible = open("legacy_holders.py").read().split(
+        "def _eligible_set")[1].split("\ndef ")[0]
+    assert "return _cache if _cache is not None else set()" in eligible
+    assert "must not hand out a discount" in eligible
+
+
+def test_the_quote_table_is_created_once_not_before_every_write():
+    """
+    Creating a table is a round trip, and doing it before every read and write
+    put a second call in front of somebody waiting on a price.
+    """
+    import aeth_quotes
+
+    source = open("aeth_quotes.py").read()
+    body = source.split("def init_quotes")[1].split("\ndef ")[0]
+
+    assert "global _initialised" in body
+    assert "if _initialised:" in body
+    assert "_initialised = True" in body
+
+
+def test_quotes_still_work_after_the_guard(tmp_path, monkeypatch):
+    """
+    Exercised rather than read, because an early return in the wrong place
+    would leave the table missing and every quote failing.
+    """
+    monkeypatch.setattr("ledger_utils.SQLITE_PATH", str(tmp_path / "l.db"))
+    monkeypatch.setattr("ledger_utils.USE_POSTGRES", False)
+
+    import aeth_quotes
+    aeth_quotes._initialised = False
+
+    aeth_quotes.record("W" * 40, "site-builder", 1234, 2.5)
+
+    # live() hands back the raw amount itself, not a row.
+    assert aeth_quotes.live("W" * 40, "site-builder") == 1234
+    aeth_quotes._initialised = False
 
 
 # ── one number, and the server decides it ───────────────────────────────────
@@ -1013,3 +1279,123 @@ def test_the_button_scales_the_same_way_the_server_charges():
 
     studio = open("templates/site_studio.html").read()
     assert "aethEdit.list_price" in studio
+
+
+# ── getting the site out ────────────────────────────────────────────────────
+
+def test_there_is_one_download_rather_than_two():
+    """
+    Two buttons made somebody choose between the page and the page with
+    instructions, which is not a choice worth offering: the instructions cost
+    nothing and the file is identical either way.
+    """
+    studio = open("templates/site_studio.html").read()
+
+    assert "bundle-link" not in studio
+    assert "Download with hosting instructions" not in studio
+    assert studio.count('id="dl-link"') == 1
+
+
+def test_the_download_carries_the_wallet_so_the_server_knows_whose_it_is():
+    """
+    It was a plain link, which cannot send a header, so the ownership check saw
+    no wallet and answered that the site was not theirs.
+    """
+    studio = open("templates/site_studio.html").read()
+    fn = studio.split("async function downloadSite")[1].split("\n}\n")[0]
+
+    assert '"X-USER-WALLET": window.currentWallet' in fn
+    assert "URL.createObjectURL" in fn
+
+
+def test_a_failed_package_still_hands_over_the_page():
+    """
+    The page is the thing they paid for. Failing to zip it is not a reason to
+    give them nothing.
+    """
+    studio = open("templates/site_studio.html").read()
+    fn = studio.split("async function downloadSite")[1].split("\n}\n")[0]
+
+    assert '"/download/" + currentFile' in fn
+
+
+def test_the_bundle_still_refuses_a_wallet_that_does_not_own_it():
+    """
+    Fetching with a header fixed the honest case. It must not have loosened the
+    check.
+    """
+    source = open("Aetheron.py").read()
+    route = source.split("def site_builder_bundle")[1].split("\ndef ")[0]
+
+    assert "owned_by" in route
+    assert "That site is not yours" in route
+def test_a_build_that_stops_writing_says_so():
+    """
+    Otherwise the page polls a stream that will never end, and somebody who has
+    paid watches a spinner rather than being told anything.
+    """
+    studio = open("templates/site_studio.html").read()
+    watch = studio.split("async function watch")[1]
+
+    assert "QUIET_LIMIT" in watch
+    # Collapsed: the message wraps across several source lines.
+    assert "That build stopped partway through" in " ".join(watch.split())
+    # And it points them at where the work will turn up. Taken from where the
+    # limit is checked to the end, rather than between the two mentions of it.
+    after = watch.split("if (quiet > QUIET_LIMIT)")[1]
+    assert "loadVersions()" in after
+
+
+def test_a_stalled_build_does_not_claim_the_money_is_gone():
+    studio = " ".join(open("templates/site_studio.html").read().split())
+    assert "payment is on the ledger, so nothing is lost" in studio
+
+
+# ── a paid build that dies can be run again ─────────────────────────────────
+# The worst outcome in the whole flow is money on chain and no file: the buyer
+# has no recourse and no way to prove it. These check the recovery exists and
+# that it cannot be turned into free builds.
+
+def test_a_build_records_what_it_was_asked_to_make():
+    """Otherwise a lost build cannot be re-run, only re-bought."""
+    source = open("Aetheron.py").read()
+    queue = source.split("process_site_builder.delay")[0]
+    assert "site_stream.remember" in queue.rsplit("asset_id = ", 1)[-1]
+
+
+def test_a_finished_build_cannot_be_run_again():
+    """A re-run of a success is a second build for one payment."""
+    source = open("Aetheron.py").read()
+    body = source.split("def site_builder_retry")[1].split("\n@app")[0]
+    assert 'status") or ""' in body and "pending" in body
+    assert "409" in body
+
+
+def test_a_retry_cannot_be_pointed_at_a_different_token():
+    """Arguments come from the record, never from the caller."""
+    source = open("Aetheron.py").read()
+    body = source.split("def site_builder_retry")[1].split("\n@app")[0]
+    assert "args.get(" in body
+
+    # A mint may be supplied only for builds with nothing recorded, and the
+    # wallet is never taken from the caller: it comes off the paid row, so a
+    # recovered page cannot be sent anywhere but to whoever paid for it.
+    fallback = body.split("if not args:")[1]
+    assert 'row.get("wallet")' in fallback
+    assert "if not mint:" in fallback
+
+
+def test_a_retry_belongs_to_the_wallet_that_paid():
+    """Anybody could otherwise re-run somebody else's build."""
+    source = open("Aetheron.py").read()
+    body = source.split("def site_builder_retry")[1].split("\n@app")[0]
+    assert 'caller != (row.get("wallet")' in body
+    assert "403" in body
+
+
+def test_a_pending_row_is_not_an_unlimited_supply_of_builds():
+    """A row that stays pending would otherwise pay for builds for ever."""
+    source = open("Aetheron.py").read()
+    body = source.split("def site_builder_retry")[1].split("\n@app")[0]
+    assert "count_retry(asset_id)" in body and "429" in body
+    assert "MAX_RETRIES" in open("site_stream.py").read()

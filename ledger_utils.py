@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from contextlib import contextmanager
 
@@ -21,6 +22,7 @@ SQLITE_PATH = os.getenv("LEDGER_DB_PATH", "ledger.db")
 
 if USE_POSTGRES:
     import psycopg2
+    import psycopg2.pool
     import psycopg2.errors
 
     INTEGRITY_ERRORS = (psycopg2.errors.UniqueViolation, psycopg2.IntegrityError)
@@ -30,6 +32,57 @@ else:
 
     INTEGRITY_ERRORS = (sqlite3.IntegrityError,)
     BIGINT = "INTEGER"
+
+
+# Postgres connections are pooled and reused. Opening one costs a tcp
+# handshake, a tls negotiation and an authentication round trip, which against
+# a hosted database is well over a second. Every read and write here was paying
+# that, so a single ledger lookup took 1.3 seconds and anything touching the
+# database twice took three. Nothing about the queries was slow; the connecting
+# was.
+#
+# sqlite is left alone: opening a local file is free, and a shared handle
+# across threads is a source of locking problems rather than a saving.
+_pool = None
+_pool_lock = threading.Lock()
+
+POOL_MIN = int(os.getenv("DB_POOL_MIN", "1"))
+POOL_MAX = int(os.getenv("DB_POOL_MAX", "10"))
+
+
+def _get_pool():
+    global _pool
+    if _pool is not None:
+        return _pool
+
+    with _pool_lock:
+        if _pool is None:
+            if DATABASE_URL:
+                _pool = psycopg2.pool.ThreadedConnectionPool(
+                    POOL_MIN, POOL_MAX, DATABASE_URL)
+            else:
+                _pool = psycopg2.pool.ThreadedConnectionPool(
+                    POOL_MIN, POOL_MAX, host=DB_HOST, port=DB_PORT,
+                    dbname=DB_NAME, user=DB_USER, password=DB_PASS)
+    return _pool
+
+
+def _reset_pool():
+    """
+    Throw the pool away and start again.
+
+    A hosted database drops idle connections, and a pool handing out a dead one
+    fails every request until something clears it. Cheaper to rebuild than to
+    keep serving from a pool full of closed sockets.
+    """
+    global _pool
+    with _pool_lock:
+        if _pool is not None:
+            try:
+                _pool.closeall()
+            except Exception:
+                pass
+        _pool = None
 
 
 def _conn():
@@ -62,13 +115,47 @@ def _cursor(commit: bool = False):
     success path leaked a connection every time it fired, locking SQLite
     outright, and exhausting the Postgres pool over time.
     """
-    conn = _conn()
+    if not USE_POSTGRES:
+        conn = _conn()
+        try:
+            yield conn.cursor()
+            if commit:
+                conn.commit()
+        finally:
+            conn.close()
+        return
+
+    pool = _get_pool()
     try:
+        conn = pool.getconn()
+    except Exception:
+        # A pool that cannot hand anything out is a pool worth rebuilding.
+        _reset_pool()
+        conn = _get_pool().getconn()
+
+    broken = False
+    try:
+        if conn.closed:
+            raise psycopg2.InterfaceError("connection is closed")
         yield conn.cursor()
         if commit:
             conn.commit()
+    except Exception:
+        broken = True
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
     finally:
-        conn.close()
+        try:
+            if not commit and not broken:
+                # A read leaves a transaction open otherwise, and the next
+                # borrower inherits it along with whatever it was holding.
+                conn.rollback()
+            pool.putconn(conn, close=broken or conn.closed)
+        except Exception:
+            _reset_pool()
 
 
 def backend_name() -> str:
@@ -394,6 +481,15 @@ def get_by_wallet(wallet, limit=100):
         )
         rows = cur.fetchall()
     return rows
+
+
+def get_by_asset_id(asset_id: str):
+    """One row by its asset id, or None. Used to check a build's state."""
+    with _cursor() as cur:
+        cur.execute(_q("SELECT * FROM ledger WHERE asset_id = %s LIMIT 1;"),
+                    (asset_id,))
+        row = cur.fetchone()
+    return row_to_dict(row) if row else None
 
 
 def finalize_asset(asset_id: str, filename: str):

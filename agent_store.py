@@ -1,13 +1,14 @@
 """
 Where the agent templates are fetched from.
 
-They can be read from the storage layer as well as the tree, so a deployment
-does not have to carry them on disk. That keeps the running image smaller and
-means a template can be updated without a redeploy.
+They live in the same storage the generated deliverables use, so a deployment
+does not need them present on disk to serve a download or run a preview. This
+keeps the running image small and means the templates can be updated without a
+redeploy.
 
-A local folder wins whenever it is there, which is every normal case. A
-checkout with the templates present behaves exactly as it would have without
-this module and never touches the network.
+A local folder wins whenever it is there. A checkout with the templates present
+behaves exactly as it would have without this module and never touches the
+network, so nothing about working on them changes.
 """
 
 import io

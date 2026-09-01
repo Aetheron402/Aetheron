@@ -88,7 +88,7 @@ celery.conf.update(
     worker_max_tasks_per_child=1,
     worker_max_memory_per_child=250000,  # 250 MB
     worker_prefetch_multiplier=1,
-    task_acks_late=False,
+
 )
 
 

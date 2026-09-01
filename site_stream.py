@@ -42,6 +42,61 @@ def _keys(asset_id):
     return f"site:stream:{asset_id}", f"site:state:{asset_id}"
 
 
+# How long the arguments of a paid build are kept. Much longer than the stream
+# itself, because the point of them is recovery: somebody paid, the build did
+# not survive, and the only alternative to re-running it is asking them to pay
+# a second time for the same thing.
+ARGS_TTL_SECONDS = int(os.getenv("SITE_ARGS_TTL", str(14 * 24 * 3600)))
+
+
+def remember(asset_id, args):
+    """Keep what a build was asked to make, so it can be made again."""
+    try:
+        _redis().set(f"site:args:{asset_id}", json.dumps(args),
+                     ex=ARGS_TTL_SECONDS)
+    except Exception:
+        # Losing this costs a retry, not the build. Never worth failing a
+        # request that has already been paid for.
+        pass
+
+
+def recall(asset_id):
+    """What that build was asked to make, or None if it is no longer known."""
+    try:
+        raw = _redis().get(f"site:args:{asset_id}")
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+
+MAX_RETRIES = int(os.getenv("SITE_MAX_RETRIES", "3"))
+
+
+def count_retry(asset_id):
+    """
+    Register a re-run and say whether it is allowed.
+
+    A row that stays pending would otherwise be an unlimited supply of builds
+    for one payment. Three is enough for a bad deploy and far short of being
+    worth abusing.
+    """
+    try:
+        r = _redis()
+        key = f"site:retries:{asset_id}"
+        used = r.incr(key)
+        r.expire(key, ARGS_TTL_SECONDS)
+        return used <= MAX_RETRIES
+    except Exception:
+        # A broker that cannot count is not a reason to refuse somebody the
+        # build they already paid for.
+        return True
+
+
 def begin(asset_id):
     """Clear anything stale and mark this build as running."""
     chunks, state = _keys(asset_id)

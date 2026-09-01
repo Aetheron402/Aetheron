@@ -31,8 +31,18 @@ import ledger_utils
 QUOTE_TTL_SECONDS = int(os.getenv("AETH_QUOTE_TTL", "600"))
 
 
+_initialised = False
+
+
 def init_quotes() -> None:
     """Create the quote table. Safe to call repeatedly."""
+    # Creating a table is a round trip, and it only needs doing once in the
+    # life of a process. Doing it before every read and write put a second call
+    # in front of somebody waiting on a price.
+    global _initialised
+    if _initialised:
+        return
+
     bigint = "BIGINT" if ledger_utils.USE_POSTGRES else "INTEGER"
     with ledger_utils._cursor(commit=True) as cur:
         cur.execute(
@@ -47,6 +57,8 @@ def init_quotes() -> None:
             );
             """
         )
+
+    _initialised = True
 
 
 def record(wallet: str | None, component: str, amount_raw: int, usd: float) -> None:

@@ -34,8 +34,11 @@ from ledger_utils import (
     add_partial,
     get_partial,
     clear_partial,
+    get_by_asset_id,
 )
 from aeth_price import calculate_required_aeth, AethPricingError
+
+import site_stream
 
 import storage
 import agent_setup
@@ -59,6 +62,8 @@ import os
 import time
 import shutil
 import traceback
+import functools
+import logging
 import re
 
 load_dotenv()
@@ -200,11 +205,11 @@ def payment_required(component: str, message: str, price_usdc,
 
     When the buyer is paying in AETH the challenge carries the AETH amount too,
     and locks it. It used to carry only dollars, which left the browser to work
-    the conversion out for itself, and a browser doing that against a cached
-    rate for a different price showed one number on the button and another in
-    the dialog. Worse, settlement honours the locked quote, so the smaller of
-    the two would have been rejected as short after the buyer had already sent
-    it. There is one number now and the server decides it.
+    the conversion out for itself, and a browser doing that arithmetic against a
+    cached rate for a different price showed one number on the button and
+    another in the dialog. Worse, settlement honours the locked quote, so the
+    smaller of the two would have been rejected as short after the buyer had
+    already sent it. There is one number now and the server decides it.
     """
     quoted = pricing.effective_usd(price_usdc, wallet, "USDC")
     discounted = quoted != float(price_usdc)
@@ -219,6 +224,8 @@ def payment_required(component: str, message: str, price_usdc,
         "currency": PAYMENT_CURRENCY,
         "network": PAYMENT_NETWORK,
         "wallet": PAYMENT_WALLET,
+        # AETH appears only once a mint is configured, so the field stays
+        # truthful before the token exists.
         "accepted_methods": ["USDC"] + (["AETH"] if AETH_MINT else []),
     }
 
@@ -240,10 +247,11 @@ def payment_required(component: str, message: str, price_usdc,
                                    int(round(required_aeth * (10 ** decimals))),
                                    in_aeth)
         except Exception:
+            # Without a rate there is no AETH figure to give, and quoting one
+            # anyway is worse than letting them pay in USDC.
             logger.warning("Could not quote %s in AETH", component, exc_info=True)
 
     return JSONResponse(status_code=402, content=body)
-
 
 # A price fetched now is a price nobody has to wait for later. Both run in a
 # thread and are allowed to fail: the ordinary paths still work without them.
@@ -328,7 +336,15 @@ def _iter_token_instructions(tx: dict):
         for ix in (inner.get("instructions") or []):
             yield ix
 
+@functools.lru_cache(maxsize=32)
 def get_mint_decimals(mint: str) -> int:
+    """
+    How many decimal places a mint uses.
+
+    Cached for the life of the process, because it is fixed at mint creation
+    and cannot change afterwards. It was being read off the chain on every AETH
+    quote, which put a round trip in front of somebody waiting to pay.
+    """
     resp = solana_client.get_token_supply(Pubkey.from_string(mint))
     if not resp or not resp.value:
         raise ValueError("Failed to fetch mint supply")
@@ -1827,6 +1843,13 @@ def site_builder(
     asset_id = "X402-SITE-" + ''.join(
         secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
+    # Kept before the job is queued, so a build that dies partway can be run
+    # again from what it was asked for rather than charged for twice.
+    site_stream.remember(asset_id, {
+        "mint": mint, "notes": payload.notes, "wallet": user_wallet,
+        "details": details,
+    })
+
     try:
         from celery_worker import process_site_builder
         task = process_site_builder.delay(
@@ -1855,6 +1878,65 @@ def telegram_page(request: Request):
     page somebody can read twice.
     """
     return templates.TemplateResponse("telegram.html", {"request": request})
+
+
+@app.post("/api/site-builder/retry/{asset_id}")
+def site_builder_retry(asset_id: str, request: Request, mint: str | None = None):
+    """
+    Run a paid build again.
+
+    A build can be lost between the payment and the file: a worker restarted
+    mid generation leaves a ledger row sitting at pending and a buyer holding
+    nothing. The money is already on chain and refunding it is not something
+    this can do, so the answer is to make the thing that was paid for.
+
+    Only the arguments already recorded for that asset are used, so this
+    cannot be pointed at a different token, and only rows still pending are
+    accepted, so a finished build cannot be re-run for free.
+    """
+    row = get_by_asset_id(asset_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="No such build.")
+
+    # Whoever paid can ask for their build again without going through anybody.
+    # Needing an operator to recover it means most people never get it back.
+    caller = request.headers.get("X-USER-WALLET")
+    if not dev_unlocked(request) and caller != (row.get("wallet") or object()):
+        raise HTTPException(status_code=403, detail="That build is not yours.")
+
+    if (row.get("status") or "") != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="That build already finished. Re-running it would be a "
+                   "second build for one payment.")
+
+    args = site_stream.recall(asset_id)
+    if not args:
+        # Builds queued before the arguments were being recorded have nothing
+        # to recover from. The mint can be supplied for those, and only those:
+        # the wallet still comes off the paid row, so the page can only ever
+        # go to whoever paid for it.
+        if not mint:
+            raise HTTPException(
+                status_code=404,
+                detail="Nothing recorded for that build. Pass the mint to run "
+                       "it again.")
+        args = {"mint": mint, "notes": "", "wallet": row.get("wallet"),
+                "details": None}
+        site_stream.remember(asset_id, args)
+
+    if not site_stream.count_retry(asset_id):
+        raise HTTPException(
+            status_code=429,
+            detail="That build has been run again as many times as it can be. "
+                   "Get in touch and it will be sorted by hand.")
+
+    from celery_worker import process_site_builder
+    task = process_site_builder.delay(
+        asset_id, args.get("mint"), args.get("notes"), args.get("wallet"),
+        args.get("details"))
+
+    return {"task_id": task.id, "asset_id": asset_id, "status": "requeued"}
 
 
 @app.get("/build")

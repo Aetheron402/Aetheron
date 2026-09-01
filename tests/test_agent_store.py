@@ -178,8 +178,8 @@ def test_a_nested_python_file_is_not_mistaken_for_the_entrypoint():
 def test_a_local_folder_is_preferred_over_the_network():
     """
     A checkout with the templates present should behave exactly as it would
-    without this module, and never reach for the network to fetch what is
-    already on the disk in front of it.
+    without this module, and never make a request to fetch what is already on
+    the disk in front of it.
     """
     source = " ".join(open("agent_store.py").read().split())
     assert "A local folder wins whenever it is there" in source

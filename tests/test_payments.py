@@ -2143,6 +2143,17 @@ def test_the_eligible_set_refreshes_without_a_restart():
 
     # Age the cache past its window rather than sleeping through it.
     legacy_holders._cached_at = time.time() - legacy_holders.CACHE_TTL_SECONDS - 1
+
+    # The refresh runs behind the request now, so the caller that finds it
+    # stale is served what there was and the next one gets the new set. The
+    # wallet still turns up without a restart, which is what this is about.
+    legacy_holders.is_legacy_holder("AnythingAtAll")
+
+    for _ in range(50):
+        if legacy_holders.is_legacy_holder("AddedBehindTheCache1111111111111111111"):
+            break
+        time.sleep(0.05)
+
     assert legacy_holders.is_legacy_holder("AddedBehindTheCache1111111111111111111")
 
 

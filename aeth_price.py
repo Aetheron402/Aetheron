@@ -19,6 +19,7 @@ two. Neither path depends on an API key now.
 
 import logging
 import os
+import threading
 import time
 
 import requests
@@ -46,7 +47,17 @@ MAX_PLAUSIBLE_PRICE_USD = 1e6
 LAMPORTS_PER_SOL = 1_000_000_000
 PUMPFUN_DEFAULT_DECIMALS = 6
 
-CACHE_TTL = 20
+# How long a fetched price is served without thinking about it.
+CACHE_TTL = 60
+
+# And how long past that it is still served immediately while a refresh runs
+# behind it. A twenty second cache meant almost every real visitor paid for a
+# round trip to the price source, three seconds of staring at a button, because
+# it is rare for two people to ask inside the same twenty seconds. Serving the
+# last known price while fetching the next one costs nobody anything: the quote
+# a buyer is given is honoured for ten minutes regardless, so a price a minute
+# old is already well inside the tolerance the settlement check allows.
+STALE_TTL = int(os.getenv("AETH_PRICE_STALE_TTL", "900"))
 _last_ts = 0
 _cached_price_usdc = None
 
@@ -165,16 +176,58 @@ def _pumpfun_price_usd(mint: str) -> float:
     return _sanity_check(price_usd, "pump.fun")
 
 
+_refreshing = False
+
+
+def _refresh_in_background():
+    """
+    Fetch the next price without holding anybody up.
+
+    One at a time. Without the flag, a burst of requests against a stale cache
+    would each start their own fetch, which is the hammering the cache exists
+    to prevent.
+    """
+    global _refreshing
+    if _refreshing:
+        return
+    _refreshing = True
+
+    def run():
+        global _refreshing
+        try:
+            get_aeth_price_usdc(force_refresh=True)
+        except Exception as exc:
+            logger.warning("Background AETH price refresh failed: %s", exc)
+        finally:
+            _refreshing = False
+
+    threading.Thread(target=run, daemon=True, name="aeth-price").start()
+
+
+def warm():
+    """
+    Fetch a price at startup so the first visitor does not pay for it.
+
+    Failures are ignored: this is a courtesy, and the ordinary path still works
+    if it does not happen.
+    """
+    _refresh_in_background()
+
+
 def get_aeth_price_usdc(force_refresh: bool = False) -> float:
     """AETH price in USDC, cached briefly to avoid hammering the sources."""
     global _last_ts, _cached_price_usdc
 
     now = time.time()
-    if (
-        not force_refresh
-        and _cached_price_usdc is not None
-        and (now - _last_ts) < CACHE_TTL
-    ):
+    age = now - _last_ts if _cached_price_usdc is not None else None
+
+    if not force_refresh and age is not None and age < CACHE_TTL:
+        return _cached_price_usdc
+
+    # Past its freshness but not past usefulness: hand back what we have and
+    # fetch the next one behind the request, so nobody waits on the network.
+    if not force_refresh and age is not None and age < STALE_TTL:
+        _refresh_in_background()
         return _cached_price_usdc
 
     if not AETH_MINT:
