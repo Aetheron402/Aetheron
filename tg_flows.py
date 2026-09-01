@@ -313,7 +313,7 @@ def register(router, api):
 
     @router.command(
         "components", help="What you can run, and what it costs.",
-        aliases=("list",))
+        aliases=("list",), group="start")
     def _components(ctx):
         lines = ["What I can run for you:", ""]
         for slug, spec in tg_api.COMPONENTS.items():
@@ -324,7 +324,7 @@ def register(router, api):
     @router.command(
         "buy", usage="<component> <your input>",
         help="Run a component and get the report back.",
-        requires_wallet=True, private_only=True)
+        requires_wallet=True, private_only=True, group="buy")
     def _buy(ctx):
         parts = ctx.args.split(maxsplit=1)
         if not parts:
@@ -346,7 +346,7 @@ def register(router, api):
         start_purchase(ctx, api, component, user_input)
 
     @router.command("cancel", help="Drop a quote you have not paid.",
-                    private_only=True)
+                    private_only=True, group="buy")
     def _cancel(ctx):
         record = tg_purchase.awaiting_for(ctx.chat_id)
         if not record:
@@ -404,7 +404,7 @@ def register(router, api):
             start_purchase(ctx, api, "contract-intel", text)
 
     @router.command("pending", help="What you have in flight.",
-                    private_only=True)
+                    private_only=True, group="buy")
     def _pending(ctx):
         awaiting = tg_purchase.awaiting_for(ctx.chat_id)
         running = [r for r in tg_purchase.history(ctx.chat_id, limit=20)

@@ -458,3 +458,52 @@ def test_confirm_reports_the_wallet_the_server_decided_on():
     body = source.split('@router.command("confirm"')[1].split("@router.command")[0]
     assert "wallet = tg_link.confirm(" in body
     assert "ctx.args" not in body.split("tg_link.confirm(")[1]
+
+
+# ── help that can be read ───────────────────────────────────────────────────
+# An alphabetical dump puts /agents first and /wallet last, which tells a new
+# person nothing about where to begin.
+
+def test_help_is_grouped_by_what_you_are_trying_to_do():
+    import tg_assets
+    import tg_flows
+    import tg_free
+    from tg_api import FakeApiClient
+
+    router = tg_commands.build_router()
+    api = FakeApiClient()
+    tg_flows.register(router, api)
+    tg_free.register(router, api, [])
+    tg_assets.register(router, api, {})
+
+    text = router.help_text()
+    for heading in ("START HERE", "TRY IT FOR NOTHING", "BUYING",
+                    "YOUR FILES", "YOUR WALLET"):
+        assert heading in text
+
+    # Nothing is left in the catch-all, which would mean a command was added
+    # without saying where it belongs.
+    assert "EVERYTHING ELSE" not in text
+
+    # And the first thing under the first heading is the first thing to do.
+    assert text.split("START HERE\n")[1].startswith("/components")
+
+
+def test_every_command_still_appears_somewhere():
+    """Grouping must never be a way for a command to fall out of the list."""
+    import tg_assets
+    import tg_flows
+    import tg_free
+    from tg_api import FakeApiClient
+
+    router = tg_commands.build_router()
+    api = FakeApiClient()
+    tg_flows.register(router, api)
+    tg_free.register(router, api, [])
+    tg_assets.register(router, api, {})
+
+    text = router.help_text()
+    for name, entry in router.commands.items():
+        if entry.hidden or name != entry.name:
+            continue
+        assert f"/{name}" in text, f"/{name} is missing from help"

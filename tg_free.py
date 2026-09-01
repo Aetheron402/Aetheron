@@ -212,7 +212,7 @@ def register(router, api, pending_previews):
     @router.command(
         "example", usage="<component>",
         help="Read a real report from a component, free.",
-        requires_wallet=True)
+        requires_wallet=True, group="free")
     def _example(ctx):
         name = ctx.args.strip()
         if not name:
@@ -226,7 +226,7 @@ def register(router, api, pending_previews):
     @router.command(
         "preview", usage="<agent>",
         help="Watch an agent run on live data for 25 seconds, free.",
-        requires_wallet=True, aliases=("watch",))
+        requires_wallet=True, aliases=("watch",), group="free")
     def _preview(ctx):
         agent_id = ctx.args.strip().lower().replace("_", "-")
         if not agent_id:
@@ -240,7 +240,7 @@ def register(router, api, pending_previews):
                 "chat_id": ctx.chat_id, "task_id": task_id,
                 "agent_id": agent_id, "polls": 0})
 
-    @router.command("agents", help="Agents you can watch run.")
+    @router.command("agents", help="Agents you can watch run.", group="free")
     def _agents(ctx):
         names = sorted(getattr(api, "previewable", ()) or ())
         if not names:

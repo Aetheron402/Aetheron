@@ -35,6 +35,27 @@ RATE_LIMIT_WINDOW_SECONDS = 60
 # acknowledged, so this only has to outlive a restart's worth of backlog.
 SEEN_UPDATES_KEPT = 2000
 
+# Help is grouped by what somebody is trying to do rather than by name. An
+# alphabetical list puts /agents first and /wallet last, which tells a new
+# person nothing about where to start. The order here is the order they meet
+# it in: see what exists, try it for nothing, buy something, find it again.
+HELP_GROUPS = [
+    ("start", "START HERE"),
+    ("free", "TRY IT FOR NOTHING"),
+    ("buy", "BUYING"),
+    ("files", "YOUR FILES"),
+    ("wallet", "YOUR WALLET"),
+    ("more", "EVERYTHING ELSE"),
+]
+
+HELP_ORDER = [
+    "components", "link", "confirm",
+    "example", "preview", "agents",
+    "buy", "pending", "cancel",
+    "assets", "get",
+    "wallet", "unlink",
+]
+
 
 @dataclass
 class Context:
@@ -71,6 +92,7 @@ class Command:
     private_only: bool = False
     hidden: bool = False
     aliases: tuple = ()
+    group: str = "more"
 
 
 class Router:
@@ -96,13 +118,13 @@ class Router:
     # ── building the router ─────────────────────────────────────────────────
 
     def command(self, name, help="", usage="", requires_wallet=False,
-                private_only=False, hidden=False, aliases=()):
+                private_only=False, hidden=False, aliases=(), group="more"):
         """Register a handler. Used as a decorator."""
         def register(fn):
             entry = Command(name=name, handler=fn, help=help, usage=usage,
                             requires_wallet=requires_wallet,
                             private_only=private_only, hidden=hidden,
-                            aliases=tuple(aliases))
+                            aliases=tuple(aliases), group=group)
             self.commands[name] = entry
             for alias in aliases:
                 self.commands[alias] = entry
@@ -185,7 +207,7 @@ class Router:
         A help list maintained by hand goes stale the first time a command is
         renamed, and then it is worse than none.
         """
-        seen, lines = set(), []
+        seen, grouped = set(), {}
         for entry in self.commands.values():
             if entry.hidden or id(entry) in seen:
                 continue
@@ -193,10 +215,24 @@ class Router:
             if is_group and entry.private_only:
                 continue
             usage = f"/{entry.name} {entry.usage}".strip()
-            lines.append(f"{usage}\n   {entry.help}")
+            rank = (HELP_ORDER.index(entry.name)
+                    if entry.name in HELP_ORDER else len(HELP_ORDER))
+            grouped.setdefault(entry.group, []).append(
+                (rank, f"{usage}\n   {entry.help}"))
 
-        lines.sort()
-        body = "\n\n".join(lines)
+        blocks = []
+        for key, heading in HELP_GROUPS:
+            if key not in grouped:
+                continue
+            rows = sorted(grouped.pop(key))
+            blocks.append(heading + "\n" + "\n".join(row for _, row in rows))
+
+        # Anything registered under a group nobody named still has to appear,
+        # since a command missing from help is a command nobody finds.
+        for leftover in grouped.values():
+            blocks.append("\n".join(row for _, row in sorted(leftover)))
+
+        body = "\n\n".join(blocks)
 
         if is_group:
             body += ("\n\nAnything involving payment or your own files works "
@@ -312,15 +348,21 @@ def build_router() -> Router:
     """
     router = Router()
 
-    @router.command("help", help="What I can do.", aliases=("start",))
+    @router.command("help", help="What I can do.", aliases=("start",),
+                    hidden=True)
     def _help(ctx):
+        # The first and last lines are the ones people read. The first says
+        # what this is, the last says what to do next, and the list in between
+        # is for the people who came back for it.
         ctx.say(
-            "Aetheron runs AI components you pay for per call, in USDC or AETH. "
-            "No signup and no subscription.\n\n"
-            + router.help_text(is_group=ctx.update.is_group))
+            "Aetheron runs AI components you pay for per call, in USDC or "
+            "AETH. No signup and no subscription.\n\n"
+            + router.help_text(is_group=ctx.update.is_group)
+            + "\n\nNew here? /components shows what there is, and /example "
+              "reads you a real one for nothing.")
 
     @router.command("wallet", help="Show the wallet linked to this chat.",
-                    private_only=True)
+                    private_only=True, group="wallet")
     def _wallet(ctx):
         wallet = tg_link.wallet_for(ctx.chat_id)
         if not wallet:
@@ -331,7 +373,7 @@ def build_router() -> Router:
                 "Send /unlink to forget it.")
 
     @router.command("link", usage="<wallet address>",
-                    help="Link your wallet to this chat.", private_only=True)
+                    help="Link your wallet to this chat.", private_only=True, group="start")
     def _link(ctx):
         address = ctx.args.strip()
         if not address:
@@ -357,7 +399,7 @@ def build_router() -> Router:
 
     @router.command("confirm", usage="<signature>",
                     help="Finish linking with your signature.",
-                    private_only=True)
+                    private_only=True, group="start")
     def _confirm(ctx):
         signature = ctx.args.strip()
         if not signature:
@@ -376,7 +418,7 @@ def build_router() -> Router:
                 "shows what I can run.")
 
     @router.command("unlink", help="Forget the wallet linked here.",
-                    private_only=True)
+                    private_only=True, group="wallet")
     def _unlink(ctx):
         if tg_link.unlink(ctx.chat_id):
             ctx.say("Forgotten. This chat is no longer linked to any wallet.")

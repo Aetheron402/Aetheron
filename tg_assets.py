@@ -129,13 +129,13 @@ def register(router, api, last_listed):
 
     @router.command("assets", help="Files you have bought, to download again.",
                     requires_wallet=True, private_only=True,
-                    aliases=("history", "files"))
+                    aliases=("history", "files"), group="files")
     def _assets(ctx):
         last_listed[ctx.chat_id] = list_assets(ctx, api)
 
     @router.command("get", usage="<number>",
                     help="Send one of your files again.",
-                    requires_wallet=True, private_only=True)
+                    requires_wallet=True, private_only=True, group="files")
     def _get(ctx):
         if not ctx.args.strip():
             ctx.say("Send /get followed by the number from /assets.")
