@@ -431,16 +431,21 @@ def test_nothing_here_needs_a_telegram_token():
 # nothing, which left every paid command unreachable, so these keep the two
 # halves of linking present and reachable.
 
-def test_link_and_confirm_are_registered():
-    router = tg_commands.build_router()
-    names = set(router.commands) if hasattr(router, "commands") else set()
+def test_link_hands_out_a_page_rather_than_asking_for_an_address():
+    """
+    A wallet address is forty odd characters of base58 typed on a phone. The
+    page takes it from the connected wallet, so there is nothing to type.
+    """
     source = open("tg_commands.py").read()
-    assert '@router.command("link"' in source
-    assert '@router.command("confirm"' in source
+    body = source.split('@router.command("link"')[1].split("@router.command")[0]
+    assert "tg_link.start_code" in body
+    assert "link_url(code)" in body
+    # And it never asks for the address it used to.
+    assert "ctx.args" not in body
 
 
-def test_link_asks_for_a_signature_rather_than_a_key():
-    """The one thing this must never do is ask for a private key."""
+def test_link_promises_no_private_key():
+    """The one thing it must never do is ask for one."""
     source = open("tg_commands.py").read()
     body = source.split('@router.command("link"')[1].split("@router.command")[0]
     flat = " ".join(body.split())
@@ -448,21 +453,15 @@ def test_link_asks_for_a_signature_rather_than_a_key():
     assert "seed" not in flat.lower()
 
 
-def test_confirm_reports_the_wallet_the_server_decided_on():
+def test_the_link_page_is_a_public_address_not_the_local_port():
     """
-    Never the address the caller typed into /confirm. The wallet comes out of
-    the stored challenge, so echoing anything else would be lying about what
-    got linked.
+    The bot runs inside the service, but it is telling a person where to go in
+    a browser. Handing them 127.0.0.1 would be a link nobody can open.
     """
-    source = open("tg_commands.py").read()
-    body = source.split('@router.command("confirm"')[1].split("@router.command")[0]
-    assert "wallet = tg_link.confirm(" in body
-    assert "ctx.args" not in body.split("tg_link.confirm(")[1]
+    import tg_commands as module
+    assert module.link_url("x").startswith("https://")
+    assert "127.0.0.1" not in module.link_url("x")
 
-
-# ── help that can be read ───────────────────────────────────────────────────
-# An alphabetical dump puts /agents first and /wallet last, which tells a new
-# person nothing about where to begin.
 
 def test_help_is_grouped_by_what_you_are_trying_to_do():
     import tg_assets

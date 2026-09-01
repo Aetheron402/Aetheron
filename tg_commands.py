@@ -17,10 +17,18 @@ purchase confirmation, running it twice tries to spend twice.
 """
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 
 import tg_link
+
+SITE_URL = os.getenv("PUBLIC_SITE_URL", "https://aetheronprotocol.com").rstrip("/")
+
+
+def link_url(code: str) -> str:
+    return f"{SITE_URL}/tg/{code}"
+
 from tg_transport import TransportError, Update
 
 logger = logging.getLogger(__name__)
@@ -372,50 +380,31 @@ def build_router() -> Router:
         ctx.say(f"This chat is linked to:\n{wallet}\n\n"
                 "Send /unlink to forget it.")
 
-    @router.command("link", usage="<wallet address>",
-                    help="Link your wallet to this chat.", private_only=True, group="start")
+    @router.command("link", help="Link your wallet to this chat.",
+                    private_only=True, group="start")
     def _link(ctx):
-        address = ctx.args.strip()
-        if not address:
-            ctx.say("Send /link followed by your wallet address, for example\n"
-                    "/link 7xKX...9mPq")
-            return
+        """
+        Hand out a one time link rather than asking for an address.
 
+        Typing a wallet address into a chat is the worst step in the bot: forty
+        odd characters of base58, on a phone, with no error correction. The page
+        takes the address from the connected wallet instead, so there is nothing
+        to type and nothing to get wrong.
+        """
         try:
-            issued = tg_link.challenge(ctx.chat_id, address)
-        except tg_link.LinkError as error:
-            ctx.say(str(error))
-            return
+            code = tg_link.start_code(ctx.chat_id)
+        except Exception:
+            ctx.say("Something went wrong starting that. Try again in a moment.")
+            raise
 
-        minutes = max(1, issued["expires_in"] // 60)
+        minutes = max(1, tg_link.CHALLENGE_TTL_SECONDS // 60)
         ctx.say(
-            "Sign this exact message with that wallet, then send it back to me "
-            f"with /confirm followed by the signature. You have {minutes} "
-            "minutes.\n\n"
-            f"{issued['message']}\n\n"
-            "Any wallet that can sign a message will do this. It moves nothing "
+            "Open this and hit connect:\n"
+            f"{link_url(code)}\n\n"
+            f"It works once and expires in {minutes} minutes. Your wallet signs "
+            "a message to prove it is yours. Nothing moves, nothing is spent, "
             "and I never ask for a private key."
         )
-
-    @router.command("confirm", usage="<signature>",
-                    help="Finish linking with your signature.",
-                    private_only=True, group="start")
-    def _confirm(ctx):
-        signature = ctx.args.strip()
-        if not signature:
-            ctx.say("Send /confirm followed by the signature from the message "
-                    "you signed.")
-            return
-
-        try:
-            wallet = tg_link.confirm(ctx.chat_id, signature)
-        except tg_link.LinkError as error:
-            ctx.say(str(error))
-            return
-
-        ctx.say(f"Linked to:\n{wallet}\n\n"
-                "Everything you buy stays tied to that wallet. /components "
-                "shows what I can run.")
 
     @router.command("unlink", help="Forget the wallet linked here.",
                     private_only=True, group="wallet")

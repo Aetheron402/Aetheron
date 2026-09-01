@@ -895,6 +895,75 @@ def agents_page(request: Request):
 def learn_page(request: Request):
     return templates.TemplateResponse("learn.html", {"request": request})
 
+@app.get("/tg/{code}", response_class=HTMLResponse)
+def telegram_link_page(code: str, request: Request):
+    """
+    Where a Telegram link is finished.
+
+    The chat hands out the code and this page does the rest, because typing a
+    wallet address into a chat on a phone is forty characters of base58 with no
+    error correction, and the reward for a typo is a signature that will not
+    verify against an address nobody meant to type.
+
+    Whether the code is good is decided here rather than after somebody has
+    connected a wallet and approved a signature.
+    """
+    import tg_link
+
+    try:
+        valid = tg_link.pending_code(code) is not None
+    except Exception:
+        logger.warning("Could not check a Telegram link code", exc_info=True)
+        valid = False
+
+    return templates.TemplateResponse("tg_link.html", {
+        "request": request, "code": code, "valid": valid,
+    })
+
+
+class TelegramLinkIn(BaseModel):
+    code: str
+    wallet: str
+    signature: str
+
+
+@app.post("/api/tg/link")
+def telegram_link(payload: TelegramLinkIn):
+    """
+    Finish the link, and tell the chat it worked.
+
+    Nothing from the page is trusted. The chat comes from the stored code, the
+    message is rebuilt from the code and the submitted wallet, and the
+    signature has to verify against that. A page that lied about any of it
+    links nothing.
+    """
+    import tg_link
+
+    try:
+        chat_id = tg_link.complete_code(
+            payload.code, payload.wallet, payload.signature)
+    except tg_link.LinkError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception:
+        logger.exception("Telegram link failed")
+        raise HTTPException(status_code=500, detail="That could not be linked.")
+
+    # The person is on a web page, so the chat has no idea this happened. A
+    # failure to say so is not a failure to link, which is why it cannot throw.
+    try:
+        import tg_http
+        if tg_http.token():
+            tg_http.HttpTransport().send_text(
+                int(chat_id),
+                f"Wallet linked:\n{payload.wallet}\n\n"
+                "Everything you buy stays tied to it. /components shows what "
+                "I can run.")
+    except Exception:
+        logger.warning("Linked, but could not tell the chat", exc_info=True)
+
+    return {"status": "linked"}
+
+
 @app.get("/legal", response_class=HTMLResponse)
 def legal_page(request: Request):
     return templates.TemplateResponse("legal.html", {"request": request})

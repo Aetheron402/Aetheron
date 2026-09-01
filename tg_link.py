@@ -245,6 +245,139 @@ def confirm(chat_id, signature: str) -> str:
     return wallet
 
 
+# ── linking from a page instead of the chat ─────────────────────────────────
+# Typing a wallet address into a chat is the worst step in the whole bot. It is
+# forty odd characters of base58 with no error correction, on a phone, and the
+# reward for a typo is a signature that will not verify against an address the
+# person never meant to type.
+#
+# So the chat hands out a one time code instead and the page does the rest. The
+# wallet arrives from the connected wallet rather than from anybody's thumbs,
+# and the signature never has to be seen, copied or pasted.
+
+
+def start_code(chat_id) -> str:
+    """
+    Issue a one time code for this chat, to be finished on the page.
+
+    Stored with an empty wallet, because at this point nobody knows which one
+    it will be. The chat is what the code is bound to, which is the thing that
+    matters: a code opened by somebody else links their wallet to this chat and
+    nothing else, and they would have to have been sent the code to do it.
+    """
+    init()
+    code = secrets.token_urlsafe(18)
+
+    with ledger_utils._cursor(commit=True) as cur:
+        # One outstanding code per chat, for the same reason as one challenge.
+        cur.execute(
+            ledger_utils._q("DELETE FROM tg_challenges WHERE chat_id = %s;"),
+            (str(chat_id),),
+        )
+        cur.execute(
+            ledger_utils._q(
+                "INSERT INTO tg_challenges (nonce, chat_id, wallet, issued_at) "
+                "VALUES (%s, %s, %s, %s);"
+            ),
+            (code, str(chat_id), "", time.time()),
+        )
+    return code
+
+
+def pending_code(code: str) -> dict | None:
+    """
+    Whether a code is still good, without spending it.
+
+    The page needs this to say expired rather than to fail at the last step,
+    after somebody has already connected a wallet and approved a signature.
+    """
+    init()
+    with ledger_utils._cursor() as cur:
+        cur.execute(
+            ledger_utils._q(
+                "SELECT nonce, chat_id, issued_at FROM tg_challenges "
+                "WHERE nonce = %s;"
+            ),
+            (code,),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return None
+    if time.time() - float(row[2]) > CHALLENGE_TTL_SECONDS:
+        return None
+    return {"code": row[0], "chat_id": row[1]}
+
+
+def message_for_code(wallet: str, code: str) -> str:
+    """The text the page asks the wallet to sign. Same shape as the chat one."""
+    return message_for(wallet, code)
+
+
+def complete_code(code: str, wallet: str, signature: str) -> str:
+    """
+    Finish a link started in the chat and finished on the page.
+
+    Returns the chat that was linked, so the caller can tell that chat it
+    worked. Everything is checked here rather than trusted from the page: the
+    code has to exist and be unexpired, the wallet has to look like one, and
+    the signature has to verify against the exact message this code implies.
+    """
+    init()
+    wallet = (wallet or "").strip()
+    if not looks_like_a_wallet(wallet):
+        raise LinkError("That does not look like a Solana wallet address.")
+
+    with ledger_utils._cursor(commit=True) as cur:
+        cur.execute(
+            ledger_utils._q(
+                "SELECT chat_id, issued_at FROM tg_challenges WHERE nonce = %s;"
+            ),
+            (code,),
+        )
+        row = cur.fetchone()
+        if row:
+            # Spent on sight, so a code cannot be replayed even if the rest of
+            # this fails.
+            cur.execute(
+                ledger_utils._q("DELETE FROM tg_challenges WHERE nonce = %s;"),
+                (code,),
+            )
+
+    if not row:
+        raise LinkError("That link has already been used. Send /link again.")
+
+    chat_id, issued_at = row[0], float(row[1])
+    if time.time() - issued_at > CHALLENGE_TTL_SECONDS:
+        raise LinkError("That link expired. Send /link again for a new one.")
+
+    try:
+        ok = Signature.from_string((signature or "").strip()).verify(
+            Pubkey.from_string(wallet), message_for(wallet, code).encode()
+        )
+    except Exception:
+        raise LinkError("That signature could not be read.")
+
+    if not ok:
+        raise LinkError("That signature does not match that wallet.")
+
+    now = time.time()
+    with ledger_utils._cursor(commit=True) as cur:
+        cur.execute(
+            ledger_utils._q("DELETE FROM tg_wallets WHERE chat_id = %s;"),
+            (str(chat_id),),
+        )
+        cur.execute(
+            ledger_utils._q(
+                "INSERT INTO tg_wallets (chat_id, wallet, linked_at) "
+                "VALUES (%s, %s, %s);"
+            ),
+            (str(chat_id), wallet, now),
+        )
+
+    return str(chat_id)
+
+
 def wallet_for(chat_id) -> str | None:
     """
     The wallet this chat may act as, or None.

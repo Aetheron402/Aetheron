@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Link your wallet{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-16">
+  <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+
+    <h1 class="text-2xl font-bold text-white mb-2">Link your wallet</h1>
+    <p class="text-sm text-gray-400 mb-8">
+      This connects your wallet to your Telegram chat so the bot knows what you
+      have bought. It signs a message to prove the wallet is yours. It moves
+      nothing, spends nothing, and never asks for a private key.
+    </p>
+
+    {% if not valid %}
+      <div class="rounded-lg px-4 py-3 text-sm"
+           style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#fca5a5">
+        This link has expired or has already been used. Send /link to the bot
+        again for a new one.
+      </div>
+    {% else %}
+      <button id="go" class="btn-primary w-full py-3 font-semibold">
+        Connect wallet and sign
+      </button>
+
+      <p id="note" class="text-sm text-gray-400 mt-4"></p>
+
+      <div id="done" class="hidden rounded-lg px-4 py-3 text-sm mt-4"
+           style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#6ee7b7">
+        Linked. You can close this and go back to Telegram.
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  const CODE = {{ code | tojson }};
+
+  const note = document.getElementById("note");
+  const go = document.getElementById("go");
+
+  function say(text, bad) {
+    if (!note) return;
+    note.textContent = text;
+    note.style.color = bad ? "#fca5a5" : "";
+  }
+
+  // Whatever the browser has. The wallets all expose the same two calls, so
+  // there is nothing here worth a library.
+  function provider() {
+    if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
+    if (window.solflare?.isSolflare) return window.solflare;
+    if (window.backpack?.isBackpack) return window.backpack;
+    if (window.solana) return window.solana;
+    return null;
+  }
+
+  go?.addEventListener("click", async () => {
+    const wallet = provider();
+    if (!wallet) {
+      say("No Solana wallet found in this browser. Open this link inside your "
+          + "wallet app's browser, or install Phantom.", true);
+      return;
+    }
+
+    go.disabled = true;
+    say("Waiting for your wallet…");
+
+    try {
+      const connected = await wallet.connect();
+      const address = (connected?.publicKey || wallet.publicKey).toString();
+
+      // The message is built here and rebuilt on the server from the same two
+      // pieces, so nobody can be shown one thing and have another checked.
+      const message =
+        "Aetheron Telegram link\n" +
+        "wallet: " + address + "\n" +
+        "nonce: " + CODE + "\n" +
+        "This proves you own this wallet. It signs nothing on chain, " +
+        "moves no funds, and grants no spending permission.";
+
+      say("Approve the signature in your wallet…");
+      const signed = await wallet.signMessage(
+        new TextEncoder().encode(message), "utf8");
+
+      const raw = signed.signature || signed;
+      const signature = bs58(raw);
+
+      say("Linking…");
+      const response = await fetch("/api/tg/link", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({code: CODE, wallet: address, signature}),
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        say(body.detail || "That did not work.", true);
+        go.disabled = false;
+        return;
+      }
+
+      go.classList.add("hidden");
+      note.textContent = "";
+      document.getElementById("done").classList.remove("hidden");
+    } catch (error) {
+      say(error?.message || "Cancelled.", true);
+      go.disabled = false;
+    }
+  });
+
+  // Base58, because that is what a Solana signature is written as everywhere
+  // else and the server reads it with the same alphabet.
+  function bs58(bytes) {
+    const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    const digits = [0];
+    for (const byte of bytes) {
+      let carry = byte;
+      for (let i = 0; i < digits.length; i += 1) {
+        carry += digits[i] << 8;
+        digits[i] = carry % 58;
+        carry = (carry / 58) | 0;
+      }
+      while (carry > 0) {
+        digits.push(carry % 58);
+        carry = (carry / 58) | 0;
+      }
+    }
+    let out = "";
+    for (const byte of bytes) {
+      if (byte === 0) out += "1"; else break;
+    }
+    for (let i = digits.length - 1; i >= 0; i -= 1) out += ALPHABET[digits[i]];
+    return out;
+  }
+</script>
+{% endblock %}

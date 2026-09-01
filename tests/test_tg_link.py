@@ -290,3 +290,70 @@ def test_nothing_here_needs_a_telegram_token(link):
     source = open("tg_link.py").read()
     assert "TELEGRAM" not in source.upper() or "TELEGRAM_TOKEN" not in source.upper()
     assert "api.telegram.org" not in source
+
+
+# ── linking from a page ─────────────────────────────────────────────────────
+# The chat hands out a code and the page finishes it, so nobody types a wallet
+# address into Telegram. These cover the things that would let somebody link a
+# wallet that is not theirs.
+
+def test_a_code_is_bound_to_the_chat_that_asked_for_it(link):
+    code = link.start_code(4242)
+    assert link.pending_code(code)["chat_id"] == "4242"
+
+
+def test_asking_again_replaces_the_old_code(link):
+    """An abandoned attempt must not leave a live code behind it."""
+    first = link.start_code(77)
+    second = link.start_code(77)
+    assert link.pending_code(first) is None
+    assert link.pending_code(second) is not None
+
+
+def test_a_code_is_spent_even_when_the_signature_is_wrong(link):
+    """
+    Otherwise a code survives every failed attempt and can be guessed at
+    forever.
+    """
+    code = link.start_code(88)
+    wallet = "FZtoQTD7MLHvJzxxSPcUaQkXB5yP6qKYBZ8tUV18hHo1"
+
+    with pytest.raises(link.LinkError):
+        link.complete_code(code, wallet, "not a signature")
+
+    assert link.pending_code(code) is None
+
+
+def test_an_unknown_code_links_nothing(link):
+    with pytest.raises(link.LinkError):
+        link.complete_code("nothing-like-this", 
+                              "FZtoQTD7MLHvJzxxSPcUaQkXB5yP6qKYBZ8tUV18hHo1",
+                              "sig")
+
+
+def test_a_real_signature_links_the_chat_the_code_came_from(link):
+    """
+    The chat comes from the stored code, never from the page, so a page that
+    lied about which chat it was finishing would link nothing.
+    """
+    keypair = Keypair()
+    wallet = str(keypair.pubkey())
+
+    code = link.start_code(31337)
+    message = link.message_for(wallet, code)
+    signature = str(keypair.sign_message(message.encode()))
+
+    assert link.complete_code(code, wallet, signature) == "31337"
+    assert link.wallet_for(31337) == wallet
+
+
+def test_signing_the_right_message_for_the_wrong_wallet_links_nothing(link):
+    mine, theirs = Keypair(), Keypair()
+    code = link.start_code(555)
+
+    # Signed correctly, but claiming to be somebody else's wallet.
+    message = link.message_for(str(theirs.pubkey()), code)
+    signature = str(mine.sign_message(message.encode()))
+
+    with pytest.raises(link.LinkError):
+        link.complete_code(code, str(theirs.pubkey()), signature)
