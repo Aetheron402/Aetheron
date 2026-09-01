@@ -19,7 +19,14 @@ import os
 
 import requests
 
-BASE_URL = os.getenv("AETHERON_API_BASE", "http://localhost:8000").rstrip("/")
+# The bot runs inside the web service, so by default it calls it on the loop
+# back address rather than going out to the internet and back. The port comes
+# from the same variable the server is started with, since a fixed one would be
+# right only on a laptop.
+BASE_URL = os.getenv(
+    "AETHERON_API_BASE",
+    f"http://127.0.0.1:{os.getenv('PORT', '8000')}",
+).rstrip("/")
 TIMEOUT = int(os.getenv("TG_API_TIMEOUT", "60"))
 
 

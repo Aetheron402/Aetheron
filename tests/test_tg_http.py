@@ -158,3 +158,20 @@ def test_the_bot_never_takes_the_shop_down_with_it():
     block = source.split("import tg_bot")[1].split("app.mount")[0]
     assert "except Exception" in block
     assert "tg_bot.start()" in block
+
+
+def test_the_bot_calls_the_service_it_runs_inside():
+    """
+    A fixed port is right on a laptop and wrong everywhere it is deployed, and
+    the failure looks like the bot silently answering nothing.
+    """
+    import importlib
+    import tg_api
+    os.environ["PORT"] = "9123"
+    os.environ.pop("AETHERON_API_BASE", None)
+    importlib.reload(tg_api)
+    try:
+        assert tg_api.BASE_URL == "http://127.0.0.1:9123"
+    finally:
+        os.environ.pop("PORT", None)
+        importlib.reload(tg_api)
