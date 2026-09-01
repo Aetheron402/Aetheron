@@ -251,3 +251,33 @@ def test_an_expired_link_does_not_explain_what_would_have_happened():
     dead = page.split("{% if not valid %}")[1].split("{% else %}")[0]
     assert "Your wallet connects" not in dead
     assert "expired" in dead
+
+
+# ── the page people are sent to ─────────────────────────────────────────────
+
+def test_the_telegram_page_carries_all_three_links():
+    """
+    The page is where somebody lands from the site. A page describing a bot
+    without a way to open it is the one thing it must not be.
+    """
+    page = open("templates/telegram.html").read()
+    for link in ("https://t.me/AetheronProtocolBot",
+                 "https://t.me/AetheronPublic",
+                 "https://t.me/aetheron_protcol"):
+        assert link in page, link
+
+
+def test_the_telegram_page_is_not_still_promising_a_launch():
+    page = " ".join(open("templates/telegram.html").read().split())
+    assert "opens Tuesday" not in page
+    assert "the links appear here" not in page
+
+
+def test_the_page_describes_the_linking_that_exists():
+    """
+    It described sending an address and pasting a signature back, which is not
+    what the bot does any more.
+    """
+    page = " ".join(open("templates/telegram.html").read().split())
+    assert "paste the signature back" not in page
+    assert "one time link" in page

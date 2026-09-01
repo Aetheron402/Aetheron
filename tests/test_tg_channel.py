@@ -220,10 +220,12 @@ def test_the_page_says_what_the_bot_will_not_do():
     assert "private chat only" in html.lower()
 
 
-def test_the_page_does_not_claim_the_bot_is_live():
+def test_the_page_says_the_bot_is_live_and_where_to_find_it():
     """
-    It is built and waiting on a token. A page that reads as though it already
-    works would have people trying to find it.
+    This used to assert the opposite, because the bot was built and waiting on
+    a token and a page that read as though it worked would have people hunting
+    for something that was not there. It is running now, so the page has to
+    say so and hand over the three links.
     """
     from fastapi.testclient import TestClient
     import Aetheron
@@ -231,10 +233,11 @@ def test_the_page_does_not_claim_the_bot_is_live():
     # Collapsed, because the template wraps and these sentences span lines.
     html = " ".join(TestClient(Aetheron.app).get("/telegram").text.split())
 
-    assert "opens Tuesday" in html
-    assert "not a list of intentions" in html
-    # And it must not read as though it already works.
-    assert "join the bot" not in html.lower()
+    assert "live now" in html
+    assert "opens Tuesday" not in html
+    for link in ("t.me/AetheronProtocolBot", "t.me/AetheronPublic",
+                 "t.me/aetheron_protcol"):
+        assert link in html, link
 
 
 def test_the_page_carries_no_emoji_and_no_em_dashes():
