@@ -35,6 +35,7 @@ from ledger_utils import (
     get_partial,
     clear_partial,
     get_by_asset_id,
+    usage_summary,
 )
 from aeth_price import calculate_required_aeth, AethPricingError
 
@@ -1176,6 +1177,53 @@ def api_price_aeth(request: Request, component: str | None = None,
         "quote_holds_for": aeth_quotes.QUOTE_TTL_SECONDS if (component and wallet) else 0,
         "discounts": quote["discounts"] if quote else [],
     }
+
+@app.get("/api/usage")
+def usage_api(hours: int = 24):
+    """
+    What has been bought and run lately, and what settled for it.
+
+    Public and unauthenticated on purpose. The claim this makes is that usage
+    can be checked rather than taken on trust, and a number nobody outside can
+    read is a number worth nothing.
+    """
+    # Bounded, because the window is a query parameter and somebody will
+    # eventually ask for a decade of it.
+    # Not `hours or 24`, which reads an explicit zero as nothing supplied and
+    # quietly answers about a day instead of clamping.
+    hours = 24 if hours is None else int(hours)
+    hours = max(1, min(hours, 24 * 90))
+    since = time.time() - hours * 3600
+
+    try:
+        summary = usage_summary(since)
+    except Exception:
+        logger.warning("Could not read usage", exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail="The ledger could not be read just now.")
+
+    # Wallets are shortened here rather than in the page, so the full address
+    # is not sitting in a public response for anybody scraping it.
+    for row in summary["recent"]:
+        wallet = row.get("wallet") or ""
+        row["wallet"] = f"{wallet[:4]}…{wallet[-4:]}" if len(wallet) > 10 else wallet
+        row.pop("filename", None)
+
+    summary["hours"] = hours
+    return summary
+
+
+@app.get("/usage", response_class=HTMLResponse)
+def usage_page(request: Request):
+    """
+    The usage feed.
+
+    The ledger page is a table of rows. This is the shape of them: what is
+    being run, how much of it, and every settlement linked to the transaction
+    that paid for it.
+    """
+    return templates.TemplateResponse("usage.html", {"request": request})
+
 
 @app.get("/api/ledger")
 def ledger_api():

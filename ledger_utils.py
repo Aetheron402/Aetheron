@@ -483,6 +483,56 @@ def get_by_wallet(wallet, limit=100):
     return rows
 
 
+def usage_summary(since: float, limit: int = 40) -> dict:
+    """
+    What has been bought and run since a point in time.
+
+    Counts and volume come from one grouped query rather than by adding up
+    rows in Python, because the interesting periods are days long and pulling
+    every row across the wire to count them is the sort of thing that works
+    fine until it does not.
+
+    Only settled rows are counted. A pending row is somebody part way through,
+    and counting it as usage would mean the number goes down when a build
+    fails.
+
+    Runs and volume are counted differently on purpose. A run that was free,
+    a giveaway prize or a development build, is real usage and no money, so it
+    counts as a run and adds nothing to the volume. Calling that revenue would
+    be reporting money that never arrived, on a page whose whole point is that
+    the figure can be checked against the chain.
+    """
+    totals, overall = [], {"runs": 0, "volume": 0.0}
+
+    with _cursor() as cur:
+        cur.execute(
+            _q(
+                """
+                SELECT component,
+                       COUNT(*) AS runs,
+                       COALESCE(SUM(CASE
+                           WHEN tx_signature IS NOT NULL
+                            AND tx_signature <> '' THEN price
+                           ELSE 0 END), 0) AS volume
+                FROM ledger
+                WHERE status = 'success' AND timestamp >= %s
+                GROUP BY component
+                ORDER BY runs DESC;
+                """
+            ),
+            (since,),
+        )
+        for row in cur.fetchall():
+            entry = {"component": row[0], "runs": int(row[1] or 0),
+                     "volume": float(row[2] or 0.0)}
+            totals.append(entry)
+            overall["runs"] += entry["runs"]
+            overall["volume"] += entry["volume"]
+
+    return {"since": since, "components": totals, "overall": overall,
+            "recent": [row_to_dict(r) for r in get_recent(limit=limit)]}
+
+
 def get_by_asset_id(asset_id: str):
     """One row by its asset id, or None. Used to check a build's state."""
     with _cursor() as cur:

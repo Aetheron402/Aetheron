@@ -170,6 +170,41 @@
         Explore Components
       </button>
 
+      <!-- The usage feed, sold by its own numbers rather than by a word in a
+           menu. Hidden until it has something to say, so a quiet week or a
+           failed request leaves the hero exactly as it was. -->
+      <a id="usage-strip" href="/usage"
+         class="hidden mt-6 items-center gap-3 text-sm text-gray-400
+                hover:text-cyan-200 transition">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-300"></span>
+        <span id="usage-strip-text"></span>
+        <span class="text-cyan-400">see what is running</span>
+      </a>
+
+      <script>
+        (async () => {
+          try {
+            const r = await fetch("/api/usage?hours=168");
+            if (!r.ok) return;
+            const d = await r.json();
+            const runs = d.overall?.runs || 0;
+            if (!runs) return;
+
+            const money = "$" + Number(d.overall.volume || 0)
+              .toLocaleString(undefined, {minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2});
+            document.getElementById("usage-strip-text").textContent =
+              `${runs} components run this week, ${money} settled on chain`;
+
+            const strip = document.getElementById("usage-strip");
+            strip.classList.remove("hidden");
+            strip.classList.add("inline-flex");
+          } catch (e) {
+            // The hero is not worth breaking over a figure.
+          }
+        })();
+      </script>
+
       <style>
       @keyframes soft-bounce {
         0%, 100% { transform: translateY(0); opacity: 0.85; }

@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Usage{% endblock %}
+{% block og_title %}Aetheron usage{% endblock %}
+{% block og_description %}A live record of what is being bought and run, with every settlement linked to the transaction that paid for it.{% endblock %}
+
+{% block content %}
+<style>
+  .usage-wrap { max-width: 1100px; margin: 0 auto; padding: 64px 20px 96px; }
+
+  .figure {
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    font-weight: 800; color: #f0f7fc; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .figure-label { font-size: .8rem; color: #6c8090; letter-spacing: .08em; text-transform: uppercase; }
+
+  .bar { height: 8px; border-radius: 4px; background: rgba(34,211,238,.14); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: #22d3ee; border-radius: 4px;
+              transition: width .5s ease; }
+
+  .row { border-top: 1px solid rgba(255,255,255,.06); }
+  .row:first-child { border-top: 0; }
+  /* The name is the only part allowed to take the slack. Everything else keeps
+     its width, or the price and the age get squeezed off the edge. */
+  .row > span { flex-shrink: 0; white-space: nowrap; }
+  .row > .grow { flex: 1 1 auto; min-width: 0; white-space: normal; }
+
+  /* New rows arrive rather than appear, so it reads as a feed. */
+  @keyframes land { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .landed { animation: land .45s ease both; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .live { background: #6ee7b7; box-shadow: 0 0 0 0 rgba(110,231,183,.6); animation: pulse 2.4s infinite; }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(110,231,183,.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(110,231,183,0); }
+    100% { box-shadow: 0 0 0 0 rgba(110,231,183,0); }
+  }
+
+  /* The feed is a window on the recent, not the page. Forty rows made the
+     page four thousand pixels tall on a phone with no way to get past them. */
+  #feed {
+    max-height: 560px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  #feed::-webkit-scrollbar { width: 10px; }
+  #feed::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,.10); border-radius: 5px;
+    border: 3px solid transparent; background-clip: content-box;
+  }
+  #feed::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); background-clip: content-box; }
+
+  @media (max-width: 640px) {
+    .hide-narrow { display: none; }
+    #feed { max-height: 60vh; }
+  }
+</style>
+
+<div class="usage-wrap page-fade">
+
+  <p class="text-xs tracking-widest uppercase text-cyan-300 mb-3">Usage</p>
+  <h1 class="text-4xl md:text-5xl font-semibold text-white mb-5">
+    What is actually being run
+  </h1>
+  <p class="text-lg text-gray-400" style="max-width: 62ch">
+    Every component here is paid for one call at a time, and every one of those
+    payments settles on chain. So this is not a figure we publish and ask you
+    to believe: where a line was paid for, it links to the transaction that
+    paid for it, and you can go and read it yourself.
+  </p>
+
+  <div class="mt-6 flex items-center gap-3 text-sm text-gray-500">
+    <span class="dot live"></span>
+    <span id="live-note">updating every 20 seconds</span>
+    <span class="text-gray-700">·</span>
+    <select id="window" class="bg-transparent border border-white/10 rounded-lg px-2 py-1
+                               text-gray-300 text-sm">
+      <option value="24">last 24 hours</option>
+      <option value="168" selected>last 7 days</option>
+      <option value="720">last 30 days</option>
+    </select>
+  </div>
+
+  <!-- ── the two numbers that matter ────────────────────────────────────── -->
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-10">
+    <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+      <div class="figure" id="total-runs">—</div>
+      <div class="figure-label mt-2">components run</div>
+      <p class="text-xs text-gray-600 mt-3">
+        Finished runs, paid or free. Anything still in flight is not counted
+        until it lands.
+      </p>
+    </div>
+    <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+      <div class="figure" id="total-volume">—</div>
+      <div class="figure-label mt-2">settled on chain</div>
+      <p class="text-xs text-gray-600 mt-3">
+        Only runs with a transaction behind them. Free and giveaway runs count
+        as usage and add nothing here.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── what is being run ──────────────────────────────────────────────── -->
+
+  <h2 class="text-xl font-semibold text-white mt-14 mb-5">By component</h2>
+  <div id="breakdown" class="space-y-5">
+    <p class="text-gray-500 text-sm">reading the ledger…</p>
+  </div>
+
+  <!-- ── the feed itself ────────────────────────────────────────────────── -->
+
+  <h2 class="text-xl font-semibold text-white mt-14 mb-2">As it happens</h2>
+  <p class="text-sm text-gray-500 mb-5">
+    The most recent runs, whichever window is chosen above. Scroll it.
+  </p>
+  <div class="rounded-2xl border border-white/10 overflow-hidden">
+    <div id="feed"></div>
+  </div>
+
+  <p class="text-xs text-gray-600 mt-4">
+    Wallets are shortened. Pending rows are somebody part way through and are
+    not counted, so a build that fails cannot make the number go down. Lines
+    marked as having no transaction were free runs, giveaway prizes or
+    development builds, and are counted as usage but not as money.
+  </p>
+</div>
+
+<script>
+  const runsEl = document.getElementById("total-runs");
+  const volEl = document.getElementById("total-volume");
+  const breakdownEl = document.getElementById("breakdown");
+  const feedEl = document.getElementById("feed");
+  const windowEl = document.getElementById("window");
+
+  // What is already on screen, so a refresh only animates what is new rather
+  // than replaying the whole feed every twenty seconds.
+  const shown = new Set();
+  let first = true;
+
+  const money = n => "$" + Number(n || 0).toLocaleString(undefined,
+    {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+  function ago(seconds) {
+    const gap = Math.max(0, Date.now() / 1000 - seconds);
+    if (gap < 60) return "just now";
+    if (gap < 3600) return `${Math.floor(gap / 60)}m ago`;
+    if (gap < 86400) return `${Math.floor(gap / 3600)}h ago`;
+    return `${Math.floor(gap / 86400)}d ago`;
+  }
+
+  function title(slug) {
+    return (slug || "").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function drawBreakdown(components) {
+    if (!components.length) {
+      breakdownEl.innerHTML =
+        '<p class="text-gray-500 text-sm">Nothing settled in this window yet.</p>';
+      return;
+    }
+
+    const most = Math.max(...components.map(c => c.runs));
+    breakdownEl.innerHTML = components.map(c => `
+      <div>
+        <div class="flex items-baseline justify-between mb-2">
+          <span class="text-gray-200">${title(c.component)}</span>
+          <span class="text-sm text-gray-500 font-mono">
+            ${c.runs} ${c.runs === 1 ? "run" : "runs"}
+            <span class="text-gray-700">·</span> ${money(c.volume)}
+          </span>
+        </div>
+        <div class="bar"><span style="width:${(c.runs / most) * 100}%"></span></div>
+      </div>
+    `).join("");
+  }
+
+  function drawFeed(rows) {
+    // New rows go on top, so anybody who has scrolled down would have the
+    // thing they were reading pushed away under them. The scroll position is
+    // moved by however much got added, which leaves it where it was.
+    const before = feedEl.scrollHeight;
+    const wasAt = feedEl.scrollTop;
+
+    for (const row of rows) {
+      if (shown.has(row.asset_id)) continue;
+      shown.add(row.asset_id);
+
+      const settled = row.status === "success";
+      const link = row.tx_signature
+        ? `<a href="https://solscan.io/tx/${row.tx_signature}" target="_blank"
+              rel="noopener" class="text-cyan-400 hover:text-cyan-200 font-mono text-xs">
+             ${row.tx_signature.slice(0, 6)}…${row.tx_signature.slice(-6)}
+           </a>`
+        : '<span class="text-gray-700 text-xs hide-narrow">no transaction</span>';
+
+      const node = document.createElement("div");
+      // Only animate what arrives after the first paint. Animating the initial
+      // load makes a quiet feed look like a busy one.
+      node.className = "row px-5 py-4 flex items-center gap-4" +
+                       (first ? "" : " landed");
+      node.innerHTML = `
+        <span class="dot" style="background:${settled ? "#6ee7b7" : "#fbbf24"}"></span>
+        <span class="text-gray-200 grow">${title(row.component)}</span>
+        <span class="text-gray-500 font-mono text-xs hide-narrow">${row.wallet || ""}</span>
+        <span>${link}</span>
+        <span class="text-gray-300 font-mono text-sm">
+          ${row.currency === "GIVEAWAY"
+            ? '<span class="text-gray-500">free</span>'
+            : money(row.price) + (row.currency && row.currency !== "USDC"
+                ? `<span class="text-gray-600 text-xs"> in ${row.currency}</span>` : "")}
+        </span>
+        <span class="text-gray-600 text-xs age" data-at="${row.timestamp}"
+              style="min-width:72px;text-align:right">
+          ${ago(row.timestamp)}
+        </span>`;
+      feedEl.prepend(node);
+    }
+
+    // The feed is a window on the recent, not an archive. The ledger page is
+    // the archive.
+    while (feedEl.children.length > 40) feedEl.lastChild.remove();
+
+    if (wasAt > 0) feedEl.scrollTop = wasAt + (feedEl.scrollHeight - before);
+
+    // Written once when the row arrives, so without this every line stays at
+    // whatever it said when it landed.
+    for (const el of feedEl.querySelectorAll(".age")) {
+      el.textContent = ago(Number(el.dataset.at));
+    }
+
+    if (!feedEl.children.length) {
+      feedEl.innerHTML =
+        '<p class="px-5 py-6 text-gray-500 text-sm">Nothing here yet.</p>';
+    }
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch(`/api/usage?hours=${windowEl.value}`);
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+
+      runsEl.textContent = (d.overall?.runs || 0).toLocaleString();
+      volEl.textContent = money(d.overall?.volume);
+      drawBreakdown(d.components || []);
+      drawFeed((d.recent || []).slice().reverse());
+      // It says something else while it is failing, so it has to be put back.
+      document.getElementById("live-note").textContent =
+        "updating every 20 seconds";
+      first = false;
+    } catch (e) {
+      document.getElementById("live-note").textContent =
+        "could not read the ledger, trying again";
+    }
+  }
+
+  windowEl.addEventListener("change", () => {
+    // The window changed, so the totals are about a different period. The feed
+    // itself is the most recent either way and is left alone.
+    refresh();
+  });
+
+  refresh();
+  setInterval(refresh, 20000);
+</script>
+{% endblock %}
