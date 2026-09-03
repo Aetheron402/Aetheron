@@ -222,3 +222,23 @@ def test_the_page_is_reachable_from_every_menu():
     base = open("templates/base.html").read()
     # Desktop nav, mobile menu and footer are three separate lists.
     assert base.count('href="/usage"') >= 3
+
+
+def test_the_roadmap_does_not_claim_a_quarter_is_done_with_work_left_in_it():
+    """
+    Marking a quarter complete is a public claim. It has to be true against
+    the list underneath it rather than set by hand and forgotten.
+    """
+    import re
+
+    page = open("templates/roadmap.html").read()
+    quarters = re.split(r"<h2[^>]*>\s*(Q\d 20\d\d)", page)
+
+    for index in range(1, len(quarters), 2):
+        name, body = quarters[index], quarters[index + 1]
+        block = body.split("</ul>")[0]
+        items = block.count("<li>")
+        done = block.count(">Done<")
+        if "(complete)" in body.split("</h2>")[0]:
+            assert items and done == items, (
+                f"{name} says complete with {items - done} items not marked done")
