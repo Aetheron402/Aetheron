@@ -1,0 +1,38 @@
+{
+  "general": {
+    "poll_interval_seconds": 10
+  },
+  "brand": {
+    "name": "Signal Desk"
+  },
+  "inbox": {
+    "mode": "file",
+    "file": "signals.jsonl",
+    "start_at": "end",
+    "folder": "signals",
+    "url": ""
+  },
+  "editorial": {
+    "min_score": 0,
+    "per_subject_cooldown_minutes": 60,
+    "max_posts_per_hour": 6,
+    "quiet_hours_from": "23:00",
+    "quiet_hours_to": "07:00",
+    "digest_at": "08:00",
+    "state_file": "signal_desk_state.json"
+  },
+  "channels": {
+    "telegram": {
+      "token": "",
+      "chat_id": ""
+    },
+    "discord": {
+      "webhook_url": ""
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "to_file": false,
+    "file_name": "signal_desk.log"
+  }
+}

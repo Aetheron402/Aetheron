@@ -1575,6 +1575,12 @@ def list_agents():
             "price": AGENT_PRICE_USDC,
         },
         {
+            "id": "signal-desk",
+            "title": "Signal Desk (Publisher)",
+            "description": "Turns signals from your other agents into rendered cards and posts them to Telegram or Discord, with dedupe, cooldowns, quiet hours and a daily digest.",
+            "price": AGENT_PRICE_USDC,
+        },
+        {
             "id": "wallet-watcher",
             "title": "Wallet Watcher (Whale Tracker)",
             "description": "Tracks any wallet in real-time and alerts on buys, sells, transfers, approvals, and liquidity changes.",

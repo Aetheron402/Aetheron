@@ -30,6 +30,7 @@ import zipfile
 AGENT_PATHS = {
     "solana-sniper": "static/agents_src/solana-sniper",
     "wallet-watcher": "static/agents_src/wallet-watcher",
+    "signal-desk": "static/agents_src/signal-desk",
     "discord-helper": "static/agents_src/discord-helper",
     "pumpfun-launcher": "static/agents_src/pumpfun-launcher",
     "solana-trading-assistant": "static/agents_src/solana-trading-assistant",
@@ -46,6 +47,35 @@ URL_RE = re.compile(r"^https://\S+$")
 # What each agent asks for. `path` is the dotted location in config.json, and
 # `list` means the value is written as a single element list.
 SETUP_FIELDS = {
+    "signal-desk": [
+        {
+            "key": "brand", "path": "brand.name", "kind": "text",
+            "label": "Name on your cards", "required": False,
+            "help": "Whatever your channel is called. It sits at the bottom of "
+                    "every card you post.",
+        },
+        {
+            "key": "telegram_token", "path": "channels.telegram.token", "kind": "text",
+            "label": "Telegram bot token", "required": False,
+            "help": "From BotFather. Leave blank to post to Discord instead.",
+        },
+        {
+            "key": "telegram_chat", "path": "channels.telegram.chat_id", "kind": "text",
+            "label": "Telegram channel or chat id", "required": False,
+            "help": "The channel to post into. Your bot has to be an admin in it.",
+        },
+        {
+            "key": "discord", "path": "channels.discord.webhook_url", "kind": "url",
+            "label": "Discord webhook URL", "required": False,
+            "help": "Optional. Both can be filled in and it posts to both.",
+        },
+        {
+            "key": "inbox", "path": "inbox.file", "kind": "text", "required": False,
+            "label": "Signal file to read",
+            "help": "One JSON object per line. Point your other agents at this "
+                    "file and the desk publishes what they find.",
+        },
+    ],
     "wallet-watcher": [
         {
             "key": "wallet", "path": "wallets_to_watch", "list": True,

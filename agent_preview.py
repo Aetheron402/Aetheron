@@ -32,6 +32,7 @@ import tempfile
 # neither is imported on the path a run actually takes, so both preview fine.
 PREVIEWABLE = {
     "wallet-watcher",
+    "signal-desk",
     "market-tracker",
     "alpha-scanner",
     "prediction-market",
@@ -63,6 +64,19 @@ DEMO_CONFIG = {
     "prediction-market": {},
     "solana-trading-assistant": {"analysis": {"poll_interval_seconds": 10}},
     "project-planner": {},
+    # Nothing is configured, so the desk logs what it would have posted rather
+    # than posting it. That is the honest preview: somebody watching sees the
+    # editorial decisions being made, which is the part they are buying.
+    "signal-desk": {
+        "general": {"poll_interval_seconds": 2},
+        # The seeded file is a prepared backlog rather than a live feed, so the
+        # desk has to read it from the top or the preview shows nothing.
+        "inbox": {"start_at": "beginning"},
+        "editorial": {"quiet_hours_from": "", "quiet_hours_to": "",
+                      "per_subject_cooldown_minutes": 1,
+                      "state_file": "signal_desk_state.json"},
+        "channels": {},
+    },
     "solana-sniper": {"notifications": {"enabled": False, "webhook_url": ""}},
     "pumpfun-launcher": {"notifications": {"enabled": False, "webhook_url": ""}},
 }
@@ -118,8 +132,47 @@ def _demo_project() -> str:
     }, indent=2)
 
 
+def _demo_signals() -> str:
+    """
+    A handful of signals for the desk to publish.
+
+    It reads a file that something else writes, and ships that file absent
+    because the feed belongs to the buyer. Previewed against nothing it would
+    log "watching signals.jsonl" and then sit silent for the whole window,
+    which shows nobody anything.
+
+    Two of these are the same token on purpose, so the preview shows the
+    cooldown holding one back. That decision is the thing being bought.
+    """
+    import json as _json
+
+    signals = [
+        {"kind": "risk", "tone": "bad", "score": 9,
+         "title": "Liquidity pulled on CHIMP",
+         "lines": ["Top holder sold 41 percent of supply",
+                   "Pool down 88 percent in four minutes"],
+         "facts": {"liquidity": "$4.2k", "holders": "812", "age": "2d"},
+         "mint": "CSLP8Vp7u9hrXQi7crPXqCp7BaJaG4JrNxqvR3jDpump"},
+        {"kind": "new launch", "tone": "neutral", "score": 6,
+         "title": "New launch passing your filters",
+         "lines": ["Mint and freeze authority both revoked",
+                   "Top ten holders under 20 percent"],
+         "facts": {"liquidity": "$61k", "holders": "1,204", "age": "9m"}},
+        {"kind": "risk", "tone": "bad", "score": 9,
+         "title": "CHIMP down another 12 percent",
+         "lines": ["Same token, seen again inside the cooldown"],
+         "mint": "CSLP8Vp7u9hrXQi7crPXqCp7BaJaG4JrNxqvR3jDpump"},
+        {"kind": "whale", "tone": "good", "score": 7,
+         "title": "Tracked wallet bought 180 SOL",
+         "lines": ["First buy from this wallet in eleven days"],
+         "facts": {"size": "180 SOL", "wallet": "2Tp4…jtNe"}},
+    ]
+    return "\n".join(_json.dumps(s) for s in signals) + "\n"
+
+
 DEMO_FILES = {
     "project-planner": {"data/db.json": _demo_project},
+    "signal-desk": {"signals.jsonl": _demo_signals},
 }
 
 MAX_SECONDS = int(os.getenv("AGENT_PREVIEW_SECONDS", "25"))

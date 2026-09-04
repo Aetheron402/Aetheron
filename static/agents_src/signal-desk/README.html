@@ -1,0 +1,65 @@
+<hr>
+<h3 id="-license-notice">License Notice</h3>
+<p>This template is licensed for <strong>personal use only</strong>.<br>Redistribution, resale, repackaging, or inclusion in any paid product or service is <strong>strictly prohibited</strong>.<br>See <code>LICENSE.txt</code> for full terms.</p>
+<hr>
+
+<h1>Signal Desk</h1>
+<p>A publisher, not a watcher.</p>
+<p>Every other agent finds something and prints it. Some of them fire a webhook</p>
+<p>with a line of text in it, and that line is what gets a channel muted. This one</p>
+<p>sits above them: it takes signals from wherever they come from, decides which</p>
+<p>are worth posting and when, draws each one as a card, and posts it to Telegram</p>
+<p>or Discord.</p>
+<p>Point your other agents at its inbox and they stop being loggers and start</p>
+<p>being a feed people read.</p>
+<h2>What it does</h2>
+<p><strong>Draws.</strong> Every signal becomes an image: title, the lines you gave it, a row</p>
+<p>of facts, the mint, and your name at the bottom. Tone sets the accent colour so</p>
+<p>good news and bad news do not look the same in a fast moving chat.</p>
+<p><strong>Decides.</strong> The half that matters. A room will forgive four good posts a day</p>
+<p>and will mute forty.</p>
+<ul>
+<li>Nothing gets posted twice inside the cooldown, so the same token arriving</li>
+</ul>
+<p>from two agents is still one post.</p>
+<ul>
+<li>Nothing above your posts per hour limit.</li>
+<li>Nothing during quiet hours.</li>
+<li>Nothing below the score you set.</li>
+<li>Everything held back is kept and comes out later as one digest, so being</li>
+</ul>
+<p>quiet never means losing things.</p>
+<p><strong>Posts.</strong> Telegram, Discord, or both at once. A channel that fails does not</p>
+<p>stop the others.</p>
+<h2>Running it</h2>
+<pre><code>
+pip install -r requirements.txt
+python main.py
+</code></pre>
+<p>Fill in <code>config.json</code> first. With no channels enabled it logs what it would</p>
+<p>have posted, which is a good way to watch the editorial rules work before you</p>
+<p>point it at a real room.</p>
+<h2>Feeding it</h2>
+<p>One JSON object per line, appended to the file named in <code>inbox.file</code>:</p>
+<pre><code>
+{&quot;kind&quot;: &quot;risk&quot;, &quot;tone&quot;: &quot;bad&quot;, &quot;score&quot;: 9,
+ &quot;title&quot;: &quot;Liquidity pulled on CHIMP&quot;,
+ &quot;lines&quot;: [&quot;Top holder sold 41 percent of supply&quot;],
+ &quot;facts&quot;: {&quot;liquidity&quot;: &quot;$4.2k&quot;, &quot;holders&quot;: &quot;812&quot;},
+ &quot;mint&quot;: &quot;CSLP8Vp7u9hrXQi7crPXqCp7BaJaG4JrNxqvR3jDpump&quot;,
+ &quot;link&quot;: &quot;https://solscan.io/token/...&quot;}
+</code></pre>
+<p>Only <code>title</code> is required. Everything else changes what the card looks like.</p>
+<p><code>tone</code> is one of <code>good</code>, <code>watch</code>, <code>bad</code> or <code>neutral</code>.</p>
+<p>Anything that can append a line of JSON can feed this, including a shell</p>
+<p>script, a cron job, or any of the other agents.</p>
+<p>There are two other inbox modes. <code>folder</code> reads a file per signal and deletes</p>
+<p>it once posted, which suits scripts. <code>http</code> polls a URL that returns a list.</p>
+<h2>Settings worth knowing</h2>
+<p><code>start_at</code> is <code>end</code> by default, so turning the desk on does not dump a week of</p>
+<p>old signals into a channel. Set it to <code>beginning</code> when you are feeding it a</p>
+<p>file you prepared.</p>
+<p><code>per_subject_cooldown_minutes</code> groups by mint where there is one, so two</p>
+<p>sources reporting the same token count as the same story.</p>
+<p><code>digest_at</code> is the time of day held signals get published together. Leave it</p>
+<p>blank to drop them instead.</p>
